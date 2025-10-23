@@ -1,12 +1,37 @@
 // App state
 const app = {
-  currentUser: 'usuario@example.com',
+  currentUser: null,
   currentCourse: null,
   currentLesson: null,
   
   // Initialize app
-  init() {
+  async init() {
+    // Check authentication
+    const user = await authManager.init()
+    
+    if (!user) {
+      // Show login form
+      authUI.showLoginForm()
+      return
+    }
+    
+    this.currentUser = authManager.getUserEmail()
+    
+    // Update user name in header
+    const userNameEl = document.getElementById('userName')
+    if (userNameEl) {
+      userNameEl.textContent = authManager.getUserName()
+    }
+    
     this.loadCourses()
+  },
+  
+  // Logout
+  async logout() {
+    const result = await authManager.logout()
+    if (result.success) {
+      window.location.reload()
+    }
   },
   
   // Load all courses

@@ -13,4 +13,6 @@
       "database_id": "configure-after-wrangler-d1-create"
     }
   ]
+  // Note: SUPABASE_URL and SUPABASE_ANON_KEY are loaded from .dev.vars locally
+  // For production, set these using: wrangler pages secret put SUPABASE_URL
 }
