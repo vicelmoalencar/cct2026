@@ -160,6 +160,70 @@ app.get('/api/auth/me', async (c) => {
   return c.json({ user })
 })
 
+// Auth callback - handles email confirmation and OAuth redirects
+app.get('/auth/callback', async (c) => {
+  const url = new URL(c.req.url)
+  const accessToken = url.searchParams.get('access_token') || url.hash.match(/access_token=([^&]+)/)?.[1]
+  const refreshToken = url.searchParams.get('refresh_token') || url.hash.match(/refresh_token=([^&]+)/)?.[1]
+  const type = url.searchParams.get('type') || url.hash.match(/type=([^&]+)/)?.[1]
+  
+  if (!accessToken) {
+    return c.redirect('/?error=no_token')
+  }
+  
+  // Set cookies
+  setCookie(c, 'sb-access-token', accessToken, {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'Lax',
+    maxAge: 3600 // 1 hour
+  })
+  
+  if (refreshToken) {
+    setCookie(c, 'sb-refresh-token', refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'Lax',
+      maxAge: 604800 // 7 days
+    })
+  }
+  
+  // Redirect to home with success message
+  return c.redirect('/?auth=success')
+})
+
+// Auth callback POST - receives tokens from frontend
+app.post('/api/auth/callback', async (c) => {
+  try {
+    const { access_token, refresh_token } = await c.req.json()
+    
+    if (!access_token) {
+      return c.json({ error: 'No access token' }, 400)
+    }
+    
+    // Set cookies
+    setCookie(c, 'sb-access-token', access_token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'Lax',
+      maxAge: 3600 // 1 hour
+    })
+    
+    if (refresh_token) {
+      setCookie(c, 'sb-refresh-token', refresh_token, {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'Lax',
+        maxAge: 604800 // 7 days
+      })
+    }
+    
+    return c.json({ success: true })
+  } catch (error) {
+    return c.json({ error: 'Callback failed' }, 500)
+  }
+})
+
 // ============================================
 // API ROUTES - COURSES
 // ============================================

@@ -4,6 +4,9 @@ const authManager = {
   
   // Initialize - check if user is logged in
   async init() {
+    // Check for auth callback tokens in URL hash
+    await this.handleAuthCallback()
+    
     try {
       const response = await axios.get('/api/auth/me')
       this.currentUser = response.data.user
@@ -11,6 +14,34 @@ const authManager = {
     } catch (error) {
       this.currentUser = null
       return null
+    }
+  },
+  
+  // Handle Supabase auth callback (email confirmation, OAuth)
+  async handleAuthCallback() {
+    const hash = window.location.hash
+    if (!hash) return
+    
+    // Parse tokens from hash
+    const params = new URLSearchParams(hash.substring(1))
+    const accessToken = params.get('access_token')
+    const refreshToken = params.get('refresh_token')
+    const type = params.get('type')
+    
+    if (accessToken) {
+      try {
+        // Send tokens to backend to set cookies
+        await axios.post('/api/auth/callback', {
+          access_token: accessToken,
+          refresh_token: refreshToken,
+          type: type
+        })
+        
+        // Clear hash from URL
+        window.history.replaceState(null, '', window.location.pathname)
+      } catch (error) {
+        console.error('Auth callback error:', error)
+      }
     }
   },
   
