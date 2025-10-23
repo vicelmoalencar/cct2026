@@ -23,6 +23,9 @@ const app = {
       userNameEl.textContent = authManager.getUserName()
     }
     
+    // Check if user is admin and show admin button
+    this.checkAdminAccess()
+    
     // Check if email was just confirmed
     if (sessionStorage.getItem('email_confirmed') === 'true') {
       sessionStorage.removeItem('email_confirmed')
@@ -30,6 +33,20 @@ const app = {
     }
     
     this.loadCourses()
+  },
+  
+  // Check admin access
+  async checkAdminAccess() {
+    const isAdmin = await adminManager.checkAdmin()
+    const adminButton = document.getElementById('adminButton')
+    if (adminButton && isAdmin) {
+      adminButton.classList.remove('hidden')
+    }
+  },
+  
+  // Show admin panel
+  showAdminPanel() {
+    adminUI.showAdminPanel()
   },
   
   // Logout
@@ -188,6 +205,76 @@ const app = {
     }
   },
   
+  // Render video player based on provider
+  renderVideoPlayer(lesson) {
+    if (!lesson.video_provider || !lesson.video_id) {
+      return `
+        <div class="bg-gray-900 aspect-video rounded-lg flex items-center justify-center">
+          <div class="text-center text-white">
+            <i class="fas fa-video text-6xl mb-4"></i>
+            <p class="text-lg">Vídeo não configurado</p>
+            <p class="text-sm text-gray-400 mt-2">O instrutor ainda não adicionou o vídeo desta aula</p>
+          </div>
+        </div>
+      `
+    }
+    
+    if (lesson.video_provider === 'youtube') {
+      return `
+        <div class="relative aspect-video bg-black rounded-lg overflow-hidden">
+          <iframe 
+            width="100%" 
+            height="100%" 
+            src="https://www.youtube.com/embed/${lesson.video_id}" 
+            title="${lesson.title}"
+            frameborder="0" 
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+            allowfullscreen
+            class="absolute top-0 left-0 w-full h-full">
+          </iframe>
+        </div>
+      `
+    }
+    
+    if (lesson.video_provider === 'vimeo') {
+      return `
+        <div class="relative aspect-video bg-black rounded-lg overflow-hidden">
+          <iframe 
+            src="https://player.vimeo.com/video/${lesson.video_id}" 
+            width="100%" 
+            height="100%" 
+            frameborder="0" 
+            allow="autoplay; fullscreen; picture-in-picture" 
+            allowfullscreen
+            class="absolute top-0 left-0 w-full h-full">
+          </iframe>
+        </div>
+      `
+    }
+    
+    if (lesson.video_provider === 'url') {
+      return `
+        <div class="bg-gray-900 aspect-video rounded-lg overflow-hidden">
+          <video 
+            controls 
+            class="w-full h-full"
+            src="${lesson.video_id}">
+            Seu navegador não suporta a tag de vídeo.
+          </video>
+        </div>
+      `
+    }
+    
+    return `
+      <div class="bg-gray-900 aspect-video rounded-lg flex items-center justify-center">
+        <div class="text-center text-white">
+          <i class="fas fa-exclamation-triangle text-6xl mb-4 text-yellow-500"></i>
+          <p class="text-lg">Formato de vídeo não suportado</p>
+        </div>
+      </div>
+    `
+  },
+  
   // Load lesson details
   async loadLesson(lessonId) {
     try {
@@ -225,13 +312,9 @@ const app = {
             <i class="fas fa-clock mr-1"></i> ${lesson.duration_minutes} minutos
           </div>
           
-          <!-- Video Placeholder -->
-          <div class="mt-6 bg-gray-900 aspect-video rounded-lg flex items-center justify-center">
-            <div class="text-center text-white">
-              <i class="fas fa-video text-6xl mb-4"></i>
-              <p class="text-lg">Vídeo da aula</p>
-              <p class="text-sm text-gray-400 mt-2">URL: ${lesson.video_url || 'A ser configurado'}</p>
-            </div>
+          <!-- Video Player -->
+          <div class="mt-6">
+            ${this.renderVideoPlayer(lesson)}
           </div>
         </div>
         

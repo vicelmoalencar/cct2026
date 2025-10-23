@@ -225,6 +225,265 @@ app.post('/api/auth/callback', async (c) => {
 })
 
 // ============================================
+// ADMIN HELPERS
+// ============================================
+
+async function isAdmin(email: string, db: D1Database) {
+  try {
+    const admin = await db.prepare(`
+      SELECT * FROM admins WHERE email = ?
+    `).bind(email).first()
+    return admin !== null
+  } catch (error) {
+    return false
+  }
+}
+
+// Admin middleware
+async function requireAdmin(c: any, next: any) {
+  const token = getCookie(c, 'sb-access-token')
+  
+  if (!token) {
+    return c.json({ error: 'Unauthorized' }, 401)
+  }
+  
+  const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+  
+  if (!user) {
+    return c.json({ error: 'Invalid token' }, 401)
+  }
+  
+  const adminCheck = await isAdmin(user.email, c.env.DB)
+  
+  if (!adminCheck) {
+    return c.json({ error: 'Forbidden - Admin only' }, 403)
+  }
+  
+  c.set('user', user)
+  await next()
+}
+
+// ============================================
+// API ROUTES - ADMIN
+// ============================================
+
+// Check if user is admin
+app.get('/api/admin/check', async (c) => {
+  const token = getCookie(c, 'sb-access-token')
+  
+  if (!token) {
+    return c.json({ isAdmin: false })
+  }
+  
+  const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+  
+  if (!user) {
+    return c.json({ isAdmin: false })
+  }
+  
+  const adminCheck = await isAdmin(user.email, c.env.DB)
+  return c.json({ isAdmin: adminCheck })
+})
+
+// Create course (admin only)
+app.post('/api/admin/courses', requireAdmin, async (c) => {
+  try {
+    const { title, description, duration_hours, instructor } = await c.req.json()
+    
+    const result = await c.env.DB.prepare(`
+      INSERT INTO courses (title, description, duration_hours, instructor)
+      VALUES (?, ?, ?, ?)
+    `).bind(title, description || null, duration_hours || 0, instructor || 'Vicelmo').run()
+    
+    return c.json({ 
+      success: true, 
+      course_id: result.meta.last_row_id 
+    })
+  } catch (error) {
+    return c.json({ error: 'Failed to create course' }, 500)
+  }
+})
+
+// Update course (admin only)
+app.put('/api/admin/courses/:id', requireAdmin, async (c) => {
+  try {
+    const courseId = c.req.param('id')
+    const { title, description, duration_hours, instructor } = await c.req.json()
+    
+    await c.env.DB.prepare(`
+      UPDATE courses 
+      SET title = ?, description = ?, duration_hours = ?, instructor = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).bind(title, description || null, duration_hours || 0, instructor || 'Vicelmo', courseId).run()
+    
+    return c.json({ success: true })
+  } catch (error) {
+    return c.json({ error: 'Failed to update course' }, 500)
+  }
+})
+
+// Delete course (admin only)
+app.delete('/api/admin/courses/:id', requireAdmin, async (c) => {
+  try {
+    const courseId = c.req.param('id')
+    
+    await c.env.DB.prepare(`
+      DELETE FROM courses WHERE id = ?
+    `).bind(courseId).run()
+    
+    return c.json({ success: true })
+  } catch (error) {
+    return c.json({ error: 'Failed to delete course' }, 500)
+  }
+})
+
+// Create module (admin only)
+app.post('/api/admin/modules', requireAdmin, async (c) => {
+  try {
+    const { course_id, title, description, order_index } = await c.req.json()
+    
+    const result = await c.env.DB.prepare(`
+      INSERT INTO modules (course_id, title, description, order_index)
+      VALUES (?, ?, ?, ?)
+    `).bind(course_id, title, description || null, order_index || 0).run()
+    
+    return c.json({ 
+      success: true, 
+      module_id: result.meta.last_row_id 
+    })
+  } catch (error) {
+    return c.json({ error: 'Failed to create module' }, 500)
+  }
+})
+
+// Update module (admin only)
+app.put('/api/admin/modules/:id', requireAdmin, async (c) => {
+  try {
+    const moduleId = c.req.param('id')
+    const { title, description, order_index } = await c.req.json()
+    
+    await c.env.DB.prepare(`
+      UPDATE modules 
+      SET title = ?, description = ?, order_index = ?
+      WHERE id = ?
+    `).bind(title, description || null, order_index, moduleId).run()
+    
+    return c.json({ success: true })
+  } catch (error) {
+    return c.json({ error: 'Failed to update module' }, 500)
+  }
+})
+
+// Delete module (admin only)
+app.delete('/api/admin/modules/:id', requireAdmin, async (c) => {
+  try {
+    const moduleId = c.req.param('id')
+    
+    await c.env.DB.prepare(`
+      DELETE FROM modules WHERE id = ?
+    `).bind(moduleId).run()
+    
+    return c.json({ success: true })
+  } catch (error) {
+    return c.json({ error: 'Failed to delete module' }, 500)
+  }
+})
+
+// Create lesson (admin only)
+app.post('/api/admin/lessons', requireAdmin, async (c) => {
+  try {
+    const { module_id, title, description, video_provider, video_id, duration_minutes, order_index } = await c.req.json()
+    
+    // Build video_url from provider and id
+    let video_url = null
+    if (video_provider && video_id) {
+      if (video_provider === 'youtube') {
+        video_url = `https://www.youtube.com/watch?v=${video_id}`
+      } else if (video_provider === 'vimeo') {
+        video_url = `https://vimeo.com/${video_id}`
+      } else {
+        video_url = video_id // For 'url' type, video_id contains the full URL
+      }
+    }
+    
+    const result = await c.env.DB.prepare(`
+      INSERT INTO lessons (module_id, title, description, video_url, video_provider, video_id, duration_minutes, order_index)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      module_id, 
+      title, 
+      description || null, 
+      video_url, 
+      video_provider || null, 
+      video_id || null, 
+      duration_minutes || 0, 
+      order_index || 0
+    ).run()
+    
+    return c.json({ 
+      success: true, 
+      lesson_id: result.meta.last_row_id 
+    })
+  } catch (error) {
+    return c.json({ error: 'Failed to create lesson' }, 500)
+  }
+})
+
+// Update lesson (admin only)
+app.put('/api/admin/lessons/:id', requireAdmin, async (c) => {
+  try {
+    const lessonId = c.req.param('id')
+    const { title, description, video_provider, video_id, duration_minutes, order_index } = await c.req.json()
+    
+    // Build video_url from provider and id
+    let video_url = null
+    if (video_provider && video_id) {
+      if (video_provider === 'youtube') {
+        video_url = `https://www.youtube.com/watch?v=${video_id}`
+      } else if (video_provider === 'vimeo') {
+        video_url = `https://vimeo.com/${video_id}`
+      } else {
+        video_url = video_id
+      }
+    }
+    
+    await c.env.DB.prepare(`
+      UPDATE lessons 
+      SET title = ?, description = ?, video_url = ?, video_provider = ?, video_id = ?, duration_minutes = ?, order_index = ?
+      WHERE id = ?
+    `).bind(
+      title, 
+      description || null, 
+      video_url, 
+      video_provider || null, 
+      video_id || null, 
+      duration_minutes, 
+      order_index, 
+      lessonId
+    ).run()
+    
+    return c.json({ success: true })
+  } catch (error) {
+    return c.json({ error: 'Failed to update lesson' }, 500)
+  }
+})
+
+// Delete lesson (admin only)
+app.delete('/api/admin/lessons/:id', requireAdmin, async (c) => {
+  try {
+    const lessonId = c.req.param('id')
+    
+    await c.env.DB.prepare(`
+      DELETE FROM lessons WHERE id = ?
+    `).bind(lessonId).run()
+    
+    return c.json({ success: true })
+  } catch (error) {
+    return c.json({ error: 'Failed to delete lesson' }, 500)
+  }
+})
+
+// ============================================
 // API ROUTES - COURSES
 // ============================================
 
@@ -449,6 +708,12 @@ app.get('/', (c) => {
                                     <p class="font-semibold" id="userName">Aluno</p>
                                 </div>
                             </div>
+                            <button onclick="app.showAdminPanel()" 
+                                    id="adminButton"
+                                    class="hidden px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm font-semibold transition-colors flex items-center gap-2">
+                                <i class="fas fa-tools"></i>
+                                Admin
+                            </button>
                             <button onclick="app.logout()" 
                                     class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-sm font-semibold transition-colors flex items-center gap-2">
                                 <i class="fas fa-sign-out-alt"></i>
@@ -496,6 +761,7 @@ app.get('/', (c) => {
 
         <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
         <script src="/static/auth.js"></script>
+        <script src="/static/admin.js"></script>
         <script src="/static/app.js"></script>
     </body>
     </html>
