@@ -9,20 +9,25 @@
 ### Principais Funcionalidades
 
 ✅ **Completas**:
+- ✅ **Sistema de Autenticação com Supabase** (Login, Registro, Logout)
+- ✅ Proteção de rotas - usuários não autenticados veem tela de login
 - ✅ Listagem de cursos com contador de módulos e aulas
 - ✅ Visualização detalhada de cursos com módulos e aulas organizados
 - ✅ Sistema de progresso do usuário (marcar aulas como assistidas)
 - ✅ Barra de progresso visual por curso
 - ✅ Visualização de aulas individuais com descrição e duração
-- ✅ Sistema de comentários nas aulas
+- ✅ Sistema de comentários nas aulas vinculados ao usuário
 - ✅ Navegação fluida entre cursos, módulos e aulas
 - ✅ Design responsivo com TailwindCSS
 - ✅ Interface intuitiva e profissional
+- ✅ Header com informações do usuário e botão de logout
 
 🚧 **Pendentes**:
 - ⏳ Integração com player de vídeo (YouTube, Vimeo ou outro)
-- ⏳ Sistema de autenticação de usuários
 - ⏳ Área administrativa para gerenciar cursos
+- ⏳ Confirmação de email no registro
+- ⏳ Recuperação de senha
+- ⏳ Editar perfil do usuário
 - ⏳ Certificados de conclusão
 - ⏳ Fórum de discussões
 - ⏳ Download de materiais complementares
@@ -34,6 +39,15 @@
 
 ### Endpoints da API
 
+#### Autenticação (Supabase)
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| POST | `/api/auth/login` | Login com email e senha |
+| POST | `/api/auth/register` | Registrar novo usuário |
+| POST | `/api/auth/logout` | Logout (limpa cookies) |
+| GET | `/api/auth/me` | Retorna dados do usuário atual |
+
+#### Cursos e Aulas
 | Método | Endpoint | Descrição |
 |--------|----------|-----------|
 | GET | `/api/courses` | Lista todos os cursos |
@@ -69,6 +83,67 @@ curl -X POST https://3000-ikpt0knkee9oqi1r0i931-8f57ffe2.sandbox.novita.ai/api/p
   -H "Content-Type: application/json" \
   -d '{"user_email":"usuario@example.com","lesson_id":1}'
 ```
+
+**Login (autenticação)**:
+```bash
+curl -X POST https://3000-ikpt0knkee9oqi1r0i931-8f57ffe2.sandbox.novita.ai/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"seu@email.com","password":"suasenha"}'
+```
+
+**Registrar novo usuário**:
+```bash
+curl -X POST https://3000-ikpt0knkee9oqi1r0i931-8f57ffe2.sandbox.novita.ai/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"novo@email.com","password":"senha123","name":"Seu Nome"}'
+```
+
+## 🔐 Sistema de Autenticação
+
+### Integração com Supabase
+
+O sistema utiliza **Supabase** como backend de autenticação, fornecendo:
+
+- ✅ **Login seguro** com email e senha
+- ✅ **Registro de novos usuários** com validação
+- ✅ **Gerenciamento de sessão** via cookies HTTP-only
+- ✅ **Proteção de rotas** - usuários não autenticados não acessam o conteúdo
+- ✅ **Token refresh automático** para manter usuários logados
+
+### Configuração Supabase
+
+**Variáveis de Ambiente**:
+- `SUPABASE_URL`: URL do projeto Supabase
+- `SUPABASE_ANON_KEY`: Chave pública (anon key)
+
+**Arquivo .dev.vars** (local):
+```env
+SUPABASE_URL=https://ghdfouqzasvxlptbjkin.supabase.co
+SUPABASE_ANON_KEY=eyJhbGc...
+```
+
+**Produção** (Cloudflare Pages):
+```bash
+# Configure secrets para produção
+npx wrangler pages secret put SUPABASE_URL
+npx wrangler pages secret put SUPABASE_ANON_KEY
+```
+
+### Fluxo de Autenticação
+
+1. **Usuário não autenticado** → Vê tela de login/registro
+2. **Registro** → Cria conta no Supabase → Recebe email de confirmação
+3. **Login** → Valida credenciais → Recebe token JWT → Salvo em cookie
+4. **Acesso ao app** → Token validado em cada requisição
+5. **Logout** → Remove cookies → Redireciona para login
+
+### Segurança
+
+- ✅ Cookies **HTTP-only** (não acessíveis via JavaScript)
+- ✅ Cookies **Secure** (apenas HTTPS)
+- ✅ Tokens JWT validados no servidor
+- ✅ Senhas hash no Supabase (bcrypt)
+- ✅ Rate limiting do Supabase
 
 ## 🗄️ Arquitetura de Dados
 
@@ -130,13 +205,27 @@ O sistema utiliza **Cloudflare D1** (SQLite distribuído) com as seguintes tabel
 
 ### Como Usar a Plataforma
 
+#### Primeiro Acesso
+
 1. **Acesse a plataforma**: Abra o navegador e acesse a URL fornecida
-2. **Escolha um curso**: Na página inicial, você verá todos os cursos disponíveis com informações sobre módulos e aulas
-3. **Navegue pelos módulos**: Clique em um curso para ver seus módulos. Clique nos módulos para expandir e ver as aulas
-4. **Assista às aulas**: Clique em uma aula para ver o conteúdo, vídeo e comentários
-5. **Marque como concluída**: Após assistir, clique no botão "Marcar como concluída" para registrar seu progresso
-6. **Comente**: Adicione comentários nas aulas para tirar dúvidas ou compartilhar insights
-7. **Acompanhe seu progresso**: A barra de progresso mostra quantas aulas você já completou
+2. **Crie sua conta**: 
+   - Clique na aba "Registrar"
+   - Preencha seu nome, email e senha (mínimo 6 caracteres)
+   - Clique em "Criar Conta"
+   - Verifique seu email para confirmar o cadastro (se habilitado)
+3. **Faça login**:
+   - Use seu email e senha cadastrados
+   - Clique em "Entrar"
+
+#### Usando a Plataforma
+
+4. **Escolha um curso**: Na página inicial, você verá todos os cursos disponíveis com informações sobre módulos e aulas
+5. **Navegue pelos módulos**: Clique em um curso para ver seus módulos. Clique nos módulos para expandir e ver as aulas
+6. **Assista às aulas**: Clique em uma aula para ver o conteúdo, vídeo e comentários
+7. **Marque como concluída**: Após assistir, clique no botão "Marcar como concluída" para registrar seu progresso
+8. **Comente**: Adicione comentários nas aulas para tirar dúvidas ou compartilhar insights
+9. **Acompanhe seu progresso**: A barra de progresso mostra quantas aulas você já completou
+10. **Logout**: Clique no botão "Sair" no canto superior direito quando terminar
 
 ### Cursos Disponíveis (Dados de Exemplo)
 
@@ -165,6 +254,7 @@ O sistema utiliza **Cloudflare D1** (SQLite distribuído) com as seguintes tabel
 
 - **Backend**: Hono Framework (TypeScript)
 - **Frontend**: HTML5 + TailwindCSS + JavaScript (Vanilla)
+- **Autenticação**: Supabase Auth
 - **Database**: Cloudflare D1 (SQLite distribuído)
 - **Deploy**: Cloudflare Pages/Workers
 - **Process Manager**: PM2
@@ -175,13 +265,16 @@ O sistema utiliza **Cloudflare D1** (SQLite distribuído) com as seguintes tabel
 ```
 webapp/
 ├── src/
-│   └── index.tsx              # Backend Hono com API routes
+│   └── index.tsx              # Backend Hono com API routes + Auth
 ├── public/
 │   └── static/
-│       └── app.js             # Frontend JavaScript
+│       ├── app.js             # Frontend JavaScript principal
+│       └── auth.js            # Sistema de autenticação
 ├── migrations/
-│   └── 0001_initial_schema.sql # Schema do banco de dados
+│   ├── 0001_initial_schema.sql # Schema do banco de dados
+│   └── 0002_update_user_fields.sql # Índices de usuário
 ├── seed.sql                   # Dados de exemplo
+├── .dev.vars                  # Variáveis de ambiente locais (Supabase)
 ├── wrangler.jsonc             # Configuração Cloudflare
 ├── ecosystem.config.cjs       # Configuração PM2
 ├── package.json               # Dependencies e scripts
