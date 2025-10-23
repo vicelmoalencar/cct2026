@@ -30,17 +30,30 @@ const authManager = {
     
     if (accessToken) {
       try {
+        // Show loading message
+        console.log('Processando confirmação de email...')
+        
         // Send tokens to backend to set cookies
-        await axios.post('/api/auth/callback', {
+        const response = await axios.post('/api/auth/callback', {
           access_token: accessToken,
           refresh_token: refreshToken,
           type: type
         })
         
-        // Clear hash from URL
-        window.history.replaceState(null, '', window.location.pathname)
+        if (response.data.success) {
+          console.log('✅ Email confirmado com sucesso!')
+          
+          // Clear hash from URL
+          window.history.replaceState(null, '', window.location.pathname)
+          
+          // Show success message if type is signup
+          if (type === 'signup') {
+            // Store a flag to show success message after reload
+            sessionStorage.setItem('email_confirmed', 'true')
+          }
+        }
       } catch (error) {
-        console.error('Auth callback error:', error)
+        console.error('❌ Erro ao confirmar email:', error)
       }
     }
   },

@@ -23,6 +23,12 @@ const app = {
       userNameEl.textContent = authManager.getUserName()
     }
     
+    // Check if email was just confirmed
+    if (sessionStorage.getItem('email_confirmed') === 'true') {
+      sessionStorage.removeItem('email_confirmed')
+      this.showSuccessMessage('✅ Email confirmado com sucesso! Bem-vindo à plataforma.')
+    }
+    
     this.loadCourses()
   },
   
@@ -351,6 +357,25 @@ const app = {
     if (this.currentCourse) {
       this.loadCourse(this.currentCourse)
     }
+  },
+  
+  // Show success message
+  showSuccessMessage(message) {
+    const alertDiv = document.createElement('div')
+    alertDiv.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-4 rounded-lg shadow-lg z-50 flex items-center gap-3 animate-slide-in'
+    alertDiv.innerHTML = `
+      <i class="fas fa-check-circle text-2xl"></i>
+      <span>${message}</span>
+    `
+    document.body.appendChild(alertDiv)
+    
+    // Remove after 5 seconds
+    setTimeout(() => {
+      alertDiv.style.opacity = '0'
+      alertDiv.style.transform = 'translateX(100%)'
+      alertDiv.style.transition = 'all 0.3s ease-out'
+      setTimeout(() => alertDiv.remove(), 300)
+    }, 5000)
   }
 }
 
