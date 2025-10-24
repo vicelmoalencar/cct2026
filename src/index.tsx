@@ -455,7 +455,20 @@ app.post('/api/auth/reset-password', async (c) => {
     if (!response.ok) {
       const data = await response.json()
       console.error('❌ Password reset failed:', data)
-      return c.json({ error: data.error_description || data.message || 'Falha ao redefinir senha' }, 400)
+      
+      // Handle specific error cases
+      let errorMessage = 'Falha ao redefinir senha'
+      if (data.error_code === 'same_password') {
+        errorMessage = 'A nova senha deve ser diferente da senha atual'
+      } else if (data.msg) {
+        errorMessage = data.msg
+      } else if (data.error_description) {
+        errorMessage = data.error_description
+      } else if (data.message) {
+        errorMessage = data.message
+      }
+      
+      return c.json({ error: errorMessage }, 400)
     }
     
     const data = await response.json()
