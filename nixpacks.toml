@@ -5,7 +5,11 @@ nixPkgs = ["nodejs_20", "npm-10_x"]
 cmds = ["npm ci"]
 
 [phases.build]
-cmds = ["npm run build"]
+cmds = [
+  "npm run build",
+  "echo 'Checking public directory...'",
+  "ls -la public/static/ || echo 'Static directory not found!'"
+]
 
 [start]
 cmd = "npm start"
