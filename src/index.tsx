@@ -1,6 +1,5 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
-import { serveStatic } from 'hono/cloudflare-workers'
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie'
 import { SupabaseClient } from './supabase-client'
 
@@ -14,8 +13,8 @@ const app = new Hono<{ Bindings: Bindings }>()
 // Enable CORS for API routes
 app.use('/api/*', cors())
 
-// Serve static files
-app.use('/static/*', serveStatic({ root: './public' }))
+// Note: Static files are served by the Node.js server or Cloudflare Pages
+// No need to add serveStatic here
 
 // ============================================
 // SUPABASE AUTH HELPERS
