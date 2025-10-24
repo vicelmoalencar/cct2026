@@ -83,7 +83,17 @@ async function requireAuth(c: any, next: any) {
 // Login endpoint
 app.post('/api/auth/login', async (c) => {
   try {
-    const { email, password } = await c.req.json()
+    const body = await c.req.json()
+    const { email, password } = body
+    
+    console.log('🔐 Login attempt:', { email, hasPassword: !!password })
+    console.log('🌐 Supabase URL:', c.env.SUPABASE_URL)
+    console.log('🔑 Supabase Key present:', !!c.env.SUPABASE_ANON_KEY)
+    
+    if (!email || !password) {
+      console.error('❌ Missing email or password')
+      return c.json({ error: 'Email e senha são obrigatórios' }, 400)
+    }
     
     const response = await fetch(`${c.env.SUPABASE_URL}/auth/v1/token?grant_type=password`, {
       method: 'POST',
@@ -96,9 +106,14 @@ app.post('/api/auth/login', async (c) => {
     
     const data = await response.json()
     
+    console.log('📨 Supabase response:', { status: response.status, ok: response.ok })
+    
     if (!response.ok) {
-      return c.json({ error: data.error_description || 'Login failed' }, 400)
+      console.error('❌ Login failed:', data)
+      return c.json({ error: data.error_description || data.message || 'Login failed' }, 400)
     }
+    
+    console.log('✅ Login successful for:', email)
     
     // Set cookies
     setCookie(c, 'sb-access-token', data.access_token, {
