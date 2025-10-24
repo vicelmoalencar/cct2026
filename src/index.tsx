@@ -224,6 +224,107 @@ app.post('/api/auth/callback', async (c) => {
   }
 })
 
+// Request password reset
+app.post('/api/auth/forgot-password', async (c) => {
+  try {
+    const { email } = await c.req.json()
+    
+    if (!email) {
+      return c.json({ error: 'Email is required' }, 400)
+    }
+    
+    // Get the host from the request to build the redirect URL
+    const host = c.req.header('host') || 'localhost:3000'
+    const protocol = host.includes('localhost') ? 'http' : 'https'
+    const redirectTo = `${protocol}://${host}/reset-password`
+    
+    const response = await fetch(`${c.env.SUPABASE_URL}/auth/v1/recover`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': c.env.SUPABASE_ANON_KEY
+      },
+      body: JSON.stringify({ 
+        email,
+        options: {
+          redirectTo
+        }
+      })
+    })
+    
+    // Supabase always returns 200 for security (don't reveal if email exists)
+    if (response.ok) {
+      return c.json({ 
+        success: true,
+        message: 'Se o email estiver cadastrado, você receberá um link de recuperação.'
+      })
+    }
+    
+    const data = await response.json()
+    return c.json({ error: data.error_description || 'Failed to send reset email' }, 400)
+  } catch (error) {
+    return c.json({ error: 'Failed to process request' }, 500)
+  }
+})
+
+// Reset password with token
+app.post('/api/auth/reset-password', async (c) => {
+  try {
+    const { token, password } = await c.req.json()
+    
+    if (!token || !password) {
+      return c.json({ error: 'Token and password are required' }, 400)
+    }
+    
+    if (password.length < 6) {
+      return c.json({ error: 'Password must be at least 6 characters' }, 400)
+    }
+    
+    const response = await fetch(`${c.env.SUPABASE_URL}/auth/v1/user`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        'apikey': c.env.SUPABASE_ANON_KEY
+      },
+      body: JSON.stringify({ password })
+    })
+    
+    if (!response.ok) {
+      const data = await response.json()
+      return c.json({ error: data.error_description || 'Failed to reset password' }, 400)
+    }
+    
+    const data = await response.json()
+    
+    // Set cookies with the new session
+    if (data.access_token) {
+      setCookie(c, 'sb-access-token', data.access_token, {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'Lax',
+        maxAge: 3600 // 1 hour
+      })
+    }
+    
+    if (data.refresh_token) {
+      setCookie(c, 'sb-refresh-token', data.refresh_token, {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'Lax',
+        maxAge: 604800 // 7 days
+      })
+    }
+    
+    return c.json({ 
+      success: true,
+      message: 'Senha alterada com sucesso!'
+    })
+  } catch (error) {
+    return c.json({ error: 'Failed to reset password' }, 500)
+  }
+})
+
 // ============================================
 // ADMIN HELPERS
 // ============================================
@@ -734,6 +835,150 @@ app.post('/api/progress/uncomplete', async (c) => {
 // ============================================
 // FRONTEND - Main page
 // ============================================
+
+// Password Reset Page
+app.get('/reset-password', (c) => {
+  return c.html(`
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redefinir Senha - CCT</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gradient-to-br from-blue-900 via-blue-700 to-blue-500 min-h-screen flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+        <div class="bg-gradient-to-r from-blue-900 to-blue-700 p-8 text-white text-center">
+            <i class="fas fa-key text-5xl mb-3"></i>
+            <h1 class="text-2xl font-bold">Redefinir Senha</h1>
+            <p class="text-blue-200 text-sm mt-2">CCT - Clube do Cálculo Trabalhista</p>
+        </div>
+        
+        <div class="p-8">
+            <div id="messageDiv" class="hidden mb-4 p-3 rounded-lg text-sm"></div>
+            
+            <form id="resetForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        <i class="fas fa-lock mr-1"></i> Nova Senha
+                    </label>
+                    <input type="password" 
+                           id="newPassword" 
+                           required
+                           minlength="6"
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           placeholder="Mínimo 6 caracteres">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        <i class="fas fa-lock mr-1"></i> Confirmar Senha
+                    </label>
+                    <input type="password" 
+                           id="confirmPassword" 
+                           required
+                           minlength="6"
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           placeholder="Digite a senha novamente">
+                </div>
+                
+                <button type="submit" 
+                        id="submitBtn"
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2">
+                    <i class="fas fa-check"></i>
+                    Redefinir Senha
+                </button>
+            </form>
+            
+            <div class="mt-6 text-center">
+                <a href="/" class="text-blue-600 hover:text-blue-800 text-sm font-semibold">
+                    <i class="fas fa-arrow-left mr-1"></i> Voltar ao login
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+    <script>
+        // Get access token from URL hash
+        const hash = window.location.hash
+        const params = new URLSearchParams(hash.substring(1))
+        const accessToken = params.get('access_token')
+        const type = params.get('type')
+        
+        const messageDiv = document.getElementById('messageDiv')
+        const form = document.getElementById('resetForm')
+        const submitBtn = document.getElementById('submitBtn')
+        
+        function showMessage(message, isError = false) {
+            messageDiv.textContent = message
+            messageDiv.classList.remove('hidden', 'bg-red-50', 'border-red-200', 'text-red-700', 'bg-green-50', 'border-green-200', 'text-green-700')
+            
+            if (isError) {
+                messageDiv.classList.add('bg-red-50', 'border', 'border-red-200', 'text-red-700')
+            } else {
+                messageDiv.classList.add('bg-green-50', 'border', 'border-green-200', 'text-green-700')
+            }
+        }
+        
+        // Check if we have a valid token
+        if (!accessToken || type !== 'recovery') {
+            showMessage('❌ Link inválido ou expirado. Por favor, solicite um novo link de recuperação.', true)
+            form.classList.add('hidden')
+        }
+        
+        // Handle form submission
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault()
+            
+            const newPassword = document.getElementById('newPassword').value
+            const confirmPassword = document.getElementById('confirmPassword').value
+            
+            if (newPassword !== confirmPassword) {
+                showMessage('❌ As senhas não coincidem. Por favor, tente novamente.', true)
+                return
+            }
+            
+            if (newPassword.length < 6) {
+                showMessage('❌ A senha deve ter pelo menos 6 caracteres.', true)
+                return
+            }
+            
+            // Disable submit button
+            submitBtn.disabled = true
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processando...'
+            
+            try {
+                const response = await axios.post('/api/auth/reset-password', {
+                    token: accessToken,
+                    password: newPassword
+                })
+                
+                if (response.data.success) {
+                    showMessage('✅ ' + response.data.message, false)
+                    form.classList.add('hidden')
+                    
+                    // Redirect to home after 2 seconds
+                    setTimeout(() => {
+                        window.location.href = '/'
+                    }, 2000)
+                }
+            } catch (error) {
+                const errorMessage = error.response?.data?.error || 'Erro ao redefinir senha. Tente novamente.'
+                showMessage('❌ ' + errorMessage, true)
+                
+                // Re-enable submit button
+                submitBtn.disabled = false
+                submitBtn.innerHTML = '<i class="fas fa-check"></i> Redefinir Senha'
+            }
+        })
+    </script>
+</body>
+</html>
+  `)
+})
 
 // Test page for Continue Learning feature
 app.get('/test-continue', (c) => {

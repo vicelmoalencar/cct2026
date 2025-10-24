@@ -99,6 +99,23 @@ const authManager = {
     }
   },
   
+  // Request password reset
+  async requestPasswordReset(email) {
+    try {
+      const response = await axios.post('/api/auth/forgot-password', { email })
+      
+      return { 
+        success: true, 
+        message: response.data.message
+      }
+    } catch (error) {
+      return { 
+        success: false, 
+        error: error.response?.data?.error || 'Failed to send reset email' 
+      }
+    }
+  },
+  
   // Logout
   async logout() {
     try {
@@ -179,6 +196,14 @@ const authUI = {
                          required
                          class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                          placeholder="••••••••">
+                </div>
+                
+                <div class="text-right">
+                  <button type="button" 
+                          onclick="authUI.showForgotPassword()"
+                          class="text-sm text-blue-600 hover:text-blue-800 font-semibold">
+                    Esqueceu sua senha?
+                  </button>
                 </div>
                 
                 <button type="submit" 
@@ -320,6 +345,95 @@ const authUI = {
     } else {
       errorDiv.textContent = result.error
       errorDiv.classList.remove('hidden')
+    }
+  },
+  
+  // Show forgot password form
+  showForgotPassword() {
+    const html = `
+      <div class="min-h-screen bg-gradient-to-br from-blue-900 via-blue-700 to-blue-500 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+          <div class="bg-gradient-to-r from-blue-900 to-blue-700 p-8 text-white text-center">
+            <i class="fas fa-key text-5xl mb-3"></i>
+            <h1 class="text-2xl font-bold">Esqueceu sua senha?</h1>
+            <p class="text-blue-200 text-sm mt-2">Sem problemas! Vamos ajudá-lo a recuperá-la.</p>
+          </div>
+          
+          <div class="p-8">
+            <div id="forgotMessage" class="hidden mb-4 p-3 rounded-lg text-sm"></div>
+            
+            <form id="forgotPasswordForm" onsubmit="authUI.handleForgotPassword(event)" class="space-y-4">
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                  <i class="fas fa-envelope mr-1"></i> Email
+                </label>
+                <input type="email" 
+                       id="forgotEmail" 
+                       required
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                       placeholder="seu@email.com">
+                <p class="text-xs text-gray-500 mt-2">
+                  Digite o email cadastrado e enviaremos um link para redefinir sua senha.
+                </p>
+              </div>
+              
+              <button type="submit" 
+                      id="forgotSubmitBtn"
+                      class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2">
+                <i class="fas fa-paper-plane"></i>
+                Enviar Link de Recuperação
+              </button>
+            </form>
+            
+            <div class="mt-6 text-center">
+              <button onclick="authUI.showLoginForm()" 
+                      class="text-blue-600 hover:text-blue-800 text-sm font-semibold">
+                <i class="fas fa-arrow-left mr-1"></i> Voltar ao login
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `
+    
+    document.body.innerHTML = html
+  },
+  
+  // Handle forgot password
+  async handleForgotPassword(event) {
+    event.preventDefault()
+    
+    const email = document.getElementById('forgotEmail').value
+    const messageDiv = document.getElementById('forgotMessage')
+    const submitBtn = document.getElementById('forgotSubmitBtn')
+    const form = document.getElementById('forgotPasswordForm')
+    
+    messageDiv.classList.add('hidden')
+    
+    // Disable submit button
+    submitBtn.disabled = true
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...'
+    
+    const result = await authManager.requestPasswordReset(email)
+    
+    if (result.success) {
+      messageDiv.textContent = '✅ ' + result.message + ' Verifique sua caixa de entrada e spam.'
+      messageDiv.classList.remove('hidden', 'bg-red-50', 'border-red-200', 'text-red-700')
+      messageDiv.classList.add('bg-green-50', 'border', 'border-green-200', 'text-green-700')
+      form.classList.add('hidden')
+      
+      // Show back to login button after success
+      setTimeout(() => {
+        authUI.showLoginForm()
+      }, 5000)
+    } else {
+      messageDiv.textContent = '❌ ' + result.error
+      messageDiv.classList.remove('hidden', 'bg-green-50', 'border-green-200', 'text-green-700')
+      messageDiv.classList.add('bg-red-50', 'border', 'border-red-200', 'text-red-700')
+      
+      // Re-enable submit button
+      submitBtn.disabled = false
+      submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar Link de Recuperação'
     }
   }
 }
