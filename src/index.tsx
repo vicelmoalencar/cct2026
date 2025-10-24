@@ -928,12 +928,21 @@ app.get('/', (c) => {
                 <div class="flex items-center justify-between flex-wrap gap-4">
                     <!-- Logo/Title -->
                     <div class="flex-shrink-0">
-                        <h1 class="text-xl md:text-3xl font-bold flex items-center">
-                            <i class="fas fa-calculator mr-2"></i>
-                            <span class="hidden sm:inline">CCT - Clube do Cálculo Trabalhista</span>
-                            <span class="sm:hidden">CCT</span>
-                        </h1>
-                        <p class="text-blue-200 mt-1 text-xs md:text-sm hidden sm:block">Domine os cálculos da Justiça do Trabalho</p>
+                        <div class="flex items-center gap-3 md:gap-4">
+                            <!-- Logo -->
+                            <img src="https://page.gensparksite.com/v1/base64_upload/8f96be1bcec5a62130e0023674c921df" 
+                                 alt="CCT Logo" 
+                                 class="h-12 md:h-16 w-auto">
+                            
+                            <!-- Title -->
+                            <div>
+                                <h1 class="text-lg md:text-2xl font-bold">
+                                    <span class="hidden sm:inline">CCT - Clube do Cálculo Trabalhista</span>
+                                    <span class="sm:hidden">CCT</span>
+                                </h1>
+                                <p class="text-blue-200 mt-1 text-xs md:text-sm hidden sm:block">Domine os cálculos da Justiça do Trabalho</p>
+                            </div>
+                        </div>
                     </div>
                     
                     <!-- User Menu -->
