@@ -29,7 +29,17 @@ const workerModule = await import('./dist/_worker.js')
 const app = workerModule.default
 
 // Add static file serving for Node.js
-app.use('/static/*', serveStatic({ root: './public' }))
+// Try multiple path resolutions for Docker/Easypanel compatibility
+import { fileURLToPath } from 'url'
+import { dirname, join } from 'path'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
+const publicPath = join(__dirname, 'public')
+
+console.log('📁 Static files directory:', publicPath)
+
+app.use('/static/*', serveStatic({ root: publicPath }))
 
 console.log(`🚀 Starting server on port ${port}...`)
 console.log(`📦 Supabase URL: ${SUPABASE_URL}`)
