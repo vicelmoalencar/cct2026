@@ -160,7 +160,7 @@ app.get('/api/auth/me', async (c) => {
   return c.json({ user })
 })
 
-// Auth callback - handles email confirmation and OAuth redirects
+// Auth callback - handles email confirmation, OAuth redirects, and password recovery
 app.get('/auth/callback', async (c) => {
   const url = new URL(c.req.url)
   const accessToken = url.searchParams.get('access_token') || url.hash.match(/access_token=([^&]+)/)?.[1]
@@ -171,7 +171,12 @@ app.get('/auth/callback', async (c) => {
     return c.redirect('/?error=no_token')
   }
   
-  // Set cookies
+  // If type is recovery, redirect to reset-password page with token
+  if (type === 'recovery') {
+    return c.redirect(`/reset-password#access_token=${accessToken}&refresh_token=${refreshToken || ''}&type=recovery`)
+  }
+  
+  // Set cookies for normal auth
   setCookie(c, 'sb-access-token', accessToken, {
     httpOnly: true,
     secure: true,
