@@ -58,7 +58,25 @@ if (existsSync(publicPath)) {
   console.error('❌ Public directory NOT found at:', publicPath)
 }
 
+// Add request logging middleware BEFORE static files
+app.use('*', async (c, next) => {
+  const start = Date.now()
+  const path = new URL(c.req.url).pathname
+  console.log(`📥 ${c.req.method} ${path}`)
+  await next()
+  const ms = Date.now() - start
+  console.log(`📤 ${c.req.method} ${path} - ${c.res.status} (${ms}ms)`)
+})
+
+// Serve static files - try absolute path
+console.log('🔧 Configuring static file serving...')
+console.log('   Root path:', publicPath)
+console.log('   Pattern: /static/*')
+
 app.use('/static/*', serveStatic({ root: publicPath }))
+
+// Also try serving directly without /static prefix as fallback
+app.use('/public/*', serveStatic({ root: __dirname }))
 
 console.log(`🚀 Starting server on port ${port}...`)
 console.log(`📦 Supabase URL: ${SUPABASE_URL || 'NOT SET'}`)
