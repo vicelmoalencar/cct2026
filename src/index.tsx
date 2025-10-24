@@ -17,6 +17,25 @@ app.use('/api/*', cors())
 // No need to add serveStatic here
 
 // ============================================
+// HEALTH CHECK & DEBUG
+// ============================================
+
+// Health check endpoint
+app.get('/health', (c) => {
+  const hasSupabaseUrl = !!c.env.SUPABASE_URL
+  const hasSupabaseKey = !!c.env.SUPABASE_ANON_KEY
+  
+  return c.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    environment: {
+      supabase_url: hasSupabaseUrl ? '✅ Configured' : '❌ Missing',
+      supabase_key: hasSupabaseKey ? '✅ Configured' : '❌ Missing'
+    }
+  })
+})
+
+// ============================================
 // SUPABASE AUTH HELPERS
 // ============================================
 
