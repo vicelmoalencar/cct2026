@@ -38,8 +38,9 @@
 
 ## 🌐 URLs e Acesso
 
-- **Desenvolvimento Local**: https://3000-ikpt0knkee9oqi1r0i931-8f57ffe2.sandbox.novita.ai
-- **Produção**: (Aguardando deploy no Cloudflare Pages)
+- **Produção (Easypanel)**: https://ensinoplus-dev-cct2026.n697dr.easypanel.host
+- **GitHub**: https://github.com/vicelmoalencar/cct2026
+- **Supabase Dashboard**: https://supabase.com/dashboard/project/ghdfouqzasvxlptbjkin
 
 ### Endpoints da API
 
@@ -293,19 +294,21 @@ O sistema utiliza **Cloudflare D1** (SQLite distribuído) com as seguintes tabel
 
 ### Status do Deployment
 
-- **Plataforma**: Cloudflare Pages + Cloudflare Workers
-- **Status Atual**: ✅ Desenvolvimento local ativo
-- **Produção**: ⏳ Aguardando configuração das credenciais Cloudflare
+- **Plataforma**: Easypanel (Docker + Node.js)
+- **Status Atual**: ✅ Produção ativa
+- **URL de Produção**: https://ensinoplus-dev-cct2026.n697dr.easypanel.host
+- **GitHub**: https://github.com/vicelmoalencar/cct2026
+- **Deploy Automático**: Rebuild manual via Easypanel interface
 
 ### Stack Tecnológica
 
-- **Backend**: Hono Framework (TypeScript)
+- **Backend**: Hono Framework (TypeScript) + Node.js
 - **Frontend**: HTML5 + TailwindCSS + JavaScript (Vanilla)
-- **Autenticação**: Supabase Auth
-- **Database**: Cloudflare D1 (SQLite distribuído)
-- **Deploy**: Cloudflare Pages/Workers
-- **Process Manager**: PM2
+- **Autenticação**: Supabase Auth (email/password + password recovery)
+- **Database**: Supabase PostgreSQL
+- **Deploy**: Easypanel (Docker + Node.js 20)
 - **Build Tool**: Vite
+- **Server Runtime**: @hono/node-server
 
 ### Estrutura do Projeto
 
@@ -353,29 +356,29 @@ pm2 logs cct-clube-calculo --nostream  # Ver logs
 pm2 restart cct-clube-calculo          # Reiniciar serviço
 ```
 
-### Para Deploy em Produção
+### Deploy no Easypanel (Configurado)
 
-1. Configure as credenciais do Cloudflare:
-   ```bash
-   # Opção 1: Usar a ferramenta setup_cloudflare_api_key
-   # Opção 2: Configurar manualmente na aba Deploy
-   ```
+**Ambiente de Produção Ativo**:
 
-2. Crie o banco de dados D1 em produção:
-   ```bash
-   npx wrangler d1 create cct-production
-   # Copie o database_id gerado para wrangler.jsonc
-   ```
+1. **URL**: https://ensinoplus-dev-cct2026.n697dr.easypanel.host
+2. **GitHub**: Código versionado em https://github.com/vicelmoalencar/cct2026
+3. **Deploy**: Push para `main` branch → Rebuild manual no Easypanel
 
-3. Aplique as migrations:
-   ```bash
-   npm run db:migrate:prod
-   ```
+**Variáveis de Ambiente Configuradas**:
+- `SUPABASE_URL`: https://ghdfouqzasvxlptbjkin.supabase.co
+- `SUPABASE_ANON_KEY`: ✅ Configurada
+- `PORT`: 80
 
-4. Faça o deploy:
-   ```bash
-   npm run deploy:prod
-   ```
+**Health Check**:
+- Endpoint: `/health`
+- Self-check: A cada 10 segundos
+- Keep-alive: A cada 30 segundos
+
+**Para Fazer Deploy de Novas Alterações**:
+1. Commit e push para GitHub: `git push origin main`
+2. Acesse Easypanel → Aba "Geral" → Clique "Rebuild"
+3. Aguarde o build completar (~2 minutos)
+4. Verifique os logs para confirmar sucesso
 
 ## 🔄 Próximos Passos Recomendados
 
@@ -400,7 +403,8 @@ pm2 restart cct-clube-calculo          # Reiniciar serviço
 **Desenvolvido para**: Vicelmo - Servidor da Justiça do Trabalho  
 **Especialização**: Minuto decisões e despachos para a Justiça do Trabalho  
 **Data de Criação**: 23 de Outubro de 2025  
-**Última Atualização**: 23 de Outubro de 2025
+**Última Atualização**: 24 de Outubro de 2025
+**Status**: ✅ **Sistema em Produção no Easypanel**
 
 ---
 
