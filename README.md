@@ -10,22 +10,26 @@
 
 ✅ **Completas**:
 - ✅ **Sistema de Autenticação com Supabase** (Login, Registro, Logout)
+- ✅ **Painel de Administração** completo para gerenciar cursos
+- ✅ **Players de Vídeo** integrados (YouTube, Vimeo, URL customizada)
+- ✅ **Permissões de Admin** - apenas emails autorizados acessam o painel
 - ✅ Proteção de rotas - usuários não autenticados veem tela de login
 - ✅ Listagem de cursos com contador de módulos e aulas
 - ✅ Visualização detalhada de cursos com módulos e aulas organizados
 - ✅ Sistema de progresso do usuário (marcar aulas como assistidas)
 - ✅ Barra de progresso visual por curso
-- ✅ Visualização de aulas individuais com descrição e duração
+- ✅ Visualização de aulas individuais com player de vídeo embutido
 - ✅ Sistema de comentários nas aulas vinculados ao usuário
 - ✅ Navegação fluida entre cursos, módulos e aulas
 - ✅ Design responsivo com TailwindCSS
 - ✅ Interface intuitiva e profissional
-- ✅ Header com informações do usuário e botão de logout
+- ✅ Header com informações do usuário e botão de admin/logout
+- ✅ CRUD completo de cursos via painel admin
+- ✅ Suporte a múltiplos formatos de vídeo
 
 🚧 **Pendentes**:
-- ⏳ Integração com player de vídeo (YouTube, Vimeo ou outro)
-- ⏳ Área administrativa para gerenciar cursos
-- ⏳ Confirmação de email no registro
+- ⏳ Interface visual para gestão de módulos e aulas no painel admin
+- ⏳ Confirmação de email no registro (configurável no Supabase)
 - ⏳ Recuperação de senha
 - ⏳ Editar perfil do usuário
 - ⏳ Certificados de conclusão
@@ -46,6 +50,20 @@
 | POST | `/api/auth/register` | Registrar novo usuário |
 | POST | `/api/auth/logout` | Logout (limpa cookies) |
 | GET | `/api/auth/me` | Retorna dados do usuário atual |
+
+#### Administração (Admin apenas)
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| GET | `/api/admin/check` | Verifica se usuário é admin |
+| POST | `/api/admin/courses` | Criar novo curso |
+| PUT | `/api/admin/courses/:id` | Atualizar curso |
+| DELETE | `/api/admin/courses/:id` | Excluir curso |
+| POST | `/api/admin/modules` | Criar novo módulo |
+| PUT | `/api/admin/modules/:id` | Atualizar módulo |
+| DELETE | `/api/admin/modules/:id` | Excluir módulo |
+| POST | `/api/admin/lessons` | Criar nova aula |
+| PUT | `/api/admin/lessons/:id` | Atualizar aula |
+| DELETE | `/api/admin/lessons/:id` | Excluir aula |
 
 #### Cursos e Aulas
 | Método | Endpoint | Descrição |
