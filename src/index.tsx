@@ -2,9 +2,9 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { serveStatic } from 'hono/cloudflare-workers'
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie'
+import { SupabaseClient } from './supabase-client'
 
 type Bindings = {
-  DB: D1Database;
   SUPABASE_URL: string;
   SUPABASE_ANON_KEY: string;
 }
@@ -228,12 +228,15 @@ app.post('/api/auth/callback', async (c) => {
 // ADMIN HELPERS
 // ============================================
 
-async function isAdmin(email: string, db: D1Database) {
+async function isAdmin(email: string, supabaseUrl: string, supabaseKey: string) {
   try {
-    const admin = await db.prepare(`
-      SELECT * FROM admins WHERE email = ?
-    `).bind(email).first()
-    return admin !== null
+    const supabase = new SupabaseClient(supabaseUrl, supabaseKey)
+    const result = await supabase.query('admins', {
+      select: '*',
+      filters: { email },
+      single: true
+    })
+    return result !== null
   } catch (error) {
     return false
   }
@@ -253,7 +256,7 @@ async function requireAdmin(c: any, next: any) {
     return c.json({ error: 'Invalid token' }, 401)
   }
   
-  const adminCheck = await isAdmin(user.email, c.env.DB)
+  const adminCheck = await isAdmin(user.email, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
   
   if (!adminCheck) {
     return c.json({ error: 'Forbidden - Admin only' }, 403)
@@ -281,7 +284,7 @@ app.get('/api/admin/check', async (c) => {
     return c.json({ isAdmin: false })
   }
   
-  const adminCheck = await isAdmin(user.email, c.env.DB)
+  const adminCheck = await isAdmin(user.email, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
   return c.json({ isAdmin: adminCheck })
 })
 
@@ -290,14 +293,17 @@ app.post('/api/admin/courses', requireAdmin, async (c) => {
   try {
     const { title, description, duration_hours, instructor } = await c.req.json()
     
-    const result = await c.env.DB.prepare(`
-      INSERT INTO courses (title, description, duration_hours, instructor)
-      VALUES (?, ?, ?, ?)
-    `).bind(title, description || null, duration_hours || 0, instructor || 'Vicelmo').run()
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    const result = await supabase.insert('courses', {
+      title,
+      description: description || null,
+      duration_hours: duration_hours || 0,
+      instructor: instructor || 'Vicelmo'
+    })
     
     return c.json({ 
       success: true, 
-      course_id: result.meta.last_row_id 
+      course_id: result[0].id
     })
   } catch (error) {
     return c.json({ error: 'Failed to create course' }, 500)
@@ -310,11 +316,13 @@ app.put('/api/admin/courses/:id', requireAdmin, async (c) => {
     const courseId = c.req.param('id')
     const { title, description, duration_hours, instructor } = await c.req.json()
     
-    await c.env.DB.prepare(`
-      UPDATE courses 
-      SET title = ?, description = ?, duration_hours = ?, instructor = ?, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `).bind(title, description || null, duration_hours || 0, instructor || 'Vicelmo', courseId).run()
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    await supabase.update('courses', { id: courseId }, {
+      title,
+      description: description || null,
+      duration_hours: duration_hours || 0,
+      instructor: instructor || 'Vicelmo'
+    })
     
     return c.json({ success: true })
   } catch (error) {
@@ -327,9 +335,8 @@ app.delete('/api/admin/courses/:id', requireAdmin, async (c) => {
   try {
     const courseId = c.req.param('id')
     
-    await c.env.DB.prepare(`
-      DELETE FROM courses WHERE id = ?
-    `).bind(courseId).run()
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    await supabase.delete('courses', { id: courseId })
     
     return c.json({ success: true })
   } catch (error) {
@@ -342,14 +349,17 @@ app.post('/api/admin/modules', requireAdmin, async (c) => {
   try {
     const { course_id, title, description, order_index } = await c.req.json()
     
-    const result = await c.env.DB.prepare(`
-      INSERT INTO modules (course_id, title, description, order_index)
-      VALUES (?, ?, ?, ?)
-    `).bind(course_id, title, description || null, order_index || 0).run()
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    const result = await supabase.insert('modules', {
+      course_id,
+      title,
+      description: description || null,
+      order_index: order_index || 0
+    })
     
     return c.json({ 
       success: true, 
-      module_id: result.meta.last_row_id 
+      module_id: result[0].id
     })
   } catch (error) {
     return c.json({ error: 'Failed to create module' }, 500)
@@ -362,11 +372,12 @@ app.put('/api/admin/modules/:id', requireAdmin, async (c) => {
     const moduleId = c.req.param('id')
     const { title, description, order_index } = await c.req.json()
     
-    await c.env.DB.prepare(`
-      UPDATE modules 
-      SET title = ?, description = ?, order_index = ?
-      WHERE id = ?
-    `).bind(title, description || null, order_index, moduleId).run()
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    await supabase.update('modules', { id: moduleId }, {
+      title,
+      description: description || null,
+      order_index
+    })
     
     return c.json({ success: true })
   } catch (error) {
@@ -379,9 +390,8 @@ app.delete('/api/admin/modules/:id', requireAdmin, async (c) => {
   try {
     const moduleId = c.req.param('id')
     
-    await c.env.DB.prepare(`
-      DELETE FROM modules WHERE id = ?
-    `).bind(moduleId).run()
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    await supabase.delete('modules', { id: moduleId })
     
     return c.json({ success: true })
   } catch (error) {
@@ -392,7 +402,7 @@ app.delete('/api/admin/modules/:id', requireAdmin, async (c) => {
 // Create lesson (admin only)
 app.post('/api/admin/lessons', requireAdmin, async (c) => {
   try {
-    const { module_id, title, description, video_provider, video_id, duration_minutes, order_index } = await c.req.json()
+    const { module_id, title, description, video_provider, video_id, duration_minutes, order_index, support_text, transcript, attachments } = await c.req.json()
     
     // Build video_url from provider and id
     let video_url = null
@@ -406,23 +416,24 @@ app.post('/api/admin/lessons', requireAdmin, async (c) => {
       }
     }
     
-    const result = await c.env.DB.prepare(`
-      INSERT INTO lessons (module_id, title, description, video_url, video_provider, video_id, duration_minutes, order_index)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).bind(
-      module_id, 
-      title, 
-      description || null, 
-      video_url, 
-      video_provider || null, 
-      video_id || null, 
-      duration_minutes || 0, 
-      order_index || 0
-    ).run()
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    const result = await supabase.insert('lessons', {
+      module_id,
+      title,
+      description: description || null,
+      video_url,
+      video_provider: video_provider || null,
+      video_id: video_id || null,
+      duration_minutes: duration_minutes || 0,
+      order_index: order_index || 0,
+      support_text: support_text || null,
+      transcript: transcript || null,
+      attachments: attachments || []
+    })
     
     return c.json({ 
       success: true, 
-      lesson_id: result.meta.last_row_id 
+      lesson_id: result[0].id
     })
   } catch (error) {
     return c.json({ error: 'Failed to create lesson' }, 500)
@@ -433,7 +444,7 @@ app.post('/api/admin/lessons', requireAdmin, async (c) => {
 app.put('/api/admin/lessons/:id', requireAdmin, async (c) => {
   try {
     const lessonId = c.req.param('id')
-    const { title, description, video_provider, video_id, duration_minutes, order_index } = await c.req.json()
+    const { title, description, video_provider, video_id, duration_minutes, order_index, support_text, transcript, attachments } = await c.req.json()
     
     // Build video_url from provider and id
     let video_url = null
@@ -447,20 +458,19 @@ app.put('/api/admin/lessons/:id', requireAdmin, async (c) => {
       }
     }
     
-    await c.env.DB.prepare(`
-      UPDATE lessons 
-      SET title = ?, description = ?, video_url = ?, video_provider = ?, video_id = ?, duration_minutes = ?, order_index = ?
-      WHERE id = ?
-    `).bind(
-      title, 
-      description || null, 
-      video_url, 
-      video_provider || null, 
-      video_id || null, 
-      duration_minutes, 
-      order_index, 
-      lessonId
-    ).run()
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    await supabase.update('lessons', { id: lessonId }, {
+      title,
+      description: description || null,
+      video_url,
+      video_provider: video_provider || null,
+      video_id: video_id || null,
+      duration_minutes,
+      order_index,
+      support_text: support_text || null,
+      transcript: transcript || null,
+      attachments: attachments || []
+    })
     
     return c.json({ success: true })
   } catch (error) {
@@ -473,9 +483,8 @@ app.delete('/api/admin/lessons/:id', requireAdmin, async (c) => {
   try {
     const lessonId = c.req.param('id')
     
-    await c.env.DB.prepare(`
-      DELETE FROM lessons WHERE id = ?
-    `).bind(lessonId).run()
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    await supabase.delete('lessons', { id: lessonId })
     
     return c.json({ success: true })
   } catch (error) {
@@ -490,19 +499,38 @@ app.delete('/api/admin/lessons/:id', requireAdmin, async (c) => {
 // Get all courses
 app.get('/api/courses', async (c) => {
   try {
-    const { results } = await c.env.DB.prepare(`
-      SELECT 
-        c.*,
-        COUNT(DISTINCT m.id) as modules_count,
-        COUNT(DISTINCT l.id) as lessons_count
-      FROM courses c
-      LEFT JOIN modules m ON c.id = m.course_id
-      LEFT JOIN lessons l ON m.id = l.module_id
-      GROUP BY c.id
-      ORDER BY c.created_at DESC
-    `).all()
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
     
-    return c.json({ courses: results })
+    // Get all courses
+    const courses = await supabase.query('courses', {
+      select: '*',
+      order: 'created_at.desc'
+    })
+    
+    // For each course, count modules and lessons
+    const coursesWithCounts = await Promise.all(courses.map(async (course: any) => {
+      const modules = await supabase.query('modules', {
+        select: 'id',
+        filters: { course_id: course.id }
+      })
+      
+      let lessonsCount = 0
+      for (const module of modules) {
+        const lessons = await supabase.query('lessons', {
+          select: 'id',
+          filters: { module_id: module.id }
+        })
+        lessonsCount += lessons.length
+      }
+      
+      return {
+        ...course,
+        modules_count: modules.length,
+        lessons_count: lessonsCount
+      }
+    }))
+    
+    return c.json({ courses: coursesWithCounts })
   } catch (error) {
     return c.json({ error: 'Failed to fetch courses' }, 500)
   }
@@ -513,26 +541,33 @@ app.get('/api/courses/:id', async (c) => {
   try {
     const courseId = c.req.param('id')
     
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
     // Get course
-    const course = await c.env.DB.prepare(`
-      SELECT * FROM courses WHERE id = ?
-    `).bind(courseId).first()
+    const course = await supabase.query('courses', {
+      select: '*',
+      filters: { id: courseId },
+      single: true
+    })
     
     if (!course) {
       return c.json({ error: 'Course not found' }, 404)
     }
     
     // Get modules with lessons
-    const { results: modules } = await c.env.DB.prepare(`
-      SELECT * FROM modules WHERE course_id = ? ORDER BY order_index
-    `).bind(courseId).all()
+    const modules = await supabase.query('modules', {
+      select: '*',
+      filters: { course_id: courseId },
+      order: 'order_index'
+    })
     
     // Get lessons for each module
     for (const module of modules) {
-      const { results: lessons } = await c.env.DB.prepare(`
-        SELECT * FROM lessons WHERE module_id = ? ORDER BY order_index
-      `).bind(module.id).all()
-      
+      const lessons = await supabase.query('lessons', {
+        select: '*',
+        filters: { module_id: module.id },
+        order: 'order_index'
+      })
       module.lessons = lessons
     }
     
@@ -551,24 +586,25 @@ app.get('/api/lessons/:id', async (c) => {
   try {
     const lessonId = c.req.param('id')
     
-    // Get lesson
-    const lesson = await c.env.DB.prepare(`
-      SELECT l.*, m.title as module_title, m.course_id
-      FROM lessons l
-      JOIN modules m ON l.module_id = m.id
-      WHERE l.id = ?
-    `).bind(lessonId).first()
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
     
-    if (!lesson) {
+    // Get lesson with module info (using RPC for join)
+    const lesson = await supabase.rpc('get_lesson_with_module', {
+      p_lesson_id: parseInt(lessonId)
+    })
+    
+    if (!lesson || lesson.length === 0) {
       return c.json({ error: 'Lesson not found' }, 404)
     }
     
     // Get comments
-    const { results: comments } = await c.env.DB.prepare(`
-      SELECT * FROM comments WHERE lesson_id = ? ORDER BY created_at DESC
-    `).bind(lessonId).all()
+    const comments = await supabase.query('comments', {
+      select: '*',
+      filters: { lesson_id: lessonId },
+      order: 'created_at.desc'
+    })
     
-    return c.json({ lesson, comments })
+    return c.json({ lesson: lesson[0], comments })
   } catch (error) {
     return c.json({ error: 'Failed to fetch lesson' }, 500)
   }
@@ -588,14 +624,17 @@ app.post('/api/lessons/:id/comments', async (c) => {
       return c.json({ error: 'Missing required fields' }, 400)
     }
     
-    const result = await c.env.DB.prepare(`
-      INSERT INTO comments (lesson_id, user_name, user_email, comment_text)
-      VALUES (?, ?, ?, ?)
-    `).bind(lessonId, user_name, user_email, comment_text).run()
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    const result = await supabase.insert('comments', {
+      lesson_id: parseInt(lessonId),
+      user_name,
+      user_email,
+      comment_text
+    })
     
     return c.json({ 
       success: true, 
-      comment_id: result.meta.last_row_id 
+      comment_id: result[0].id
     })
   } catch (error) {
     return c.json({ error: 'Failed to add comment' }, 500)
@@ -612,15 +651,15 @@ app.get('/api/progress/:email/:courseId', async (c) => {
     const email = c.req.param('email')
     const courseId = c.req.param('courseId')
     
-    const { results } = await c.env.DB.prepare(`
-      SELECT up.*, l.module_id
-      FROM user_progress up
-      JOIN lessons l ON up.lesson_id = l.id
-      JOIN modules m ON l.module_id = m.id
-      WHERE up.user_email = ? AND m.course_id = ?
-    `).bind(email, courseId).all()
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
     
-    return c.json({ progress: results })
+    // Use RPC function to get progress with joins
+    const progress = await supabase.rpc('get_user_course_progress', {
+      p_user_email: email,
+      p_course_id: parseInt(courseId)
+    })
+    
+    return c.json({ progress: progress || [] })
   } catch (error) {
     return c.json({ error: 'Failed to fetch progress' }, 500)
   }
@@ -635,10 +674,29 @@ app.post('/api/progress/complete', async (c) => {
       return c.json({ error: 'Missing required fields' }, 400)
     }
     
-    await c.env.DB.prepare(`
-      INSERT OR REPLACE INTO user_progress (user_email, lesson_id, completed, completed_at)
-      VALUES (?, ?, 1, datetime('now'))
-    `).bind(user_email, lesson_id).run()
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    // Check if progress exists
+    const existing = await supabase.query('user_progress', {
+      select: '*',
+      filters: { user_email, lesson_id }
+    })
+    
+    if (existing.length > 0) {
+      // Update existing
+      await supabase.update('user_progress', { id: existing[0].id }, {
+        completed: true,
+        completed_at: new Date().toISOString()
+      })
+    } else {
+      // Insert new
+      await supabase.insert('user_progress', {
+        user_email,
+        lesson_id: parseInt(lesson_id),
+        completed: true,
+        completed_at: new Date().toISOString()
+      })
+    }
     
     return c.json({ success: true })
   } catch (error) {
@@ -655,9 +713,17 @@ app.post('/api/progress/uncomplete', async (c) => {
       return c.json({ error: 'Missing required fields' }, 400)
     }
     
-    await c.env.DB.prepare(`
-      DELETE FROM user_progress WHERE user_email = ? AND lesson_id = ?
-    `).bind(user_email, lesson_id).run()
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    // Find and delete progress
+    const existing = await supabase.query('user_progress', {
+      select: '*',
+      filters: { user_email, lesson_id }
+    })
+    
+    if (existing.length > 0) {
+      await supabase.delete('user_progress', { id: existing[0].id })
+    }
     
     return c.json({ success: true })
   } catch (error) {
@@ -680,60 +746,129 @@ app.get('/', (c) => {
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
         <style>
+          /* Module and Lesson Styles */
           .lesson-item:hover { background-color: #f3f4f6; }
           .completed { background-color: #d1fae5 !important; }
           .module-header { cursor: pointer; }
           .module-content { display: none; }
           .module-content.active { display: block; }
+          
+          /* Line Clamp Utilities */
+          .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+          }
+          .line-clamp-3 {
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+          }
+          
+          /* Card Hover Effects - Only on non-touch devices */
+          @media (hover: hover) {
+            .group:hover .group-hover\\:scale-110 {
+              transform: scale(1.1);
+            }
+            .group:hover .group-hover\\:gap-2 {
+              gap: 0.5rem;
+            }
+          }
+          
+          /* Smooth Animations */
+          * {
+            transition-property: all;
+            transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+          }
+          
+          /* Mobile Responsive Utilities */
+          @media (max-width: 640px) {
+            .mobile-hide { display: none !important; }
+            .mobile-text-sm { font-size: 0.875rem; }
+            .mobile-text-xs { font-size: 0.75rem; }
+            .mobile-p-4 { padding: 1rem; }
+            .mobile-gap-2 { gap: 0.5rem; }
+          }
+          
+          /* Video Container Responsive */
+          .video-container {
+            position: relative;
+            padding-bottom: 56.25%; /* 16:9 aspect ratio */
+            height: 0;
+            overflow: hidden;
+          }
+          .video-container iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+          }
         </style>
     </head>
     <body class="bg-gray-50">
         <!-- Header -->
         <header class="bg-gradient-to-r from-blue-900 to-blue-700 text-white shadow-lg">
-            <div class="max-w-7xl mx-auto px-4 py-6">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <h1 class="text-3xl font-bold">
+            <div class="max-w-7xl mx-auto px-4 py-4 md:py-6">
+                <div class="flex items-center justify-between flex-wrap gap-4">
+                    <!-- Logo/Title -->
+                    <div class="flex-shrink-0">
+                        <h1 class="text-xl md:text-3xl font-bold flex items-center">
                             <i class="fas fa-calculator mr-2"></i>
-                            CCT - Clube do Cálculo Trabalhista
+                            <span class="hidden sm:inline">CCT - Clube do Cálculo Trabalhista</span>
+                            <span class="sm:hidden">CCT</span>
                         </h1>
-                        <p class="text-blue-200 mt-1">Domine os cálculos da Justiça do Trabalho</p>
+                        <p class="text-blue-200 mt-1 text-xs md:text-sm hidden sm:block">Domine os cálculos da Justiça do Trabalho</p>
                     </div>
-                    <div class="text-right">
-                        <div class="flex items-center gap-4">
-                            <div class="flex items-center gap-2">
-                                <i class="fas fa-user-circle text-2xl"></i>
-                                <div>
-                                    <p class="text-sm">Bem-vindo,</p>
-                                    <p class="font-semibold" id="userName">Aluno</p>
-                                </div>
+                    
+                    <!-- User Menu -->
+                    <div class="flex items-center gap-2 md:gap-4">
+                        <!-- User Info - Hidden on very small screens -->
+                        <div class="hidden md:flex items-center gap-2">
+                            <i class="fas fa-user-circle text-2xl"></i>
+                            <div>
+                                <p class="text-xs">Bem-vindo,</p>
+                                <p class="font-semibold text-sm" id="userName">Aluno</p>
                             </div>
-                            <button onclick="app.showAdminPanel()" 
-                                    id="adminButton"
-                                    class="hidden px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm font-semibold transition-colors flex items-center gap-2">
-                                <i class="fas fa-tools"></i>
-                                Admin
-                            </button>
-                            <button onclick="app.logout()" 
-                                    class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-sm font-semibold transition-colors flex items-center gap-2">
-                                <i class="fas fa-sign-out-alt"></i>
-                                Sair
-                            </button>
                         </div>
+                        
+                        <!-- Admin Button -->
+                        <button onclick="app.showAdminPanel()" 
+                                id="adminButton"
+                                class="hidden px-3 md:px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-xs md:text-sm font-semibold transition-colors">
+                            <i class="fas fa-tools"></i>
+                            <span class="hidden sm:inline ml-2">Admin</span>
+                        </button>
+                        
+                        <!-- Logout Button -->
+                        <button onclick="app.logout()" 
+                                class="px-3 md:px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-xs md:text-sm font-semibold transition-colors">
+                            <i class="fas fa-sign-out-alt"></i>
+                            <span class="hidden sm:inline ml-2">Sair</span>
+                        </button>
                     </div>
                 </div>
             </div>
         </header>
 
         <!-- Main Content -->
-        <main class="max-w-7xl mx-auto px-4 py-8">
+        <main class="max-w-7xl mx-auto px-4 md:px-6 py-6 md:py-8">
             <!-- View: Courses List -->
             <div id="coursesView">
-                <div class="mb-6">
-                    <h2 class="text-2xl font-bold text-gray-800 mb-2">Meus Cursos</h2>
-                    <p class="text-gray-600">Escolha um curso para continuar seu aprendizado</p>
+                <!-- Hero Section -->
+                <div class="mb-6 md:mb-8 text-center px-4">
+                    <h2 class="text-2xl md:text-4xl font-bold text-gray-800 mb-2 md:mb-3">
+                        📚 Explore Nossos Cursos
+                    </h2>
+                    <p class="text-sm md:text-lg text-gray-600 max-w-2xl mx-auto">
+                        Escolha um curso e comece sua jornada de aprendizado. Aprenda no seu ritmo com conteúdo de qualidade.
+                    </p>
                 </div>
-                <div id="coursesList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                
+                <!-- Courses Grid -->
+                <div id="coursesList" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8">
                     <!-- Courses will be loaded here -->
                 </div>
             </div>

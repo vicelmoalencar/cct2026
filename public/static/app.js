@@ -63,26 +63,135 @@ const app = {
       const response = await axios.get('/api/courses')
       const courses = response.data.courses
       
+      // Get last accessed lesson from localStorage
+      const lastLesson = this.getLastAccessedLesson()
+      
+      const coursesView = document.getElementById('coursesView')
       const coursesList = document.getElementById('coursesList')
-      coursesList.innerHTML = courses.map(course => `
-        <div class="bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow overflow-hidden cursor-pointer"
-             onclick="app.loadCourse(${course.id})">
-          <div class="h-48 bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center">
-            <i class="fas fa-book-open text-white text-6xl"></i>
+      
+      if (courses.length === 0) {
+        coursesList.innerHTML = `
+          <div class="col-span-full text-center py-16">
+            <i class="fas fa-book-open text-gray-300 text-6xl mb-4"></i>
+            <h3 class="text-xl font-semibold text-gray-600 mb-2">Nenhum curso disponível</h3>
+            <p class="text-gray-500">Os cursos estarão disponíveis em breve!</p>
           </div>
-          <div class="p-6">
-            <h3 class="text-xl font-bold text-gray-800 mb-2">${course.title}</h3>
-            <p class="text-gray-600 text-sm mb-4">${course.description || ''}</p>
-            <div class="flex items-center justify-between text-sm text-gray-500">
-              <span><i class="fas fa-list-ul mr-1"></i> ${course.modules_count} módulos</span>
-              <span><i class="fas fa-play-circle mr-1"></i> ${course.lessons_count} aulas</span>
+        `
+        return
+      }
+      
+      // Remove any existing continue section first
+      const existingContinue = document.getElementById('continueSection')
+      if (existingContinue) {
+        existingContinue.remove()
+      }
+      
+      // Render "Continue Learning" section if there's a last lesson
+      if (lastLesson) {
+        const continueSection = `
+          <div id="continueSection" class="mb-6 md:mb-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl shadow-xl overflow-hidden">
+            <div class="p-4 md:p-8 text-white">
+              <div class="flex items-center gap-2 md:gap-3 mb-3 md:mb-4">
+                <i class="fas fa-play-circle text-2xl md:text-4xl"></i>
+                <div>
+                  <h3 class="text-lg md:text-2xl font-bold">Continue de onde parou</h3>
+                  <p class="text-blue-100 text-xs md:text-sm">Retome seus estudos agora mesmo</p>
+                </div>
+              </div>
+              
+              <div class="bg-white bg-opacity-20 rounded-lg p-3 md:p-4 backdrop-blur-sm">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div class="flex-1 w-full sm:w-auto">
+                    <p class="text-xs md:text-sm text-blue-100 mb-1">${lastLesson.courseName}</p>
+                    <h4 class="text-base md:text-xl font-bold mb-1 md:mb-2 line-clamp-2">${lastLesson.lessonTitle}</h4>
+                    <p class="text-xs md:text-sm text-blue-100">
+                      <i class="fas fa-folder mr-1"></i> ${lastLesson.moduleName}
+                    </p>
+                  </div>
+                  <button onclick="app.loadLesson(${lastLesson.lessonId})" 
+                          class="w-full sm:w-auto px-4 md:px-6 py-2 md:py-3 bg-white text-blue-600 font-bold rounded-lg hover:bg-blue-50 transition-colors flex items-center justify-center gap-2 shadow-lg text-sm md:text-base whitespace-nowrap">
+                    <i class="fas fa-play"></i>
+                    <span>Continuar Aula</span>
+                  </button>
+                </div>
+              </div>
             </div>
-            <div class="mt-4 text-sm text-gray-500">
-              <i class="fas fa-clock mr-1"></i> ${course.duration_hours}h de conteúdo
+          </div>
+        `
+        
+        // Insert continue section before course list
+        const heroSection = coursesView.querySelector('.mb-8.text-center')
+        if (heroSection) {
+          heroSection.insertAdjacentHTML('afterend', continueSection)
+        }
+      }
+      
+      coursesList.innerHTML = courses.map((course, index) => {
+        // Gradient colors for variety
+        const gradients = [
+          'from-blue-500 to-blue-700',
+          'from-purple-500 to-purple-700',
+          'from-green-500 to-green-700',
+          'from-orange-500 to-orange-700',
+          'from-pink-500 to-pink-700',
+          'from-indigo-500 to-indigo-700'
+        ]
+        const gradient = gradients[index % gradients.length]
+        
+        return `
+        <div class="group bg-white rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden cursor-pointer transform hover:-translate-y-1"
+             onclick="app.loadCourse(${course.id})">
+          <!-- Course Image/Icon -->
+          <div class="relative h-40 md:h-52 bg-gradient-to-br ${gradient} flex items-center justify-center overflow-hidden">
+            <div class="absolute inset-0 bg-black opacity-0 group-hover:opacity-10 transition-opacity"></div>
+            <i class="fas fa-graduation-cap text-white text-5xl md:text-7xl opacity-90 transform group-hover:scale-110 transition-transform duration-300"></i>
+            
+            <!-- Badge -->
+            <div class="absolute top-3 right-3 md:top-4 md:right-4 bg-white bg-opacity-90 px-2 md:px-3 py-1 rounded-full text-xs font-bold text-gray-800">
+              <i class="fas fa-star text-yellow-500 mr-1"></i>
+              ${course.duration_hours}h
+            </div>
+          </div>
+          
+          <!-- Course Info -->
+          <div class="p-4 md:p-6">
+            <h3 class="text-lg md:text-xl font-bold text-gray-800 mb-2 md:mb-3 line-clamp-2 group-hover:text-blue-600 transition-colors">
+              ${course.title}
+            </h3>
+            <p class="text-gray-600 text-xs md:text-sm mb-3 md:mb-4 line-clamp-3 leading-relaxed">
+              ${course.description || 'Aprenda os conceitos essenciais e práticos desta área de conhecimento.'}
+            </p>
+            
+            <!-- Stats -->
+            <div class="flex items-center gap-3 md:gap-4 mb-3 md:mb-4 text-xs md:text-sm text-gray-500">
+              <div class="flex items-center gap-1">
+                <i class="fas fa-folder text-blue-500"></i>
+                <span class="font-medium">${course.modules_count || 0}</span>
+                <span class="hidden sm:inline">módulos</span>
+              </div>
+              <div class="flex items-center gap-1">
+                <i class="fas fa-play-circle text-green-500"></i>
+                <span class="font-medium">${course.lessons_count || 0}</span>
+                <span class="hidden sm:inline">aulas</span>
+              </div>
+            </div>
+            
+            <!-- Instructor -->
+            <div class="flex items-center justify-between pt-3 md:pt-4 border-t border-gray-100">
+              <div class="flex items-center gap-2 text-xs md:text-sm text-gray-600">
+                <div class="w-7 h-7 md:w-8 md:h-8 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-xs">
+                  ${course.instructor.charAt(0).toUpperCase()}
+                </div>
+                <span class="font-medium truncate">${course.instructor}</span>
+              </div>
+              <button class="text-blue-600 hover:text-blue-700 font-semibold text-xs md:text-sm flex items-center gap-1 group-hover:gap-2 transition-all whitespace-nowrap">
+                <span>Acessar</span>
+                <i class="fas fa-arrow-right"></i>
+              </button>
             </div>
           </div>
         </div>
-      `).join('')
+      `}).join('')
     } catch (error) {
       console.error('Error loading courses:', error)
       alert('Erro ao carregar cursos')
@@ -283,6 +392,18 @@ const app = {
       const response = await axios.get(`/api/lessons/${lessonId}`)
       const { lesson, comments } = response.data
       
+      // Get course info for "Continue Learning"
+      const courseResponse = await axios.get(`/api/courses/${lesson.course_id}`)
+      const { course } = courseResponse.data
+      
+      // Save last accessed lesson
+      this.saveLastAccessedLesson(
+        lessonId,
+        lesson.title,
+        lesson.module_title,
+        course.title
+      )
+      
       // Check if completed
       const progressResponse = await axios.get(`/api/progress/${this.currentUser}/${lesson.course_id}`)
       const progress = progressResponse.data.progress
@@ -363,6 +484,76 @@ const app = {
             `).join('')}
           </div>
         </div>
+        
+        <!-- Support Text Section (Collapsible) -->
+        ${lesson.support_text ? `
+          <div class="bg-white rounded-lg shadow-md mt-6">
+            <button onclick="app.toggleSection('supportText')"
+                    class="flex items-center justify-between w-full text-left p-6 hover:bg-gray-50 transition-colors rounded-lg">
+              <h3 class="text-xl font-bold text-gray-800">
+                <i class="fas fa-file-alt mr-2 text-blue-600"></i>
+                Texto de Apoio
+              </h3>
+              <i class="fas fa-chevron-down text-gray-400 transition-transform" id="supportTextIcon"></i>
+            </button>
+            <div id="supportTextContent" class="hidden px-6 pb-6">
+              <div class="prose max-w-none bg-blue-50 rounded-lg p-6 border-t border-gray-200">
+                <div class="text-gray-700 whitespace-pre-wrap">${lesson.support_text}</div>
+              </div>
+            </div>
+          </div>
+        ` : ''}
+        
+        <!-- Attachments Section (Collapsible) -->
+        ${lesson.attachments && Array.isArray(lesson.attachments) && lesson.attachments.length > 0 ? `
+          <div class="bg-white rounded-lg shadow-md mt-6">
+            <button onclick="app.toggleSection('attachments')"
+                    class="flex items-center justify-between w-full text-left p-6 hover:bg-gray-50 transition-colors rounded-lg">
+              <h3 class="text-xl font-bold text-gray-800">
+                <i class="fas fa-paperclip mr-2 text-green-600"></i>
+                Arquivos para Download (${lesson.attachments.length})
+              </h3>
+              <i class="fas fa-chevron-down text-gray-400 transition-transform" id="attachmentsIcon"></i>
+            </button>
+            <div id="attachmentsContent" class="hidden px-6 pb-6">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-gray-200 pt-6">
+                ${lesson.attachments.map(file => `
+                  <div class="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-lg p-4 hover:bg-gray-100 transition-colors">
+                    <i class="fas fa-file-${this.getFileIcon(file.type)} text-3xl text-blue-600"></i>
+                    <div class="flex-1">
+                      <p class="font-semibold text-gray-800">${file.name}</p>
+                      <p class="text-sm text-gray-500">${this.formatFileSize(file.size)}</p>
+                    </div>
+                    <button onclick="app.downloadAttachment('${file.name}', '${file.data}')"
+                            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-colors">
+                      <i class="fas fa-download mr-1"></i>
+                      Baixar
+                    </button>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          </div>
+        ` : ''}
+        
+        <!-- Transcript Section (Collapsible) -->
+        ${lesson.transcript ? `
+          <div class="bg-white rounded-lg shadow-md mt-6">
+            <button onclick="app.toggleSection('transcript')"
+                    class="flex items-center justify-between w-full text-left p-6 hover:bg-gray-50 transition-colors rounded-lg">
+              <h3 class="text-xl font-bold text-gray-800">
+                <i class="fas fa-closed-captioning mr-2 text-purple-600"></i>
+                Transcrição do Vídeo
+              </h3>
+              <i class="fas fa-chevron-down text-gray-400 transition-transform" id="transcriptIcon"></i>
+            </button>
+            <div id="transcriptContent" class="hidden px-6 pb-6">
+              <div class="bg-purple-50 rounded-lg p-6 border-t border-gray-200">
+                <div class="text-gray-700 whitespace-pre-wrap font-mono text-sm">${lesson.transcript}</div>
+              </div>
+            </div>
+          </div>
+        ` : ''}
       `
       
       this.showLessonView()
@@ -459,6 +650,100 @@ const app = {
       alertDiv.style.transition = 'all 0.3s ease-out'
       setTimeout(() => alertDiv.remove(), 300)
     }, 5000)
+  },
+  
+  // Save last accessed lesson
+  saveLastAccessedLesson(lessonId, lessonTitle, moduleName, courseName) {
+    const lastLesson = {
+      lessonId,
+      lessonTitle,
+      moduleName,
+      courseName,
+      timestamp: Date.now()
+    }
+    localStorage.setItem('lastAccessedLesson', JSON.stringify(lastLesson))
+  },
+  
+  // Get last accessed lesson
+  getLastAccessedLesson() {
+    try {
+      const data = localStorage.getItem('lastAccessedLesson')
+      return data ? JSON.parse(data) : null
+    } catch (error) {
+      return null
+    }
+  },
+  
+  // Toggle section visibility (generic)
+  toggleSection(sectionId) {
+    const content = document.getElementById(`${sectionId}Content`)
+    const icon = document.getElementById(`${sectionId}Icon`)
+    
+    if (!content || !icon) return
+    
+    if (content.classList.contains('hidden')) {
+      content.classList.remove('hidden')
+      icon.classList.remove('fa-chevron-down')
+      icon.classList.add('fa-chevron-up')
+      icon.style.transform = 'rotate(180deg)'
+    } else {
+      content.classList.add('hidden')
+      icon.classList.remove('fa-chevron-up')
+      icon.classList.add('fa-chevron-down')
+      icon.style.transform = 'rotate(0deg)'
+    }
+  },
+  
+  // Legacy support for old toggleTranscript() calls
+  toggleTranscript() {
+    this.toggleSection('transcript')
+  },
+  
+  // Download attachment
+  downloadAttachment(filename, base64Data) {
+    try {
+      // Convert base64 to blob
+      const byteCharacters = atob(base64Data)
+      const byteNumbers = new Array(byteCharacters.length)
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i)
+      }
+      const byteArray = new Uint8Array(byteNumbers)
+      const blob = new Blob([byteArray])
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Error downloading file:', error)
+      alert('Erro ao baixar arquivo')
+    }
+  },
+  
+  // Get file icon based on mime type
+  getFileIcon(mimeType) {
+    if (!mimeType) return 'alt'
+    if (mimeType.includes('pdf')) return 'pdf'
+    if (mimeType.includes('word') || mimeType.includes('msword')) return 'word'
+    if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) return 'excel'
+    if (mimeType.includes('powerpoint') || mimeType.includes('presentation')) return 'powerpoint'
+    if (mimeType.includes('zip')) return 'archive'
+    return 'alt'
+  },
+  
+  // Format file size
+  formatFileSize(bytes) {
+    if (!bytes || bytes === 0) return '0 Bytes'
+    const k = 1024
+    const sizes = ['Bytes', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i]
   }
 }
 

@@ -5,13 +5,6 @@
   "pages_build_output_dir": "./dist",
   "compatibility_flags": [
     "nodejs_compat"
-  ],
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "cct-production",
-      "database_id": "ef07be62-b19d-4668-9dbf-1d5e79b0438d"
-    }
   ]
   // Note: SUPABASE_URL and SUPABASE_ANON_KEY are loaded from .dev.vars locally
   // For production, set these using: wrangler pages secret put SUPABASE_URL
