@@ -195,11 +195,16 @@ const app = {
             
             <!-- Certificate Badge (if complete) -->
             ${courseProgress.isComplete === true ? 
-              `<div class="absolute top-3 left-3 md:top-4 md:left-4 bg-gradient-to-r from-yellow-400 to-orange-500 px-2 md:px-3 py-1 rounded-full text-xs font-bold text-white shadow-lg animate-pulse">
-                <i class="fas fa-certificate mr-1"></i>
-                <span class="hidden sm:inline">Certificado</span>
-                <span class="sm:hidden">✓</span>
-              </div>` 
+              `<div style="position: absolute; top: 12px; left: 12px; background: linear-gradient(to right, #FBBF24, #F97316); padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 700; color: white; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); z-index: 10; animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;">
+                <i class="fas fa-certificate" style="margin-right: 4px;"></i>
+                <span style="display: inline;">Certificado</span>
+              </div>
+              <style>
+                @keyframes pulse {
+                  0%, 100% { opacity: 1; }
+                  50% { opacity: .7; }
+                }
+              </style>` 
             : ''}
             
             <!-- Duration Badge -->
@@ -210,8 +215,8 @@ const app = {
             
             <!-- Progress Bar (if not complete) -->
             ${courseProgress.isComplete === false && courseProgress.progressPercent > 0 ? 
-              `<div class="absolute bottom-0 left-0 right-0 h-2 bg-black bg-opacity-20">
-                <div class="h-full bg-green-400" style="width: ${courseProgress.progressPercent}%"></div>
+              `<div style="position: absolute; bottom: 0; left: 0; right: 0; height: 8px; background-color: rgba(0,0,0,0.2); z-index: 5;">
+                <div style="height: 100%; background-color: #4ADE80; width: ${courseProgress.progressPercent}%; transition: width 0.3s ease;"></div>
               </div>` 
             : ''}
           </div>
