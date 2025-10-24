@@ -10,7 +10,7 @@
     {
       "binding": "DB",
       "database_name": "cct-production",
-      "database_id": "configure-after-wrangler-d1-create"
+      "database_id": "ef07be62-b19d-4668-9dbf-1d5e79b0438d"
     }
   ]
   // Note: SUPABASE_URL and SUPABASE_ANON_KEY are loaded from .dev.vars locally
