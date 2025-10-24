@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizador de Banco de Dados - CCT</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 min-h-screen p-8">
+    <div class="max-w-7xl mx-auto">
+        <div class="bg-white rounded-lg shadow-lg p-8 mb-6">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">
+                <i class="fas fa-database mr-2 text-blue-600"></i>
+                Visualizador de Banco de Dados
+            </h1>
+            <p class="text-gray-600">Visualize e consulte os dados do Cloudflare D1</p>
+        </div>
+
+        <!-- Tabs -->
+        <div class="bg-white rounded-lg shadow-lg mb-6">
+            <div class="flex border-b border-gray-200 overflow-x-auto">
+                <button onclick="loadTable('courses')" id="tab-courses" class="tab-button active">
+                    <i class="fas fa-book mr-2"></i>Cursos
+                </button>
+                <button onclick="loadTable('modules')" id="tab-modules" class="tab-button">
+                    <i class="fas fa-folder mr-2"></i>Módulos
+                </button>
+                <button onclick="loadTable('lessons')" id="tab-lessons" class="tab-button">
+                    <i class="fas fa-play-circle mr-2"></i>Aulas
+                </button>
+                <button onclick="loadTable('comments')" id="tab-comments" class="tab-button">
+                    <i class="fas fa-comments mr-2"></i>Comentários
+                </button>
+                <button onclick="loadTable('user_progress')" id="tab-user_progress" class="tab-button">
+                    <i class="fas fa-chart-line mr-2"></i>Progresso
+                </button>
+                <button onclick="loadTable('admins')" id="tab-admins" class="tab-button">
+                    <i class="fas fa-user-shield mr-2"></i>Admins
+                </button>
+            </div>
+        </div>
+
+        <!-- Content -->
+        <div class="bg-white rounded-lg shadow-lg p-8">
+            <div id="content" class="overflow-x-auto">
+                <p class="text-gray-500 text-center py-8">Selecione uma tabela acima</p>
+            </div>
+        </div>
+
+        <!-- Back Link -->
+        <div class="mt-6 text-center">
+            <a href="/" class="text-blue-600 hover:text-blue-800">
+                <i class="fas fa-arrow-left mr-1"></i> Voltar para o site
+            </a>
+        </div>
+    </div>
+
+    <style>
+        .tab-button {
+            padding: 1rem 1.5rem;
+            font-weight: 600;
+            color: #6b7280;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .tab-button:hover {
+            color: #2563eb;
+        }
+        .tab-button.active {
+            color: #2563eb;
+            border-bottom-color: #2563eb;
+        }
+        table {
+            font-size: 0.875rem;
+        }
+        th {
+            position: sticky;
+            top: 0;
+            background: #f3f4f6;
+        }
+    </style>
+
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+    <script>
+        const tableMapping = {
+            'courses': {
+                name: 'Cursos',
+                endpoint: '/api/courses',
+                dataKey: 'courses',
+                columns: ['id', 'title', 'description', 'instructor', 'duration_hours', 'created_at']
+            },
+            'modules': {
+                name: 'Módulos',
+                endpoint: '/api/courses',
+                dataKey: 'custom',
+                customFetch: async () => {
+                    const response = await axios.get('/api/courses')
+                    const courses = response.data.courses
+                    const modules = []
+                    for (const course of courses) {
+                        const courseDetail = await axios.get(`/api/courses/${course.id}`)
+                        courseDetail.data.modules.forEach(m => {
+                            modules.push({
+                                ...m,
+                                course_name: course.title
+                            })
+                        })
+                    }
+                    return modules
+                },
+                columns: ['id', 'course_name', 'title', 'description', 'order_index']
+            },
+            'lessons': {
+                name: 'Aulas',
+                endpoint: '/api/courses',
+                dataKey: 'custom',
+                customFetch: async () => {
+                    const response = await axios.get('/api/courses')
+                    const courses = response.data.courses
+                    const lessons = []
+                    for (const course of courses) {
+                        const courseDetail = await axios.get(`/api/courses/${course.id}`)
+                        courseDetail.data.modules.forEach(m => {
+                            if (m.lessons) {
+                                m.lessons.forEach(l => {
+                                    lessons.push({
+                                        ...l,
+                                        module_name: m.title,
+                                        course_name: course.title
+                                    })
+                                })
+                            }
+                        })
+                    }
+                    return lessons
+                },
+                columns: ['id', 'course_name', 'module_name', 'title', 'video_provider', 'video_id', 'duration_minutes', 'order_index']
+            },
+            'comments': {
+                name: 'Comentários',
+                endpoint: '/api/courses',
+                dataKey: 'custom',
+                customFetch: async () => {
+                    const response = await axios.get('/api/courses')
+                    const courses = response.data.courses
+                    const comments = []
+                    for (const course of courses) {
+                        const courseDetail = await axios.get(`/api/courses/${course.id}`)
+                        for (const module of courseDetail.data.modules) {
+                            if (module.lessons) {
+                                for (const lesson of module.lessons) {
+                                    const lessonDetail = await axios.get(`/api/lessons/${lesson.id}`)
+                                    lessonDetail.data.comments.forEach(c => {
+                                        comments.push({
+                                            ...c,
+                                            lesson_title: lesson.title
+                                        })
+                                    })
+                                }
+                            }
+                        }
+                    }
+                    return comments
+                },
+                columns: ['id', 'lesson_title', 'user_name', 'user_email', 'comment_text', 'created_at']
+            },
+            'user_progress': {
+                name: 'Progresso dos Usuários',
+                endpoint: '/api/courses',
+                dataKey: 'custom',
+                customFetch: async () => {
+                    // This would need a dedicated endpoint, for now show empty
+                    return []
+                },
+                columns: ['id', 'user_email', 'lesson_id', 'completed', 'completed_at']
+            },
+            'admins': {
+                name: 'Administradores',
+                endpoint: '/api/admin/check',
+                dataKey: 'custom',
+                customFetch: async () => {
+                    // Cannot fetch admins list directly, show static info
+                    return [
+                        { email: 'antoniovicelmo.alencar@gmail.com', name: 'ANTONIO VICELMO' },
+                        { email: 'vicelmo@trt21.jus.br', name: 'VICELMO ALENCAR' }
+                    ]
+                },
+                columns: ['email', 'name']
+            }
+        }
+
+        async function loadTable(tableName) {
+            // Update tabs
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active')
+            })
+            document.getElementById(`tab-${tableName}`).classList.add('active')
+
+            const content = document.getElementById('content')
+            content.innerHTML = '<div class="text-center py-8"><i class="fas fa-spinner fa-spin text-4xl text-blue-600"></i></div>'
+
+            try {
+                const config = tableMapping[tableName]
+                let data = []
+
+                if (config.customFetch) {
+                    data = await config.customFetch()
+                } else {
+                    const response = await axios.get(config.endpoint)
+                    data = response.data[config.dataKey]
+                }
+
+                if (!data || data.length === 0) {
+                    content.innerHTML = `
+                        <div class="text-center py-8">
+                            <i class="fas fa-inbox text-6xl text-gray-400 mb-4"></i>
+                            <p class="text-gray-500">Nenhum registro encontrado em ${config.name}</p>
+                        </div>
+                    `
+                    return
+                }
+
+                const columns = config.columns
+                const html = `
+                    <div class="mb-4 flex items-center justify-between">
+                        <h2 class="text-xl font-bold text-gray-800">
+                            ${config.name} (${data.length} registros)
+                        </h2>
+                    </div>
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead>
+                            <tr>
+                                ${columns.map(col => `
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider bg-gray-100">
+                                        ${col.replace(/_/g, ' ')}
+                                    </th>
+                                `).join('')}
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            ${data.map(row => `
+                                <tr class="hover:bg-gray-50">
+                                    ${columns.map(col => {
+                                        let value = row[col]
+                                        if (value === null || value === undefined) value = '-'
+                                        if (typeof value === 'string' && value.length > 100) {
+                                            value = value.substring(0, 100) + '...'
+                                        }
+                                        if (col === 'video_provider' && value !== '-') {
+                                            value = `<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">${value}</span>`
+                                        }
+                                        if (col === 'completed' && value !== '-') {
+                                            value = value ? '<i class="fas fa-check text-green-600"></i>' : '<i class="fas fa-times text-red-600"></i>'
+                                        }
+                                        return `<td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">${value}</td>`
+                                    }).join('')}
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `
+                content.innerHTML = html
+            } catch (error) {
+                content.innerHTML = `
+                    <div class="text-center py-8">
+                        <i class="fas fa-exclamation-triangle text-6xl text-red-500 mb-4"></i>
+                        <p class="text-red-600">Erro ao carregar dados: ${error.message}</p>
+                    </div>
+                `
+            }
+        }
+
+        // Load courses by default
+        window.addEventListener('DOMContentLoaded', () => {
+            loadTable('courses')
+        })
+    </script>
+</body>
+</html>
