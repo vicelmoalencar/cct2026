@@ -6,7 +6,9 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie'
 
-const port = process.env.PORT || 8080
+// Use PORT from environment, default to 8080
+// Easypanel usually provides PORT env var
+const port = parseInt(process.env.PORT || '8080', 10)
 
 // Get environment variables
 const SUPABASE_URL = process.env.SUPABASE_URL
@@ -59,14 +61,14 @@ if (existsSync(publicPath)) {
 app.use('/static/*', serveStatic({ root: publicPath }))
 
 console.log(`🚀 Starting server on port ${port}...`)
-console.log(`📦 Supabase URL: ${SUPABASE_URL}`)
+console.log(`📦 Supabase URL: ${SUPABASE_URL || 'NOT SET'}`)
 
-serve({
+const server = serve({
   fetch: (req) => {
     // Create a custom environment object with Supabase credentials
     const env = {
-      SUPABASE_URL,
-      SUPABASE_ANON_KEY
+      SUPABASE_URL: SUPABASE_URL || '',
+      SUPABASE_ANON_KEY: SUPABASE_ANON_KEY || ''
     }
     
     // Call the Hono app with the environment
@@ -77,3 +79,21 @@ serve({
 })
 
 console.log(`✅ Server running at http://0.0.0.0:${port}`)
+console.log(`✅ Server ready to accept connections`)
+
+// Handle graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('⚠️ SIGTERM received, shutting down gracefully...')
+  server.close(() => {
+    console.log('✅ Server closed')
+    process.exit(0)
+  })
+})
+
+process.on('SIGINT', () => {
+  console.log('⚠️ SIGINT received, shutting down gracefully...')
+  server.close(() => {
+    console.log('✅ Server closed')
+    process.exit(0)
+  })
+})
