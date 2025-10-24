@@ -159,7 +159,12 @@ const app = {
       const progressMap = {}
       progressData.forEach(p => {
         progressMap[p.courseId] = p
+        if (p.isComplete) {
+          console.log('✅ Course', p.courseId, 'is complete! Badge should be visible.')
+        }
       })
+      
+      console.log('📋 Progress map:', progressMap)
       
       coursesList.innerHTML = courses.map((course, index) => {
         // Gradient colors for variety
@@ -175,6 +180,11 @@ const app = {
         
         const courseProgress = progressMap[course.id] || { isComplete: false, progressPercent: 0 }
         
+        // Debug log for certificate badge
+        if (courseProgress.isComplete) {
+          console.log('🏆 Rendering certificate badge for course:', course.title)
+        }
+        
         return `
         <div class="group bg-white rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden cursor-pointer transform hover:-translate-y-1 active:scale-95"
              onclick="app.handleCourseClick(event, ${course.id})">
@@ -184,13 +194,13 @@ const app = {
             <i class="fas fa-graduation-cap text-white text-5xl md:text-7xl opacity-90 transform group-hover:scale-110 transition-transform duration-300"></i>
             
             <!-- Certificate Badge (if complete) -->
-            ${courseProgress.isComplete ? `
-            <div class="absolute top-3 left-3 md:top-4 md:left-4 bg-gradient-to-r from-yellow-400 to-orange-500 px-2 md:px-3 py-1 rounded-full text-xs font-bold text-white shadow-lg animate-pulse">
-              <i class="fas fa-certificate mr-1"></i>
-              <span class="hidden sm:inline">Certificado</span>
-              <span class="sm:hidden">✓</span>
-            </div>
-            ` : ''}
+            ${courseProgress.isComplete === true ? 
+              `<div class="absolute top-3 left-3 md:top-4 md:left-4 bg-gradient-to-r from-yellow-400 to-orange-500 px-2 md:px-3 py-1 rounded-full text-xs font-bold text-white shadow-lg animate-pulse">
+                <i class="fas fa-certificate mr-1"></i>
+                <span class="hidden sm:inline">Certificado</span>
+                <span class="sm:hidden">✓</span>
+              </div>` 
+            : ''}
             
             <!-- Duration Badge -->
             <div class="absolute top-3 right-3 md:top-4 md:right-4 bg-white bg-opacity-90 px-2 md:px-3 py-1 rounded-full text-xs font-bold text-gray-800">
@@ -199,11 +209,11 @@ const app = {
             </div>
             
             <!-- Progress Bar (if not complete) -->
-            ${!courseProgress.isComplete && courseProgress.progressPercent > 0 ? `
-            <div class="absolute bottom-0 left-0 right-0 h-2 bg-black bg-opacity-20">
-              <div class="h-full bg-green-400" style="width: ${courseProgress.progressPercent}%"></div>
-            </div>
-            ` : ''}
+            ${courseProgress.isComplete === false && courseProgress.progressPercent > 0 ? 
+              `<div class="absolute bottom-0 left-0 right-0 h-2 bg-black bg-opacity-20">
+                <div class="h-full bg-green-400" style="width: ${courseProgress.progressPercent}%"></div>
+              </div>` 
+            : ''}
           </div>
           
           <!-- Course Info -->
