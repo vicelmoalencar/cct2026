@@ -421,16 +421,25 @@ app.post('/api/auth/forgot-password', async (c) => {
 // Reset password with token
 app.post('/api/auth/reset-password', async (c) => {
   try {
-    const { token, password } = await c.req.json()
+    const body = await c.req.json()
+    const { token, password } = body
+    
+    console.log('🔐 Password reset attempt')
+    console.log('   Token present:', !!token)
+    console.log('   Token length:', token?.length)
+    console.log('   Password length:', password?.length)
     
     if (!token || !password) {
-      return c.json({ error: 'Token and password are required' }, 400)
+      console.error('❌ Missing token or password')
+      return c.json({ error: 'Token e senha são obrigatórios' }, 400)
     }
     
     if (password.length < 6) {
-      return c.json({ error: 'Password must be at least 6 characters' }, 400)
+      console.error('❌ Password too short')
+      return c.json({ error: 'A senha deve ter pelo menos 6 caracteres' }, 400)
     }
     
+    console.log('📨 Calling Supabase to update password...')
     const response = await fetch(`${c.env.SUPABASE_URL}/auth/v1/user`, {
       method: 'PUT',
       headers: {
@@ -441,12 +450,16 @@ app.post('/api/auth/reset-password', async (c) => {
       body: JSON.stringify({ password })
     })
     
+    console.log('📨 Supabase response:', { status: response.status, ok: response.ok })
+    
     if (!response.ok) {
       const data = await response.json()
-      return c.json({ error: data.error_description || 'Failed to reset password' }, 400)
+      console.error('❌ Password reset failed:', data)
+      return c.json({ error: data.error_description || data.message || 'Falha ao redefinir senha' }, 400)
     }
     
     const data = await response.json()
+    console.log('✅ Password reset successful')
     
     // Set cookies with the new session
     if (data.access_token) {
