@@ -11,6 +11,7 @@
 ✅ **Completas**:
 - ✅ **Sistema de Autenticação com Supabase** (Login, Registro, Logout)
 - ✅ **Sistema de Recuperação de Senha** completo com email
+- ✅ **Página de Perfil do Usuário** com edição de nome e alteração de senha
 - ✅ **Painel de Administração** completo para gerenciar cursos
 - ✅ **Players de Vídeo** integrados (YouTube, Vimeo, URL customizada)
 - ✅ **Permissões de Admin** - apenas emails autorizados acessam o painel
@@ -31,7 +32,6 @@
 🚧 **Pendentes**:
 - ⏳ Interface visual para gestão de módulos e aulas no painel admin
 - ⏳ Confirmação de email no registro (configurável no Supabase)
-- ⏳ Editar perfil do usuário
 - ⏳ Certificados de conclusão
 - ⏳ Fórum de discussões
 - ⏳ Download de materiais complementares
@@ -53,6 +53,8 @@
 | GET | `/api/auth/me` | Retorna dados do usuário atual |
 | POST | `/api/auth/forgot-password` | Solicita recuperação de senha (envia email) |
 | POST | `/api/auth/reset-password` | Redefine senha com token de recuperação |
+| PUT | `/api/auth/profile` | Atualiza nome do usuário |
+| POST | `/api/auth/change-password` | Altera senha (requer senha atual) |
 
 #### Administração (Admin apenas)
 | Método | Endpoint | Descrição |
@@ -267,13 +269,17 @@ O sistema utiliza **Cloudflare D1** (SQLite distribuído) com as seguintes tabel
 
 #### Usando a Plataforma
 
-4. **Escolha um curso**: Na página inicial, você verá todos os cursos disponíveis com informações sobre módulos e aulas
-5. **Navegue pelos módulos**: Clique em um curso para ver seus módulos. Clique nos módulos para expandir e ver as aulas
-6. **Assista às aulas**: Clique em uma aula para ver o conteúdo, vídeo e comentários
-7. **Marque como concluída**: Após assistir, clique no botão "Marcar como concluída" para registrar seu progresso
-8. **Comente**: Adicione comentários nas aulas para tirar dúvidas ou compartilhar insights
-9. **Acompanhe seu progresso**: A barra de progresso mostra quantas aulas você já completou
-10. **Logout**: Clique no botão "Sair" no canto superior direito quando terminar
+4. **Gerencie seu perfil**: Clique no botão "Perfil" no header para:
+   - Atualizar seu nome
+   - Alterar sua senha (requer senha atual)
+   - Visualizar suas informações de conta
+5. **Escolha um curso**: Na página inicial, você verá todos os cursos disponíveis com informações sobre módulos e aulas
+6. **Navegue pelos módulos**: Clique em um curso para ver seus módulos. Clique nos módulos para expandir e ver as aulas
+7. **Assista às aulas**: Clique em uma aula para ver o conteúdo, vídeo e comentários
+8. **Marque como concluída**: Após assistir, clique no botão "Marcar como concluída" para registrar seu progresso
+9. **Comente**: Adicione comentários nas aulas para tirar dúvidas ou compartilhar insights
+10. **Acompanhe seu progresso**: A barra de progresso mostra quantas aulas você já completou
+11. **Logout**: Clique no botão "Sair" no canto superior direito quando terminar
 
 ### Cursos Disponíveis (Dados de Exemplo)
 
