@@ -10,6 +10,7 @@
 
 ✅ **Completas**:
 - ✅ **Sistema de Autenticação com Supabase** (Login, Registro, Logout)
+- ✅ **Sistema de Recuperação de Senha** completo com email
 - ✅ **Painel de Administração** completo para gerenciar cursos
 - ✅ **Players de Vídeo** integrados (YouTube, Vimeo, URL customizada)
 - ✅ **Permissões de Admin** - apenas emails autorizados acessam o painel
@@ -30,7 +31,6 @@
 🚧 **Pendentes**:
 - ⏳ Interface visual para gestão de módulos e aulas no painel admin
 - ⏳ Confirmação de email no registro (configurável no Supabase)
-- ⏳ Recuperação de senha
 - ⏳ Editar perfil do usuário
 - ⏳ Certificados de conclusão
 - ⏳ Fórum de discussões
@@ -50,6 +50,8 @@
 | POST | `/api/auth/register` | Registrar novo usuário |
 | POST | `/api/auth/logout` | Logout (limpa cookies) |
 | GET | `/api/auth/me` | Retorna dados do usuário atual |
+| POST | `/api/auth/forgot-password` | Solicita recuperação de senha (envia email) |
+| POST | `/api/auth/reset-password` | Redefine senha com token de recuperação |
 
 #### Administração (Admin apenas)
 | Método | Endpoint | Descrição |
@@ -124,6 +126,7 @@ O sistema utiliza **Supabase** como backend de autenticação, fornecendo:
 
 - ✅ **Login seguro** com email e senha
 - ✅ **Registro de novos usuários** com validação
+- ✅ **Recuperação de senha** via email com token seguro
 - ✅ **Gerenciamento de sessão** via cookies HTTP-only
 - ✅ **Proteção de rotas** - usuários não autenticados não acessam o conteúdo
 - ✅ **Token refresh automático** para manter usuários logados
@@ -154,6 +157,32 @@ npx wrangler pages secret put SUPABASE_ANON_KEY
 3. **Login** → Valida credenciais → Recebe token JWT → Salvo em cookie
 4. **Acesso ao app** → Token validado em cada requisição
 5. **Logout** → Remove cookies → Redireciona para login
+
+### Sistema de Recuperação de Senha
+
+**Fluxo Completo**:
+
+1. **Usuário esqueceu a senha** → Clica em "Esqueceu sua senha?" na tela de login
+2. **Digite o email** → Sistema envia email com link de recuperação via Supabase
+3. **Recebe email** → Email contém link único com token de segurança
+4. **Clica no link** → Redireciona para `/reset-password` com token no URL
+5. **Define nova senha** → Usuário digita e confirma nova senha (mínimo 6 caracteres)
+6. **Senha atualizada** → Sistema valida token e atualiza senha no Supabase
+7. **Login automático** → Após redefinir, usuário é autenticado automaticamente
+8. **Redirecionamento** → Usuário é levado à página principal já logado
+
+**Endpoints**:
+- `POST /api/auth/forgot-password` - Solicita recuperação (body: `{email}`)
+- `POST /api/auth/reset-password` - Redefine senha (body: `{token, password}`)
+- `GET /reset-password` - Página de redefinição de senha (com token no hash)
+
+**Recursos de Segurança**:
+- ✅ Token único e temporário gerado pelo Supabase
+- ✅ Link expira após uso ou tempo limite
+- ✅ Validação de senha (mínimo 6 caracteres)
+- ✅ Confirmação de senha antes de enviar
+- ✅ Token não revelado na URL (apenas no hash #)
+- ✅ Mensagens genéricas para não revelar se email existe
 
 ### Segurança
 
