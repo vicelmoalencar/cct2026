@@ -735,6 +735,119 @@ app.post('/api/progress/uncomplete', async (c) => {
 // FRONTEND - Main page
 // ============================================
 
+// Test page for Continue Learning feature
+app.get('/test-continue', (c) => {
+  return c.html(`
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Testar "Continue de Onde Parou"</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-lg p-8">
+        <h1 class="text-3xl font-bold text-gray-800 mb-6">
+            🧪 Testar "Continue de Onde Parou"
+        </h1>
+        
+        <div class="mb-6">
+            <h2 class="text-xl font-semibold text-gray-700 mb-3">Status Atual:</h2>
+            <div id="status" class="bg-gray-50 p-4 rounded-lg">
+                <p class="text-gray-600">Carregando...</p>
+            </div>
+        </div>
+        
+        <div class="space-y-4">
+            <button onclick="setTestData()" 
+                    class="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors">
+                ✅ Adicionar Dados de Teste
+            </button>
+            
+            <button onclick="clearData()" 
+                    class="w-full px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-colors">
+                🗑️ Limpar Dados
+            </button>
+            
+            <button onclick="checkData()" 
+                    class="w-full px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors">
+                🔍 Verificar Dados
+            </button>
+            
+            <a href="/" 
+               class="block w-full px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold transition-colors text-center">
+                🏠 Voltar à Página Principal
+            </a>
+        </div>
+        
+        <div class="mt-8 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <h3 class="font-semibold text-yellow-800 mb-2">💡 Como funciona:</h3>
+            <ol class="text-sm text-yellow-700 list-decimal list-inside space-y-1">
+                <li>Clique em "Adicionar Dados de Teste" para simular uma aula visitada</li>
+                <li>Volte à página principal</li>
+                <li>O banner "Continue de onde parou" deve aparecer no topo</li>
+                <li>Use "Limpar Dados" para resetar</li>
+            </ol>
+        </div>
+    </div>
+    
+    <script>
+        function setTestData() {
+            const testData = {
+                lessonId: 1,
+                lessonTitle: "Bem-vindo ao CCT",
+                moduleName: "Introdução aos Cálculos Trabalhistas",
+                courseName: "Curso Completo de Cálculos Trabalhistas",
+                timestamp: Date.now()
+            }
+            
+            localStorage.setItem('lastAccessedLesson', JSON.stringify(testData))
+            
+            alert('✅ Dados de teste adicionados!\\n\\nAgora volte à página principal para ver o banner.')
+            checkData()
+        }
+        
+        function clearData() {
+            localStorage.removeItem('lastAccessedLesson')
+            alert('🗑️ Dados removidos!')
+            checkData()
+        }
+        
+        function checkData() {
+            const data = localStorage.getItem('lastAccessedLesson')
+            const statusDiv = document.getElementById('status')
+            
+            if (data) {
+                const parsed = JSON.parse(data)
+                statusDiv.innerHTML = \`
+                    <div class="text-green-700">
+                        <p class="font-semibold mb-2">✅ Dados encontrados:</p>
+                        <pre class="text-xs bg-white p-3 rounded border border-green-200 overflow-auto">\${JSON.stringify(parsed, null, 2)}</pre>
+                    </div>
+                \`
+            } else {
+                statusDiv.innerHTML = \`
+                    <p class="text-red-600 font-semibold">
+                        ❌ Nenhum dado encontrado no localStorage
+                    </p>
+                    <p class="text-sm text-gray-600 mt-2">
+                        Para que o banner apareça, você precisa:
+                        <br>1. Adicionar dados de teste (botão acima), ou
+                        <br>2. Acessar qualquer aula na aplicação
+                    </p>
+                \`
+            }
+        }
+        
+        // Check on load
+        checkData()
+    </script>
+</body>
+</html>
+  `)
+})
+
 app.get('/', (c) => {
   return c.html(`
     <!DOCTYPE html>

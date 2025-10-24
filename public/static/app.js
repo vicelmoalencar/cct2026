@@ -120,9 +120,12 @@ const app = {
         `
         
         // Insert continue section before course list
-        const heroSection = coursesView.querySelector('.mb-8.text-center')
+        const heroSection = coursesView.querySelector('.text-center')
         if (heroSection) {
           heroSection.insertAdjacentHTML('afterend', continueSection)
+        } else {
+          // Fallback: insert at the beginning of coursesView
+          coursesView.insertAdjacentHTML('afterbegin', continueSection)
         }
       }
       
