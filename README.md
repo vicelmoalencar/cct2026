@@ -12,7 +12,8 @@
 - ✅ **Sistema de Autenticação com Supabase** (Login, Registro, Logout)
 - ✅ **Sistema de Recuperação de Senha** completo com email
 - ✅ **Página de Perfil do Usuário** com edição de nome e alteração de senha
-- ✅ **Painel de Administração** completo para gerenciar cursos
+- ✅ **Sistema de Certificados** com geração automática ao completar 100% do curso
+- ✅ **Painel de Administração** completo para gerenciar cursos e templates de certificados
 - ✅ **Players de Vídeo** integrados (YouTube, Vimeo, URL customizada)
 - ✅ **Permissões de Admin** - apenas emails autorizados acessam o painel
 - ✅ Proteção de rotas - usuários não autenticados veem tela de login
@@ -32,7 +33,6 @@
 🚧 **Pendentes**:
 - ⏳ Interface visual para gestão de módulos e aulas no painel admin
 - ⏳ Confirmação de email no registro (configurável no Supabase)
-- ⏳ Certificados de conclusão
 - ⏳ Fórum de discussões
 - ⏳ Download de materiais complementares
 
@@ -55,6 +55,15 @@
 | POST | `/api/auth/reset-password` | Redefine senha com token de recuperação |
 | PUT | `/api/auth/profile` | Atualiza nome do usuário |
 | POST | `/api/auth/change-password` | Altera senha (requer senha atual) |
+
+#### Certificados
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| POST | `/api/admin/certificate-template` | Upload template de certificado (Admin) |
+| GET | `/api/certificate-template/:courseId` | Busca template do curso |
+| POST | `/api/certificates/generate` | Gera certificado para usuário |
+| GET | `/api/certificates` | Lista certificados do usuário |
+| GET | `/api/certificates/:id` | Detalhes de um certificado |
 
 #### Administração (Admin apenas)
 | Método | Endpoint | Descrição |
@@ -195,6 +204,58 @@ npx wrangler pages secret put SUPABASE_ANON_KEY
 - ✅ Senhas hash no Supabase (bcrypt)
 - ✅ Rate limiting do Supabase
 
+## 🎓 Sistema de Certificados
+
+### Como Funciona
+
+**Para Alunos:**
+1. **Complete o curso**: Assista e marque todas as aulas como concluídas
+2. **Geração automática**: Ao atingir 100% de conclusão, o certificado é gerado automaticamente
+3. **Notificação visual**: Um popup animado aparece comemorando sua conquista
+4. **Acesse seus certificados**: Clique no botão "Certificados" (amarelo) no header
+5. **Visualize/Baixe**: Clique em qualquer certificado para visualizá-lo em alta qualidade
+
+**Para Administradores:**
+1. **Configure o template**: No painel admin, ao criar/editar um curso, adicione a URL da imagem do certificado
+2. **Upload externo**: Faça upload da imagem do certificado em serviços como:
+   - Imgur (https://imgur.com)
+   - Cloudinary (https://cloudinary.com)
+   - ImgBB (https://imgbb.com)
+   - Ou qualquer serviço de hospedagem de imagens
+3. **Cole a URL**: No campo "Template de Certificado", cole a URL pública da imagem
+4. **Salve**: O template fica vinculado ao curso
+
+### Recursos do Sistema
+
+- ✅ **Geração automática** ao completar 100% do curso
+- ✅ **Notificação visual** animada ao gerar certificado
+- ✅ **Página dedicada** para visualizar todos os certificados
+- ✅ **Templates personalizáveis** por curso
+- ✅ **Dados do certificado**:
+  - Nome do aluno
+  - Título do curso
+  - Data de conclusão
+  - Data de emissão
+- ✅ **Design responsivo** para mobile e desktop
+
+### Tabelas de Banco de Dados
+
+**certificate_templates** (Templates de Certificados):
+- `id`: ID único
+- `course_id`: Referência ao curso
+- `template_url`: URL da imagem do template
+- `created_at`, `updated_at`: Timestamps
+
+**certificates** (Certificados Emitidos):
+- `id`: ID único
+- `user_email`: Email do usuário
+- `user_name`: Nome do usuário
+- `course_id`: Referência ao curso
+- `course_title`: Título do curso
+- `issued_at`: Data de emissão
+- `completion_date`: Data de conclusão
+- Constraint: Único por usuário+curso (não pode gerar duplicados)
+
 ## 🗄️ Arquitetura de Dados
 
 ### Modelo de Dados
@@ -269,17 +330,22 @@ O sistema utiliza **Cloudflare D1** (SQLite distribuído) com as seguintes tabel
 
 #### Usando a Plataforma
 
-4. **Gerencie seu perfil**: Clique no botão "Perfil" no header para:
+4. **Acesse seus certificados**: Clique no botão "Certificados" (amarelo) para:
+   - Ver todos os certificados conquistados
+   - Baixar/visualizar certificados em alta qualidade
+   - Acompanhar suas conquistas
+5. **Gerencie seu perfil**: Clique no botão "Perfil" no header para:
    - Atualizar seu nome
    - Alterar sua senha (requer senha atual)
    - Visualizar suas informações de conta
-5. **Escolha um curso**: Na página inicial, você verá todos os cursos disponíveis com informações sobre módulos e aulas
-6. **Navegue pelos módulos**: Clique em um curso para ver seus módulos. Clique nos módulos para expandir e ver as aulas
-7. **Assista às aulas**: Clique em uma aula para ver o conteúdo, vídeo e comentários
-8. **Marque como concluída**: Após assistir, clique no botão "Marcar como concluída" para registrar seu progresso
-9. **Comente**: Adicione comentários nas aulas para tirar dúvidas ou compartilhar insights
-10. **Acompanhe seu progresso**: A barra de progresso mostra quantas aulas você já completou
-11. **Logout**: Clique no botão "Sair" no canto superior direito quando terminar
+6. **Escolha um curso**: Na página inicial, você verá todos os cursos disponíveis com informações sobre módulos e aulas
+7. **Navegue pelos módulos**: Clique em um curso para ver seus módulos. Clique nos módulos para expandir e ver as aulas
+8. **Assista às aulas**: Clique em uma aula para ver o conteúdo, vídeo e comentários
+9. **Marque como concluída**: Após assistir, clique no botão "Marcar como concluída" para registrar seu progresso
+10. **Comente**: Adicione comentários nas aulas para tirar dúvidas ou compartilhar insights
+11. **Acompanhe seu progresso**: A barra de progresso mostra quantas aulas você já completou
+12. **Receba seu certificado**: Ao completar 100% de um curso, o certificado é gerado automaticamente! 🎉
+13. **Logout**: Clique no botão "Sair" no canto superior direito quando terminar
 
 ### Cursos Disponíveis (Dados de Exemplo)
 
