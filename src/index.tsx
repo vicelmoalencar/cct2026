@@ -847,7 +847,7 @@ app.delete('/api/admin/modules/:id', requireAdmin, async (c) => {
 // Create lesson (admin only)
 app.post('/api/admin/lessons', requireAdmin, async (c) => {
   try {
-    const { module_id, title, description, video_provider, video_id, duration_minutes, order_index, support_text, transcript, attachments } = await c.req.json()
+    const { module_id, title, description, video_provider, video_id, duration_minutes, order_index, free_trial, support_text, transcript, attachments } = await c.req.json()
     
     // Build video_url from provider and id
     let video_url = null
@@ -871,6 +871,7 @@ app.post('/api/admin/lessons', requireAdmin, async (c) => {
       video_id: video_id || null,
       duration_minutes: duration_minutes || 0,
       order_index: order_index || 0,
+      free_trial: free_trial || false,
       support_text: support_text || null,
       transcript: transcript || null,
       attachments: attachments || []
@@ -889,7 +890,7 @@ app.post('/api/admin/lessons', requireAdmin, async (c) => {
 app.put('/api/admin/lessons/:id', requireAdmin, async (c) => {
   try {
     const lessonId = c.req.param('id')
-    const { title, description, video_provider, video_id, duration_minutes, order_index, support_text, transcript, attachments } = await c.req.json()
+    const { title, description, video_provider, video_id, duration_minutes, order_index, free_trial, support_text, transcript, attachments } = await c.req.json()
     
     // Build video_url from provider and id
     let video_url = null
@@ -912,6 +913,7 @@ app.put('/api/admin/lessons/:id', requireAdmin, async (c) => {
       video_id: video_id || null,
       duration_minutes,
       order_index,
+      free_trial: free_trial !== undefined ? free_trial : false,
       support_text: support_text || null,
       transcript: transcript || null,
       attachments: attachments || []
