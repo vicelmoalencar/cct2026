@@ -246,12 +246,28 @@ async function handleAuthCallback(c: any) {
     return c.redirect('/?error=no_token')
   }
   
-  // If type is recovery, redirect to reset-password page with token
-  if (type === 'recovery') {
-    return c.redirect(`/reset-password#access_token=${accessToken}&refresh_token=${refreshToken || ''}&type=recovery`)
+  // CRITICAL: Check if this is a password recovery token
+  // Recovery tokens should NEVER create a session automatically
+  // They should only allow password reset
+  
+  // Check the JWT payload to determine if it's a recovery token
+  try {
+    const payload = JSON.parse(atob(accessToken.split('.')[1]))
+    const hasRecoveryAMR = payload.amr?.some((item: any) => item.method === 'otp')
+    
+    // If type is recovery OR token was issued via OTP (password reset), go to reset page
+    if (type === 'recovery' || hasRecoveryAMR) {
+      // DO NOT set cookies - force user to reset password first
+      return c.redirect(`/reset-password#access_token=${accessToken}&refresh_token=${refreshToken || ''}&type=recovery`)
+    }
+  } catch (e) {
+    // If JWT parsing fails, default to recovery if type is present
+    if (type === 'recovery') {
+      return c.redirect(`/reset-password#access_token=${accessToken}&refresh_token=${refreshToken || ''}&type=recovery`)
+    }
   }
   
-  // Set cookies for normal auth
+  // Set cookies ONLY for normal auth (email confirmation, OAuth)
   setCookie(c, 'sb-access-token', accessToken, {
     httpOnly: true,
     secure: true,
