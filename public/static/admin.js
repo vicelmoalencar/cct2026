@@ -418,8 +418,22 @@ const adminUI = {
           alert('✅ Curso e template de certificado salvos com sucesso!')
         } catch (certError) {
           console.error('❌ Erro ao salvar template:', certError)
-          alert('⚠️ Curso salvo, mas houve erro ao fazer upload do template de certificado: ' + 
-                (certError.response?.data?.error || certError.message))
+          console.error('📋 Detalhes do erro:', certError.response?.data)
+          
+          let errorMessage = 'Erro desconhecido'
+          if (certError.response?.data) {
+            const data = certError.response.data
+            errorMessage = data.error || 'Erro ao fazer upload'
+            if (data.hint) errorMessage += '\n\n💡 ' + data.hint
+            if (data.details) {
+              console.error('📝 Detalhes técnicos:', data.details)
+              errorMessage += '\n\nDetalhes: ' + JSON.stringify(data.details, null, 2)
+            }
+          } else {
+            errorMessage = certError.message
+          }
+          
+          alert('⚠️ Curso salvo, mas houve erro ao fazer upload do template de certificado:\n\n' + errorMessage)
         }
       } else {
         alert('✅ Curso salvo com sucesso!')
