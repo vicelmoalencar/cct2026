@@ -81,12 +81,46 @@ app.get('/health', (c) => {
   })
 })
 
-// Serve static files - try absolute path
+// Serve static files - CRITICAL: rewrite /static/* to /public/static/*
 console.log('🔧 Configuring static file serving...')
 console.log('   Root path:', publicPath)
-console.log('   Pattern: /static/*')
+console.log('   Static path:', join(publicPath, 'static'))
+console.log('   Pattern: /static/* -> ' + join(publicPath, 'static'))
 
-app.use('/static/*', serveStatic({ root: publicPath }))
+// Option 1: Serve from /app/public/static/* at URL /static/*
+app.use('/static/*', serveStatic({ 
+  root: publicPath,
+  rewriteRequestPath: (path) => {
+    console.log('🔄 Rewriting path:', path, '-> /static' + path.replace('/static', ''))
+    return path.replace('/static', '/static')
+  }
+}))
+
+// Option 2: Try direct mapping (fallback)
+app.use('/static/*', async (c, next) => {
+  const requestPath = new URL(c.req.url).pathname
+  const fileName = requestPath.replace('/static/', '')
+  const filePath = join(publicPath, 'static', fileName)
+  
+  console.log('🔍 Looking for file:', filePath)
+  
+  if (existsSync(filePath)) {
+    console.log('✅ File found, serving:', fileName)
+    const { readFileSync } = await import('fs')
+    const content = readFileSync(filePath, 'utf-8')
+    
+    // Set appropriate content type
+    let contentType = 'text/plain'
+    if (fileName.endsWith('.js')) contentType = 'application/javascript'
+    else if (fileName.endsWith('.css')) contentType = 'text/css'
+    else if (fileName.endsWith('.html')) contentType = 'text/html'
+    
+    return c.text(content, 200, { 'Content-Type': contentType })
+  }
+  
+  console.log('❌ File not found:', filePath)
+  await next()
+})
 
 // Mount the original worker app to handle all other routes
 app.route('/', workerApp)
