@@ -157,12 +157,31 @@ const app = {
       
       const progressData = await Promise.all(progressPromises)
       const progressMap = {}
-      progressData.forEach(p => {
+      
+      // Check and generate certificates for completed courses
+      for (const p of progressData) {
         progressMap[p.courseId] = p
         if (p.isComplete) {
           console.log('✅ Course', p.courseId, 'is complete! Badge should be visible.')
+          // Try to generate certificate if not exists
+          try {
+            console.log('🎓 Attempting to generate certificate for course', p.courseId)
+            const certResponse = await axios.post('/api/certificates/generate', {
+              course_id: p.courseId
+            })
+            if (certResponse.data.success) {
+              console.log('✨ Certificate generated for course', p.courseId)
+            }
+          } catch (certError) {
+            // Certificate might already exist or there was an error
+            if (certError.response?.status === 400 && certError.response?.data?.certificate) {
+              console.log('ℹ️ Certificate already exists for course', p.courseId)
+            } else {
+              console.log('⚠️ Could not generate certificate:', certError.response?.data?.error)
+            }
+          }
         }
-      })
+      }
       
       console.log('📋 Progress map:', progressMap)
       

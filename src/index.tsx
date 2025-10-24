@@ -1364,9 +1364,22 @@ app.post('/api/certificates/generate', async (c) => {
       certificate,
       message: 'Parabéns! Seu certificado foi gerado com sucesso!'
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('💥 Certificate generation error:', error)
-    return c.json({ error: 'Erro ao gerar certificado' }, 500)
+    console.error('Error details:', error.message)
+    
+    // Check if it's a table not found error
+    if (error.message?.includes('certificates') || error.message?.includes('relation')) {
+      return c.json({ 
+        error: 'Tabela de certificados não encontrada. Execute a migração SQL no Supabase.',
+        details: error.message
+      }, 500)
+    }
+    
+    return c.json({ 
+      error: 'Erro ao gerar certificado',
+      details: error.message 
+    }, 500)
   }
 })
 
