@@ -142,8 +142,8 @@ const app = {
         const gradient = gradients[index % gradients.length]
         
         return `
-        <div class="group bg-white rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden cursor-pointer transform hover:-translate-y-1"
-             onclick="app.loadCourse(${course.id})">
+        <div class="group bg-white rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden cursor-pointer transform hover:-translate-y-1 active:scale-95"
+             onclick="app.handleCourseClick(event, ${course.id})">
           <!-- Course Image/Icon -->
           <div class="relative h-40 md:h-52 bg-gradient-to-br ${gradient} flex items-center justify-center overflow-hidden">
             <div class="absolute inset-0 bg-black opacity-0 group-hover:opacity-10 transition-opacity"></div>
@@ -201,9 +201,26 @@ const app = {
     }
   },
   
+  // Handle course card click with visual feedback
+  handleCourseClick(event, courseId) {
+    const card = event.currentTarget
+    
+    // Add clicked effect
+    card.classList.add('ring-4', 'ring-blue-400', 'ring-opacity-50')
+    
+    // Brief delay for visual feedback
+    setTimeout(() => {
+      card.classList.remove('ring-4', 'ring-blue-400', 'ring-opacity-50')
+      this.loadCourse(courseId)
+    }, 200)
+  },
+  
   // Load course with modules and lessons
   async loadCourse(courseId) {
     try {
+      // Show loading state
+      this.showLoadingState('Carregando curso...')
+      
       this.currentCourse = courseId
       
       const [courseResponse, progressResponse] = await Promise.all([
@@ -295,8 +312,10 @@ const app = {
       `
       
       this.showCourseView()
+      this.hideLoadingState()
     } catch (error) {
       console.error('Error loading course:', error)
+      this.hideLoadingState()
       alert('Erro ao carregar curso')
     }
   },
@@ -390,6 +409,9 @@ const app = {
   // Load lesson details
   async loadLesson(lessonId) {
     try {
+      // Show loading state
+      this.showLoadingState('Carregando aula...')
+      
       this.currentLesson = lessonId
       
       const response = await axios.get(`/api/lessons/${lessonId}`)
@@ -564,8 +586,10 @@ const app = {
       `
       
       this.showLessonView()
+      this.hideLoadingState()
     } catch (error) {
       console.error('Error loading lesson:', error)
+      this.hideLoadingState()
       alert('Erro ao carregar aula')
     }
   },
@@ -751,6 +775,56 @@ const app = {
     const sizes = ['Bytes', 'KB', 'MB', 'GB']
     const i = Math.floor(Math.log(bytes) / Math.log(k))
     return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i]
+  },
+  
+  // Show loading state with spinner
+  showLoadingState(message = 'Carregando...') {
+    // Create or get loading overlay
+    let overlay = document.getElementById('loadingOverlay')
+    
+    if (!overlay) {
+      overlay = document.createElement('div')
+      overlay.id = 'loadingOverlay'
+      overlay.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 transition-opacity'
+      overlay.innerHTML = `
+        <div class="bg-white rounded-xl shadow-2xl p-8 max-w-sm mx-4 transform transition-all">
+          <div class="flex flex-col items-center">
+            <!-- Spinner -->
+            <div class="relative w-16 h-16 mb-4">
+              <div class="absolute inset-0 border-4 border-blue-200 rounded-full"></div>
+              <div class="absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
+            </div>
+            
+            <!-- Message -->
+            <p class="text-lg font-semibold text-gray-800 mb-2" id="loadingMessage">${message}</p>
+            <p class="text-sm text-gray-500">Aguarde um momento...</p>
+          </div>
+        </div>
+      `
+      document.body.appendChild(overlay)
+    } else {
+      // Update message if overlay already exists
+      const messageElement = overlay.querySelector('#loadingMessage')
+      if (messageElement) {
+        messageElement.textContent = message
+      }
+      overlay.classList.remove('hidden')
+    }
+    
+    // Force reflow for animation
+    overlay.offsetHeight
+    overlay.style.opacity = '1'
+  },
+  
+  // Hide loading state
+  hideLoadingState() {
+    const overlay = document.getElementById('loadingOverlay')
+    if (overlay) {
+      overlay.style.opacity = '0'
+      setTimeout(() => {
+        overlay.classList.add('hidden')
+      }, 300)
+    }
   }
 }
 
