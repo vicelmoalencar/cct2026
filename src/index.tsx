@@ -1673,16 +1673,6 @@ app.get('/', (c) => {
         <main class="max-w-7xl mx-auto px-4 md:px-6 py-6 md:py-8">
             <!-- View: Courses List -->
             <div id="coursesView">
-                <!-- Hero Section -->
-                <div class="mb-6 md:mb-8 text-center px-4">
-                    <h2 class="text-2xl md:text-4xl font-bold text-gray-800 mb-2 md:mb-3">
-                        📚 Explore Nossos Cursos
-                    </h2>
-                    <p class="text-sm md:text-lg text-gray-600 max-w-2xl mx-auto">
-                        Escolha um curso e comece sua jornada de aprendizado. Aprenda no seu ritmo com conteúdo de qualidade.
-                    </p>
-                </div>
-                
                 <!-- Courses Grid -->
                 <div id="coursesList" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8">
                     <!-- Courses will be loaded here -->
