@@ -163,6 +163,61 @@ app.get('/api/auth/me', async (c) => {
 // Auth callback - handles email confirmation, OAuth redirects, and password recovery
 app.get('/auth/callback', async (c) => {
   const url = new URL(c.req.url)
+  
+  // Check for errors in query params or hash
+  const errorCode = url.searchParams.get('error_code') || url.hash.match(/error_code=([^&]+)/)?.[1]
+  const errorDescription = url.searchParams.get('error_description') || url.hash.match(/error_description=([^&]+)/)?.[1]
+  
+  if (errorCode) {
+    // Handle expired or invalid tokens
+    if (errorCode === 'otp_expired') {
+      return c.html(`
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Link Expirado - CCT</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gradient-to-br from-blue-900 via-blue-700 to-blue-500 min-h-screen flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
+        <div class="text-center mb-6">
+            <div class="bg-red-100 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
+                <i class="fas fa-clock text-4xl text-red-600"></i>
+            </div>
+            <h1 class="text-2xl font-bold text-gray-800 mb-2">Link Expirado</h1>
+            <p class="text-gray-600">
+                O link de recuperação de senha expirou ou já foi usado.
+            </p>
+        </div>
+        
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <p class="text-sm text-blue-800">
+                <i class="fas fa-info-circle mr-2"></i>
+                Por motivos de segurança, os links de recuperação expiram rapidamente.
+            </p>
+        </div>
+        
+        <a href="/" 
+           class="block w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg text-center transition-colors">
+            <i class="fas fa-redo mr-2"></i>
+            Solicitar Novo Link
+        </a>
+        
+        <p class="text-center text-sm text-gray-500 mt-4">
+            Você será redirecionado para a tela de login onde pode solicitar um novo link.
+        </p>
+    </div>
+</body>
+</html>
+      `)
+    }
+    
+    return c.redirect(`/?error=${errorCode}`)
+  }
+  
   const accessToken = url.searchParams.get('access_token') || url.hash.match(/access_token=([^&]+)/)?.[1]
   const refreshToken = url.searchParams.get('refresh_token') || url.hash.match(/refresh_token=([^&]+)/)?.[1]
   const type = url.searchParams.get('type') || url.hash.match(/type=([^&]+)/)?.[1]
@@ -241,7 +296,7 @@ app.post('/api/auth/forgot-password', async (c) => {
     // Get the host from the request to build the redirect URL
     const host = c.req.header('host') || 'localhost:3000'
     const protocol = host.includes('localhost') ? 'http' : 'https'
-    const redirectTo = `${protocol}://${host}/reset-password`
+    const redirectTo = `${protocol}://${host}/auth/callback`
     
     const response = await fetch(`${c.env.SUPABASE_URL}/auth/v1/recover`, {
       method: 'POST',
@@ -261,7 +316,7 @@ app.post('/api/auth/forgot-password', async (c) => {
     if (response.ok) {
       return c.json({ 
         success: true,
-        message: 'Se o email estiver cadastrado, você receberá um link de recuperação.'
+        message: 'Se o email estiver cadastrado, você receberá um link de recuperação. O link é válido por 1 hora.'
       })
     }
     
