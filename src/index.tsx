@@ -2365,7 +2365,9 @@ app.get('/profile', (c) => {
             <div class="container mx-auto px-4 py-4">
                 <div class="flex justify-between items-center">
                     <div class="flex items-center gap-3">
-                        <i class="fas fa-graduation-cap text-3xl"></i>
+                        <img src="https://page.gensparksite.com/v1/base64_upload/8f96be1bcec5a62130e0023674c921df" 
+                             alt="CCT Logo" 
+                             class="h-12 md:h-16 w-auto">
                         <div>
                             <h1 class="text-2xl font-bold">CCT</h1>
                             <p class="text-blue-200 text-xs">Clube do Cálculo Trabalhista</p>
@@ -2683,7 +2685,9 @@ app.get('/certificates', (c) => {
             <div class="container mx-auto px-4 py-4">
                 <div class="flex justify-between items-center">
                     <div class="flex items-center gap-3">
-                        <i class="fas fa-graduation-cap text-3xl"></i>
+                        <img src="https://page.gensparksite.com/v1/base64_upload/8f96be1bcec5a62130e0023674c921df" 
+                             alt="CCT Logo" 
+                             class="h-12 md:h-16 w-auto">
                         <div>
                             <h1 class="text-2xl font-bold">CCT</h1>
                             <p class="text-blue-200 text-xs">Clube do Cálculo Trabalhista</p>

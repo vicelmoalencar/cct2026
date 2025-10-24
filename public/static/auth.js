@@ -186,7 +186,9 @@ const authUI = {
       <div class="min-h-screen bg-gradient-to-br from-blue-900 via-blue-700 to-blue-500 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
           <div class="bg-gradient-to-r from-blue-900 to-blue-700 p-8 text-white text-center">
-            <i class="fas fa-calculator text-5xl mb-3"></i>
+            <img src="https://page.gensparksite.com/v1/base64_upload/8f96be1bcec5a62130e0023674c921df" 
+                 alt="CCT Logo" 
+                 class="h-20 w-auto mx-auto mb-3">
             <h1 class="text-2xl font-bold">CCT</h1>
             <p class="text-blue-200 text-sm">Clube do Cálculo Trabalhista</p>
           </div>
