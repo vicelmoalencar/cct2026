@@ -160,8 +160,28 @@ app.get('/api/auth/me', async (c) => {
   return c.json({ user })
 })
 
+// Catch malformed URLs with spaces or duplicates
+app.get('/auth/callback*', async (c) => {
+  const fullPath = c.req.path
+  
+  // If path contains space (%20) or duplicate URLs, extract only the first part
+  if (fullPath.includes('%20') || fullPath.includes(' ')) {
+    const cleanPath = fullPath.split(/(%20| )/)[0]
+    const hash = c.req.url.split('#')[1]
+    const query = c.req.url.split('?')[1]?.split('#')[0]
+    
+    let redirectUrl = cleanPath
+    if (query) redirectUrl += '?' + query
+    if (hash) redirectUrl += '#' + hash
+    
+    return c.redirect(redirectUrl)
+  }
+  
+  return await handleAuthCallback(c)
+})
+
 // Auth callback - handles email confirmation, OAuth redirects, and password recovery
-app.get('/auth/callback', async (c) => {
+async function handleAuthCallback(c: any) {
   const url = new URL(c.req.url)
   
   // Check for errors in query params or hash
@@ -250,7 +270,7 @@ app.get('/auth/callback', async (c) => {
   
   // Redirect to home with success message
   return c.redirect('/?auth=success')
-})
+}
 
 // Auth callback POST - receives tokens from frontend
 app.post('/api/auth/callback', async (c) => {
@@ -895,6 +915,104 @@ app.post('/api/progress/uncomplete', async (c) => {
 // ============================================
 // FRONTEND - Main page
 // ============================================
+
+// Direct recovery handler - extracts token from any malformed URL
+app.get('/recover', (c) => {
+  return c.html(`
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recuperação de Senha - CCT</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gradient-to-br from-blue-900 via-blue-700 to-blue-500 min-h-screen flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-8">
+        <div class="text-center mb-6">
+            <div class="bg-blue-100 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
+                <i class="fas fa-key text-4xl text-blue-600"></i>
+            </div>
+            <h1 class="text-2xl font-bold text-gray-800 mb-2">Recuperar Senha</h1>
+            <p class="text-gray-600">
+                Cole o link completo que você recebeu no email abaixo
+            </p>
+        </div>
+        
+        <div class="mb-6">
+            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                Link do Email:
+            </label>
+            <textarea 
+                id="recoveryLink"
+                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-xs"
+                rows="4"
+                placeholder="Cole aqui o link completo do email..."></textarea>
+        </div>
+        
+        <button 
+            onclick="extractToken()"
+            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-colors mb-4">
+            <i class="fas fa-magic mr-2"></i>
+            Extrair Token e Continuar
+        </button>
+        
+        <div id="result" class="hidden"></div>
+        
+        <div class="mt-6 text-center">
+            <a href="/" class="text-blue-600 hover:text-blue-800 text-sm font-semibold">
+                <i class="fas fa-arrow-left mr-1"></i> Voltar ao login
+            </a>
+        </div>
+    </div>
+    
+    <script>
+        // Check if we have token in hash already
+        const hash = window.location.hash
+        if (hash && hash.includes('access_token')) {
+            window.location.href = '/reset-password' + hash
+        }
+        
+        function extractToken() {
+            const link = document.getElementById('recoveryLink').value.trim()
+            const resultDiv = document.getElementById('result')
+            
+            if (!link) {
+                resultDiv.className = 'bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg text-sm'
+                resultDiv.textContent = '❌ Por favor, cole o link do email'
+                resultDiv.classList.remove('hidden')
+                return
+            }
+            
+            // Try to extract access_token from the link
+            const tokenMatch = link.match(/access_token=([^&]+)/)
+            const typeMatch = link.match(/type=([^&]+)/)
+            const refreshMatch = link.match(/refresh_token=([^&]+)/)
+            
+            if (tokenMatch && typeMatch && typeMatch[1] === 'recovery') {
+                const accessToken = tokenMatch[1]
+                const refreshToken = refreshMatch ? refreshMatch[1] : ''
+                
+                resultDiv.className = 'bg-green-50 border border-green-200 text-green-700 p-4 rounded-lg text-sm'
+                resultDiv.innerHTML = '✅ Token extraído! Redirecionando...'
+                resultDiv.classList.remove('hidden')
+                
+                // Redirect with clean token
+                setTimeout(() => {
+                    window.location.href = \`/reset-password#access_token=\${accessToken}&refresh_token=\${refreshToken}&type=recovery\`
+                }, 1000)
+            } else {
+                resultDiv.className = 'bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg text-sm'
+                resultDiv.innerHTML = '❌ Link inválido ou token não encontrado.<br><br>Certifique-se de colar o link completo do email.'
+                resultDiv.classList.remove('hidden')
+            }
+        }
+    </script>
+</body>
+</html>
+  `)
+})
 
 // Password Reset Page
 app.get('/reset-password', (c) => {
