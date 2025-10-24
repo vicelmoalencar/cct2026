@@ -1,0 +1,14 @@
+node_modules
+.git
+.env
+*.log
+.DS_Store
+.wrangler
+.dev.vars
+*.md
+.vscode
+.idea
+
+# Do NOT ignore these (needed for production)
+!public
+!dist

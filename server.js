@@ -39,6 +39,23 @@ const publicPath = join(__dirname, 'public')
 
 console.log('📁 Static files directory:', publicPath)
 
+// Check if public directory exists
+import { existsSync, readdirSync } from 'fs'
+
+if (existsSync(publicPath)) {
+  console.log('✅ Public directory exists')
+  const staticPath = join(publicPath, 'static')
+  if (existsSync(staticPath)) {
+    console.log('✅ Static directory exists')
+    const files = readdirSync(staticPath)
+    console.log('📄 Static files found:', files.join(', '))
+  } else {
+    console.error('❌ Static directory NOT found at:', staticPath)
+  }
+} else {
+  console.error('❌ Public directory NOT found at:', publicPath)
+}
+
 app.use('/static/*', serveStatic({ root: publicPath }))
 
 console.log(`🚀 Starting server on port ${port}...`)
