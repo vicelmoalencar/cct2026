@@ -215,6 +215,173 @@ app.get('/api/auth/me', async (c) => {
   return c.json({ user })
 })
 
+// Update user profile (name)
+app.put('/api/auth/profile', async (c) => {
+  try {
+    const token = getCookie(c, 'sb-access-token')
+    
+    if (!token) {
+      return c.json({ error: 'Não autenticado' }, 401)
+    }
+    
+    const { name } = await c.req.json()
+    
+    console.log('👤 Profile update attempt')
+    console.log('   Name:', name)
+    
+    if (!name || name.trim().length === 0) {
+      console.error('❌ Missing name')
+      return c.json({ error: 'Nome é obrigatório' }, 400)
+    }
+    
+    // Update user metadata in Supabase
+    const response = await fetch(`${c.env.SUPABASE_URL}/auth/v1/user`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        'apikey': c.env.SUPABASE_ANON_KEY
+      },
+      body: JSON.stringify({
+        data: { name: name.trim() }
+      })
+    })
+    
+    console.log('📨 Supabase response:', { status: response.status, ok: response.ok })
+    
+    if (!response.ok) {
+      const data = await response.json()
+      console.error('❌ Profile update failed:', data)
+      return c.json({ error: data.error_description || data.message || 'Falha ao atualizar perfil' }, 400)
+    }
+    
+    const data = await response.json()
+    console.log('✅ Profile updated successfully')
+    
+    return c.json({ 
+      success: true,
+      user: data,
+      message: 'Perfil atualizado com sucesso!'
+    })
+  } catch (error) {
+    console.error('💥 Profile update error:', error)
+    return c.json({ error: 'Erro ao atualizar perfil' }, 500)
+  }
+})
+
+// Change password (for authenticated users)
+app.post('/api/auth/change-password', async (c) => {
+  try {
+    const token = getCookie(c, 'sb-access-token')
+    
+    if (!token) {
+      return c.json({ error: 'Não autenticado' }, 401)
+    }
+    
+    const { currentPassword, newPassword } = await c.req.json()
+    
+    console.log('🔐 Password change attempt')
+    console.log('   Has current password:', !!currentPassword)
+    console.log('   New password length:', newPassword?.length)
+    
+    if (!currentPassword || !newPassword) {
+      console.error('❌ Missing passwords')
+      return c.json({ error: 'Senha atual e nova senha são obrigatórias' }, 400)
+    }
+    
+    if (newPassword.length < 6) {
+      console.error('❌ Password too short')
+      return c.json({ error: 'A nova senha deve ter pelo menos 6 caracteres' }, 400)
+    }
+    
+    // First, verify current password by attempting login
+    const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    if (!user || !user.email) {
+      return c.json({ error: 'Usuário não encontrado' }, 401)
+    }
+    
+    // Verify current password
+    const loginResponse = await fetch(`${c.env.SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': c.env.SUPABASE_ANON_KEY
+      },
+      body: JSON.stringify({ 
+        email: user.email, 
+        password: currentPassword 
+      })
+    })
+    
+    if (!loginResponse.ok) {
+      console.error('❌ Current password is incorrect')
+      return c.json({ error: 'Senha atual incorreta' }, 400)
+    }
+    
+    console.log('✅ Current password verified')
+    
+    // Update password
+    const response = await fetch(`${c.env.SUPABASE_URL}/auth/v1/user`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        'apikey': c.env.SUPABASE_ANON_KEY
+      },
+      body: JSON.stringify({ password: newPassword })
+    })
+    
+    console.log('📨 Supabase response:', { status: response.status, ok: response.ok })
+    
+    if (!response.ok) {
+      const data = await response.json()
+      console.error('❌ Password change failed:', data)
+      
+      let errorMessage = 'Falha ao alterar senha'
+      if (data.error_code === 'same_password') {
+        errorMessage = 'A nova senha deve ser diferente da senha atual'
+      } else if (data.msg) {
+        errorMessage = data.msg
+      } else if (data.error_description) {
+        errorMessage = data.error_description
+      }
+      
+      return c.json({ error: errorMessage }, 400)
+    }
+    
+    const data = await response.json()
+    console.log('✅ Password changed successfully')
+    
+    // Update session tokens
+    if (data.access_token) {
+      setCookie(c, 'sb-access-token', data.access_token, {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'Lax',
+        maxAge: 3600
+      })
+    }
+    
+    if (data.refresh_token) {
+      setCookie(c, 'sb-refresh-token', data.refresh_token, {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'Lax',
+        maxAge: 604800
+      })
+    }
+    
+    return c.json({ 
+      success: true,
+      message: 'Senha alterada com sucesso!'
+    })
+  } catch (error) {
+    console.error('💥 Password change error:', error)
+    return c.json({ error: 'Erro ao alterar senha' }, 500)
+  }
+})
+
 // Catch malformed URLs with spaces or duplicates
 app.get('/auth/callback*', async (c) => {
   const fullPath = c.req.path
@@ -1476,6 +1643,13 @@ app.get('/', (c) => {
                             </div>
                         </div>
                         
+                        <!-- Profile Button -->
+                        <button onclick="window.location.href='/profile'" 
+                                class="px-3 md:px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-xs md:text-sm font-semibold transition-colors">
+                            <i class="fas fa-user-circle"></i>
+                            <span class="hidden sm:inline ml-2">Perfil</span>
+                        </button>
+                        
                         <!-- Admin Button -->
                         <button onclick="app.showAdminPanel()" 
                                 id="adminButton"
@@ -1542,6 +1716,324 @@ app.get('/', (c) => {
         <script src="/static/app.js"></script>
     </body>
     </html>
+  `)
+})
+
+// Profile page
+app.get('/profile', (c) => {
+  return c.html(`
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meu Perfil - CCT</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen">
+        <!-- Header -->
+        <header class="bg-gradient-to-r from-blue-900 to-blue-700 text-white shadow-lg">
+            <div class="container mx-auto px-4 py-4">
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center gap-3">
+                        <i class="fas fa-graduation-cap text-3xl"></i>
+                        <div>
+                            <h1 class="text-2xl font-bold">CCT</h1>
+                            <p class="text-blue-200 text-xs">Clube do Cálculo Trabalhista</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <div id="userInfo" class="text-right hidden">
+                            <p class="text-sm font-semibold" id="userName">Carregando...</p>
+                            <p class="text-xs text-blue-200" id="userEmail">...</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="window.location.href='/'" 
+                                    class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors flex items-center gap-2">
+                                <i class="fas fa-home"></i>
+                                <span class="hidden sm:inline">Início</span>
+                            </button>
+                            <button id="logoutBtn" 
+                                    class="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg transition-colors flex items-center gap-2">
+                                <i class="fas fa-sign-out-alt"></i>
+                                <span class="hidden sm:inline">Sair</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="container mx-auto px-4 py-8 max-w-4xl">
+            <div class="mb-6">
+                <h2 class="text-3xl font-bold text-gray-800 mb-2">
+                    <i class="fas fa-user-circle text-blue-600 mr-2"></i>
+                    Meu Perfil
+                </h2>
+                <p class="text-gray-600">Gerencie suas informações pessoais e configurações de conta</p>
+            </div>
+
+            <!-- Success/Error Messages -->
+            <div id="messageDiv" class="hidden mb-6"></div>
+
+            <!-- Profile Information -->
+            <div class="bg-white rounded-xl shadow-md overflow-hidden mb-6">
+                <div class="bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-4">
+                    <h3 class="text-white font-bold text-lg">
+                        <i class="fas fa-id-card mr-2"></i>
+                        Informações do Perfil
+                    </h3>
+                </div>
+                <div class="p-6">
+                    <form id="profileForm" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                <i class="fas fa-user mr-1 text-blue-600"></i> Nome Completo
+                            </label>
+                            <input type="text" 
+                                   id="profileName" 
+                                   required
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                   placeholder="Seu nome completo">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                <i class="fas fa-envelope mr-1 text-blue-600"></i> Email
+                            </label>
+                            <input type="email" 
+                                   id="profileEmail" 
+                                   disabled
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
+                                   placeholder="seu@email.com">
+                            <p class="text-xs text-gray-500 mt-1">
+                                <i class="fas fa-info-circle"></i> O email não pode ser alterado
+                            </p>
+                        </div>
+                        
+                        <button type="submit" 
+                                id="profileSubmitBtn"
+                                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2">
+                            <i class="fas fa-save"></i>
+                            Salvar Alterações
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Change Password -->
+            <div class="bg-white rounded-xl shadow-md overflow-hidden">
+                <div class="bg-gradient-to-r from-purple-600 to-purple-500 px-6 py-4">
+                    <h3 class="text-white font-bold text-lg">
+                        <i class="fas fa-key mr-2"></i>
+                        Alterar Senha
+                    </h3>
+                </div>
+                <div class="p-6">
+                    <form id="passwordForm" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                <i class="fas fa-lock mr-1 text-purple-600"></i> Senha Atual
+                            </label>
+                            <input type="password" 
+                                   id="currentPassword" 
+                                   required
+                                   minlength="6"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                   placeholder="Digite sua senha atual">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                <i class="fas fa-lock mr-1 text-purple-600"></i> Nova Senha
+                            </label>
+                            <input type="password" 
+                                   id="newPassword" 
+                                   required
+                                   minlength="6"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                   placeholder="Mínimo 6 caracteres">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                <i class="fas fa-lock mr-1 text-purple-600"></i> Confirmar Nova Senha
+                            </label>
+                            <input type="password" 
+                                   id="confirmPassword" 
+                                   required
+                                   minlength="6"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                   placeholder="Digite a nova senha novamente">
+                        </div>
+                        
+                        <button type="submit" 
+                                id="passwordSubmitBtn"
+                                class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2">
+                            <i class="fas fa-check"></i>
+                            Alterar Senha
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+    <script src="/static/auth.js"></script>
+    <script>
+        const messageDiv = document.getElementById('messageDiv')
+        const profileForm = document.getElementById('profileForm')
+        const passwordForm = document.getElementById('passwordForm')
+        const profileSubmitBtn = document.getElementById('profileSubmitBtn')
+        const passwordSubmitBtn = document.getElementById('passwordSubmitBtn')
+        
+        function showMessage(message, isError = false) {
+            messageDiv.innerHTML = \`
+                <div class="p-4 rounded-lg border \${isError ? 'bg-red-50 border-red-200 text-red-700' : 'bg-green-50 border-green-200 text-green-700'}">
+                    <i class="fas \${isError ? 'fa-exclamation-circle' : 'fa-check-circle'} mr-2"></i>
+                    \${message}
+                </div>
+            \`
+            messageDiv.classList.remove('hidden')
+            
+            // Scroll to message
+            messageDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+            
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                messageDiv.classList.add('hidden')
+            }, 5000)
+        }
+        
+        // Load user data
+        async function loadUserProfile() {
+            try {
+                const response = await axios.get('/api/auth/me')
+                
+                if (response.data.user) {
+                    const user = response.data.user
+                    
+                    // Update profile form
+                    document.getElementById('profileName').value = user.user_metadata?.name || ''
+                    document.getElementById('profileEmail').value = user.email || ''
+                    
+                    // Update header
+                    document.getElementById('userName').textContent = user.user_metadata?.name || 'Usuário'
+                    document.getElementById('userEmail').textContent = user.email || ''
+                    document.getElementById('userInfo').classList.remove('hidden')
+                } else {
+                    window.location.href = '/'
+                }
+            } catch (error) {
+                console.error('Error loading profile:', error)
+                window.location.href = '/'
+            }
+        }
+        
+        // Handle profile form submission
+        profileForm.addEventListener('submit', async (e) => {
+            e.preventDefault()
+            
+            const name = document.getElementById('profileName').value.trim()
+            
+            if (!name) {
+                showMessage('❌ Por favor, preencha seu nome', true)
+                return
+            }
+            
+            profileSubmitBtn.disabled = true
+            profileSubmitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...'
+            
+            try {
+                const response = await axios.put('/api/auth/profile', { name })
+                
+                if (response.data.success) {
+                    showMessage('✅ ' + response.data.message, false)
+                    document.getElementById('userName').textContent = name
+                    
+                    // Reload user data
+                    await loadUserProfile()
+                }
+            } catch (error) {
+                const errorMessage = error.response?.data?.error || 'Erro ao atualizar perfil'
+                showMessage('❌ ' + errorMessage, true)
+            } finally {
+                profileSubmitBtn.disabled = false
+                profileSubmitBtn.innerHTML = '<i class="fas fa-save"></i> Salvar Alterações'
+            }
+        })
+        
+        // Handle password form submission
+        passwordForm.addEventListener('submit', async (e) => {
+            e.preventDefault()
+            
+            const currentPassword = document.getElementById('currentPassword').value
+            const newPassword = document.getElementById('newPassword').value
+            const confirmPassword = document.getElementById('confirmPassword').value
+            
+            if (newPassword !== confirmPassword) {
+                showMessage('❌ As senhas não coincidem', true)
+                return
+            }
+            
+            if (newPassword.length < 6) {
+                showMessage('❌ A nova senha deve ter pelo menos 6 caracteres', true)
+                return
+            }
+            
+            if (currentPassword === newPassword) {
+                showMessage('❌ A nova senha deve ser diferente da senha atual', true)
+                return
+            }
+            
+            passwordSubmitBtn.disabled = true
+            passwordSubmitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Alterando...'
+            
+            try {
+                const response = await axios.post('/api/auth/change-password', {
+                    currentPassword,
+                    newPassword
+                })
+                
+                if (response.data.success) {
+                    showMessage('✅ ' + response.data.message, false)
+                    
+                    // Clear form
+                    passwordForm.reset()
+                    
+                    // Optional: redirect after password change
+                    setTimeout(() => {
+                        showMessage('🔄 Redirecionando...', false)
+                        setTimeout(() => {
+                            window.location.href = '/'
+                        }, 1000)
+                    }, 2000)
+                }
+            } catch (error) {
+                const errorMessage = error.response?.data?.error || 'Erro ao alterar senha'
+                showMessage('❌ ' + errorMessage, true)
+            } finally {
+                passwordSubmitBtn.disabled = false
+                passwordSubmitBtn.innerHTML = '<i class="fas fa-check"></i> Alterar Senha'
+            }
+        })
+        
+        // Handle logout
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            if (confirm('Tem certeza que deseja sair?')) {
+                await auth.logout()
+            }
+        })
+        
+        // Initialize
+        loadUserProfile()
+    </script>
+</body>
+</html>
   `)
 })
 
