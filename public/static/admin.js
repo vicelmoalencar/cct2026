@@ -511,24 +511,9 @@ const adminUI = {
   renderLessonsTab() {
     const content = document.getElementById('adminContent')
     
-    // Flatten all lessons with their module and course info
-    const allLessons = []
-    this.courses.forEach(course => {
-      (course.modules || []).forEach(module => {
-        (module.lessons || []).forEach(lesson => {
-          allLessons.push({
-            ...lesson,
-            module_title: module.title,
-            course_title: course.title,
-            module_id: module.id
-          })
-        })
-      })
-    })
-    
     content.innerHTML = `
       <div class="bg-white rounded-lg shadow-md p-6">
-        <div class="flex items-center justify-between mb-6">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <h3 class="text-xl font-bold text-gray-800">
             <i class="fas fa-play-circle mr-2"></i>Gestão de Aulas
           </h3>
@@ -538,41 +523,256 @@ const adminUI = {
           </button>
         </div>
         
-        <div class="space-y-3">
-          ${allLessons.map(lesson => `
-            <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-              <div class="flex items-start justify-between">
-                <div class="flex-1">
-                  <h4 class="text-lg font-bold text-gray-800">${lesson.title}</h4>
-                  <p class="text-xs text-gray-500 mt-1">
-                    <i class="fas fa-book mr-1"></i>${lesson.course_title} › 
-                    <i class="fas fa-folder mr-1"></i>${lesson.module_title}
-                  </p>
-                  <p class="text-sm text-gray-600 mt-1">${lesson.description || 'Sem descrição'}</p>
-                  <div class="flex items-center gap-4 mt-2 text-xs text-gray-500">
-                    <span><i class="fas fa-video mr-1"></i>${lesson.video_provider || 'N/A'}</span>
-                    <span><i class="fas fa-clock mr-1"></i>${lesson.duration_minutes} min</span>
-                    <span><i class="fas fa-sort mr-1"></i>Ordem: ${lesson.order_index}</span>
-                  </div>
-                </div>
-                <div class="flex items-center gap-2">
-                  <button onclick='adminUI.showLessonForm(${JSON.stringify(lesson).replace(/'/g, "&#39;")})' 
-                          class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm">
-                    <i class="fas fa-edit"></i>
-                  </button>
-                  <button onclick="adminUI.deleteLesson(${lesson.id}, '${lesson.title.replace(/'/g, "\\'")}\')" 
-                          class="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded text-sm">
-                    <i class="fas fa-trash"></i>
-                  </button>
-                </div>
-              </div>
+        <!-- Filters and Search -->
+        <div class="mb-6 space-y-4">
+          <div class="flex flex-col md:flex-row gap-4">
+            <div class="flex-1">
+              <label class="block text-sm font-semibold text-gray-700 mb-2">Filtrar por Curso</label>
+              <select id="filterCourse" onchange="adminUI.filterLessons()" 
+                      class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">Todos os cursos</option>
+                ${this.courses.map(c => `
+                  <option value="${c.id}">${c.title}</option>
+                `).join('')}
+              </select>
             </div>
-          `).join('')}
+            
+            <div class="flex-1">
+              <label class="block text-sm font-semibold text-gray-700 mb-2">Filtrar por Módulo</label>
+              <select id="filterModule" onchange="adminUI.filterLessons()" 
+                      class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">Todos os módulos</option>
+              </select>
+            </div>
+            
+            <div class="flex-1">
+              <label class="block text-sm font-semibold text-gray-700 mb-2">Buscar Aula</label>
+              <input type="text" id="searchLesson" oninput="adminUI.filterLessons()" 
+                     placeholder="Digite o nome da aula..."
+                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+          </div>
           
-          ${allLessons.length === 0 ? '<p class="text-center text-gray-500 py-8">Nenhuma aula cadastrada. Crie módulos primeiro.</p>' : ''}
+          <div class="flex items-center justify-between text-sm">
+            <span class="text-gray-600">
+              <span id="lessonCount" class="font-semibold">0</span> aulas encontradas
+            </span>
+            <button onclick="adminUI.resetLessonFilters()" 
+                    class="text-blue-600 hover:text-blue-800 font-semibold">
+              <i class="fas fa-redo mr-1"></i>Limpar Filtros
+            </button>
+          </div>
+        </div>
+        
+        <!-- Lessons List (organized by course and module) -->
+        <div id="lessonsContainer" class="space-y-6">
+          ${this.renderLessonsByCourse()}
         </div>
       </div>
     `
+    
+    this.updateLessonCount()
+  },
+  
+  // Render lessons organized by course and module
+  renderLessonsByCourse() {
+    if (this.courses.length === 0) {
+      return '<p class="text-center text-gray-500 py-8">Nenhum curso cadastrado.</p>'
+    }
+    
+    let hasLessons = false
+    
+    const html = this.courses.map(course => {
+      const modules = course.modules || []
+      const modulesWithLessons = modules.filter(m => (m.lessons || []).length > 0)
+      
+      if (modulesWithLessons.length === 0) return ''
+      
+      hasLessons = true
+      
+      return `
+        <div class="border-2 border-gray-200 rounded-lg overflow-hidden" data-course-id="${course.id}">
+          <div class="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4">
+            <h4 class="text-lg font-bold flex items-center gap-2">
+              <i class="fas fa-book"></i>
+              ${course.title}
+              <span class="text-sm font-normal opacity-90">
+                (${modules.reduce((sum, m) => sum + (m.lessons || []).length, 0)} aulas)
+              </span>
+            </h4>
+          </div>
+          
+          <div class="divide-y divide-gray-200">
+            ${modulesWithLessons.map(module => `
+              <div class="bg-gray-50" data-module-id="${module.id}">
+                <div class="bg-blue-50 p-3 border-b border-blue-100">
+                  <h5 class="font-semibold text-gray-800 flex items-center gap-2">
+                    <i class="fas fa-folder text-blue-600"></i>
+                    ${module.title}
+                    <span class="text-sm font-normal text-gray-600">
+                      (${(module.lessons || []).length} aulas)
+                    </span>
+                  </h5>
+                </div>
+                
+                <div class="divide-y divide-gray-200">
+                  ${(module.lessons || []).map(lesson => `
+                    <div class="p-4 hover:bg-white transition-colors lesson-item" 
+                         data-lesson-id="${lesson.id}"
+                         data-lesson-title="${lesson.title.toLowerCase()}">
+                      <div class="flex items-start justify-between gap-4">
+                        <div class="flex-1 min-w-0">
+                          <h6 class="font-semibold text-gray-800 mb-1">${lesson.title}</h6>
+                          <p class="text-sm text-gray-600 mb-2">${lesson.description || 'Sem descrição'}</p>
+                          <div class="flex flex-wrap items-center gap-3 text-xs text-gray-500">
+                            <span><i class="fas fa-video mr-1"></i>${lesson.video_provider || 'N/A'}</span>
+                            <span><i class="fas fa-clock mr-1"></i>${lesson.duration_minutes} min</span>
+                            <span><i class="fas fa-sort mr-1"></i>Ordem: ${lesson.order_index}</span>
+                            ${lesson.support_text ? '<span class="text-blue-600"><i class="fas fa-file-alt mr-1"></i>Texto apoio</span>' : ''}
+                            ${lesson.transcript ? '<span class="text-purple-600"><i class="fas fa-closed-captioning mr-1"></i>Transcrição</span>' : ''}
+                            ${lesson.attachments && lesson.attachments.length > 0 ? `<span class="text-green-600"><i class="fas fa-paperclip mr-1"></i>${lesson.attachments.length} arquivo(s)</span>` : ''}
+                          </div>
+                        </div>
+                        <div class="flex items-center gap-2 flex-shrink-0">
+                          <button onclick='adminUI.showLessonForm(${JSON.stringify(lesson).replace(/'/g, "&#39;")})' 
+                                  class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm whitespace-nowrap">
+                            <i class="fas fa-edit"></i>
+                            <span class="hidden sm:inline ml-1">Editar</span>
+                          </button>
+                          <button onclick="adminUI.deleteLesson(${lesson.id}, '${lesson.title.replace(/'/g, "\\'")}\')" 
+                                  class="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded text-sm whitespace-nowrap">
+                            <i class="fas fa-trash"></i>
+                            <span class="hidden sm:inline ml-1">Excluir</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `
+    }).join('')
+    
+    return hasLessons ? html : '<p class="text-center text-gray-500 py-8">Nenhuma aula cadastrada. Crie módulos e aulas primeiro.</p>'
+  },
+  
+  // Filter lessons
+  filterLessons() {
+    const courseId = document.getElementById('filterCourse').value
+    const moduleId = document.getElementById('filterModule').value
+    const searchText = document.getElementById('searchLesson').value.toLowerCase()
+    
+    // Update module dropdown based on selected course
+    if (courseId) {
+      const course = this.courses.find(c => c.id == courseId)
+      const moduleSelect = document.getElementById('filterModule')
+      moduleSelect.innerHTML = '<option value="">Todos os módulos</option>'
+      
+      if (course && course.modules) {
+        course.modules.forEach(m => {
+          moduleSelect.innerHTML += `<option value="${m.id}">${m.title}</option>`
+        })
+      }
+    } else {
+      document.getElementById('filterModule').innerHTML = '<option value="">Todos os módulos</option>'
+    }
+    
+    // Apply filters
+    const allCourseContainers = document.querySelectorAll('[data-course-id]')
+    const allModuleContainers = document.querySelectorAll('[data-module-id]')
+    const allLessonItems = document.querySelectorAll('.lesson-item')
+    
+    // Reset visibility
+    allCourseContainers.forEach(el => el.style.display = 'block')
+    allModuleContainers.forEach(el => el.style.display = 'block')
+    allLessonItems.forEach(el => el.style.display = 'block')
+    
+    let visibleCount = 0
+    
+    // Filter by course
+    if (courseId) {
+      allCourseContainers.forEach(el => {
+        if (el.dataset.courseId != courseId) {
+          el.style.display = 'none'
+        }
+      })
+    }
+    
+    // Filter by module
+    if (moduleId) {
+      allModuleContainers.forEach(el => {
+        if (el.dataset.moduleId != moduleId) {
+          el.style.display = 'none'
+        }
+      })
+    }
+    
+    // Filter by search text
+    if (searchText) {
+      allLessonItems.forEach(el => {
+        const title = el.dataset.lessonTitle || ''
+        if (!title.includes(searchText)) {
+          el.style.display = 'none'
+        }
+      })
+    }
+    
+    // Count visible lessons
+    allLessonItems.forEach(el => {
+      if (el.style.display !== 'none') {
+        visibleCount++
+      }
+    })
+    
+    // Hide empty modules and courses
+    allModuleContainers.forEach(moduleEl => {
+      const visibleLessons = Array.from(moduleEl.querySelectorAll('.lesson-item'))
+        .filter(el => el.style.display !== 'none')
+      
+      if (visibleLessons.length === 0) {
+        moduleEl.style.display = 'none'
+      }
+    })
+    
+    allCourseContainers.forEach(courseEl => {
+      const visibleModules = Array.from(courseEl.querySelectorAll('[data-module-id]'))
+        .filter(el => el.style.display !== 'none')
+      
+      if (visibleModules.length === 0) {
+        courseEl.style.display = 'none'
+      }
+    })
+    
+    this.updateLessonCount(visibleCount)
+  },
+  
+  // Reset lesson filters
+  resetLessonFilters() {
+    document.getElementById('filterCourse').value = ''
+    document.getElementById('filterModule').value = ''
+    document.getElementById('searchLesson').value = ''
+    this.filterLessons()
+  },
+  
+  // Update lesson count
+  updateLessonCount(count = null) {
+    if (count === null) {
+      // Count all lessons
+      count = 0
+      this.courses.forEach(course => {
+        (course.modules || []).forEach(module => {
+          count += (module.lessons || []).length
+        })
+      })
+    }
+    
+    const countElement = document.getElementById('lessonCount')
+    if (countElement) {
+      countElement.textContent = count
+    }
   },
   
   // Show lesson form
