@@ -155,6 +155,28 @@ app.get('/api/auth/me', async (c) => {
     return c.json({ user: null })
   }
   
+  // CRITICAL: Validate that this is not a recovery token being used as session
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]))
+    const hasOTPMethod = payload.amr?.some((item: any) => item.method === 'otp')
+    
+    // If token was issued via OTP (password recovery), it should NOT be used for session
+    // User must reset password first
+    if (hasOTPMethod) {
+      // Delete the invalid session cookie
+      deleteCookie(c, 'sb-access-token')
+      deleteCookie(c, 'sb-refresh-token')
+      
+      return c.json({ 
+        user: null,
+        error: 'password_reset_required',
+        message: 'Por favor, redefina sua senha antes de fazer login'
+      }, 401)
+    }
+  } catch (e) {
+    // If JWT parsing fails, continue with normal verification
+  }
+  
   const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
   
   return c.json({ user })

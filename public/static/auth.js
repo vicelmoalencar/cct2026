@@ -7,6 +7,21 @@ const authManager = {
     // Check for auth callback tokens in URL hash
     await this.handleAuthCallback()
     
+    // IMPORTANT: Check if there's a recovery flag indicating forced password reset
+    const needsPasswordReset = sessionStorage.getItem('needs_password_reset')
+    if (needsPasswordReset === 'true') {
+      // User has a recovery token but hasn't reset password yet
+      // Force logout and redirect to password reset
+      await this.logout()
+      const token = sessionStorage.getItem('recovery_token')
+      if (token) {
+        window.location.href = '/reset-password#' + token
+      } else {
+        window.location.href = '/?error=password_reset_required'
+      }
+      return null
+    }
+    
     try {
       const response = await axios.get('/api/auth/me')
       this.currentUser = response.data.user
@@ -17,7 +32,7 @@ const authManager = {
     }
   },
   
-  // Handle Supabase auth callback (email confirmation, OAuth)
+  // Handle Supabase auth callback (email confirmation, OAuth, password recovery)
   async handleAuthCallback() {
     const hash = window.location.hash
     if (!hash) return
@@ -29,8 +44,29 @@ const authManager = {
     const type = params.get('type')
     
     if (accessToken) {
+      // CRITICAL: Check if this is a password recovery token
+      // Recovery tokens should NEVER create a session automatically
       try {
-        // Show loading message
+        // Decode JWT to check if it's a recovery token (OTP method)
+        const payload = JSON.parse(atob(accessToken.split('.')[1]))
+        const hasOTPMethod = payload.amr?.some(item => item.method === 'otp')
+        
+        // If type is recovery OR token has OTP method, redirect to reset password
+        if (type === 'recovery' || hasOTPMethod) {
+          console.log('🔐 Token de recuperação detectado - redirecionando para redefinição de senha')
+          window.location.href = `/reset-password#access_token=${accessToken}&refresh_token=${refreshToken || ''}&type=recovery`
+          return
+        }
+      } catch (e) {
+        // If JWT parsing fails but type is recovery, still redirect
+        if (type === 'recovery') {
+          window.location.href = `/reset-password#access_token=${accessToken}&refresh_token=${refreshToken || ''}&type=recovery`
+          return
+        }
+      }
+      
+      // Normal auth flow (email confirmation, OAuth)
+      try {
         console.log('Processando confirmação de email...')
         
         // Send tokens to backend to set cookies
@@ -48,7 +84,6 @@ const authManager = {
           
           // Show success message if type is signup
           if (type === 'signup') {
-            // Store a flag to show success message after reload
             sessionStorage.setItem('email_confirmed', 'true')
           }
         }
