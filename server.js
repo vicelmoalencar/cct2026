@@ -112,19 +112,67 @@ const server = serve({
 console.log(`✅ Server running at http://0.0.0.0:${port}`)
 console.log(`✅ Server ready to accept connections`)
 
+// Keep-alive ping every 30 seconds
+const keepAlive = setInterval(() => {
+  console.log(`💓 Keep-alive ping - ${new Date().toISOString()}`)
+}, 30000)
+
+// Self health check every 10 seconds
+const selfCheck = setInterval(async () => {
+  try {
+    const response = await fetch(`http://localhost:${port}/health`)
+    if (response.ok) {
+      console.log(`🩺 Self health check: OK`)
+    } else {
+      console.warn(`⚠️ Self health check failed: ${response.status}`)
+    }
+  } catch (error) {
+    console.error(`❌ Self health check error:`, error.message)
+  }
+}, 10000)
+
 // Handle graceful shutdown
+let isShuttingDown = false
+
 process.on('SIGTERM', () => {
+  if (isShuttingDown) return
+  isShuttingDown = true
+  
   console.log('⚠️ SIGTERM received, shutting down gracefully...')
+  clearInterval(keepAlive)
+  clearInterval(selfCheck)
+  
+  server.close(() => {
+    console.log('✅ Server closed')
+    process.exit(0)
+  })
+  
+  // Force exit after 10 seconds
+  setTimeout(() => {
+    console.error('⚠️ Forced shutdown after timeout')
+    process.exit(1)
+  }, 10000)
+})
+
+process.on('SIGINT', () => {
+  if (isShuttingDown) return
+  isShuttingDown = true
+  
+  console.log('⚠️ SIGINT received, shutting down gracefully...')
+  clearInterval(keepAlive)
+  clearInterval(selfCheck)
+  
   server.close(() => {
     console.log('✅ Server closed')
     process.exit(0)
   })
 })
 
-process.on('SIGINT', () => {
-  console.log('⚠️ SIGINT received, shutting down gracefully...')
-  server.close(() => {
-    console.log('✅ Server closed')
-    process.exit(0)
-  })
+// Log unhandled errors
+process.on('uncaughtException', (error) => {
+  console.error('💥 Uncaught Exception:', error)
+})
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('💥 Unhandled Rejection at:', promise, 'reason:', reason)
 })
