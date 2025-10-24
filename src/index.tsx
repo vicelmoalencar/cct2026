@@ -1220,11 +1220,26 @@ app.post('/api/admin/certificate-template', requireAdmin, async (c) => {
     )
     
     if (!uploadResponse.ok) {
-      const error = await uploadResponse.json()
-      console.error('❌ Storage upload failed:', error)
+      const errorText = await uploadResponse.text()
+      let error
+      try {
+        error = JSON.parse(errorText)
+      } catch (e) {
+        error = { message: errorText }
+      }
+      console.error('❌ Storage upload failed:', {
+        status: uploadResponse.status,
+        statusText: uploadResponse.statusText,
+        error,
+        url: `${c.env.SUPABASE_URL}/storage/v1/object/certificate-templates/${course_id}/${file_name}`
+      })
       return c.json({ 
-        error: 'Erro ao fazer upload da imagem',
-        details: error 
+        error: 'Erro ao fazer upload da imagem para o Supabase Storage',
+        details: error,
+        status: uploadResponse.status,
+        hint: uploadResponse.status === 404 
+          ? 'Bucket "certificate-templates" não existe. Crie-o no Supabase Dashboard → Storage'
+          : 'Verifique as permissões do bucket no Supabase Storage'
       }, 400)
     }
     
