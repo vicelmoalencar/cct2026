@@ -1177,6 +1177,280 @@ app.post('/api/progress/uncomplete', async (c) => {
 })
 
 // ============================================
+// API ROUTES - CERTIFICATES
+// ============================================
+
+// Upload certificate template (Admin only)
+app.post('/api/admin/certificate-template', requireAdmin, async (c) => {
+  try {
+    const { course_id, template_url } = await c.req.json()
+    
+    console.log('📜 Certificate template upload:', { course_id, template_url })
+    
+    if (!course_id || !template_url) {
+      return c.json({ error: 'ID do curso e URL do template são obrigatórios' }, 400)
+    }
+    
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    // Check if template already exists for this course
+    const existing = await supabase.query('certificate_templates', {
+      select: '*',
+      filters: { course_id }
+    })
+    
+    if (existing.length > 0) {
+      // Update existing template
+      await supabase.update('certificate_templates', { id: existing[0].id }, {
+        template_url,
+        updated_at: new Date().toISOString()
+      })
+      console.log('✅ Certificate template updated')
+    } else {
+      // Insert new template
+      await supabase.insert('certificate_templates', {
+        course_id: parseInt(course_id),
+        template_url,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      console.log('✅ Certificate template created')
+    }
+    
+    return c.json({ 
+      success: true,
+      message: 'Template de certificado salvo com sucesso!'
+    })
+  } catch (error) {
+    console.error('💥 Certificate template error:', error)
+    return c.json({ error: 'Erro ao salvar template de certificado' }, 500)
+  }
+})
+
+// Get certificate template for a course
+app.get('/api/certificate-template/:courseId', async (c) => {
+  try {
+    const courseId = c.req.param('courseId')
+    
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    const template = await supabase.query('certificate_templates', {
+      select: '*',
+      filters: { course_id: courseId },
+      single: true
+    })
+    
+    return c.json({ template })
+  } catch (error) {
+    return c.json({ template: null })
+  }
+})
+
+// Generate certificate for user (automatic when course is 100% complete)
+app.post('/api/certificates/generate', async (c) => {
+  try {
+    const token = getCookie(c, 'sb-access-token')
+    
+    if (!token) {
+      return c.json({ error: 'Não autenticado' }, 401)
+    }
+    
+    const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    if (!user) {
+      return c.json({ error: 'Usuário não encontrado' }, 401)
+    }
+    
+    const { course_id } = await c.req.json()
+    
+    console.log('📜 Certificate generation request:', { 
+      user_email: user.email, 
+      course_id 
+    })
+    
+    if (!course_id) {
+      return c.json({ error: 'ID do curso é obrigatório' }, 400)
+    }
+    
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    // Check if certificate already exists
+    const existing = await supabase.query('certificates', {
+      select: '*',
+      filters: { 
+        user_email: user.email, 
+        course_id 
+      }
+    })
+    
+    if (existing.length > 0) {
+      console.log('✅ Certificate already exists')
+      return c.json({ 
+        success: true,
+        certificate: existing[0],
+        message: 'Certificado já existe!'
+      })
+    }
+    
+    // Verify user has completed 100% of the course
+    const course = await supabase.query('courses', {
+      select: '*',
+      filters: { id: course_id },
+      single: true
+    })
+    
+    if (!course) {
+      return c.json({ error: 'Curso não encontrado' }, 404)
+    }
+    
+    // Get all lessons in the course
+    const modules = await supabase.query('modules', {
+      select: '*',
+      filters: { course_id }
+    })
+    
+    let allLessonIds: number[] = []
+    for (const module of modules) {
+      const lessons = await supabase.query('lessons', {
+        select: 'id',
+        filters: { module_id: module.id }
+      })
+      allLessonIds = [...allLessonIds, ...lessons.map((l: any) => l.id)]
+    }
+    
+    if (allLessonIds.length === 0) {
+      return c.json({ error: 'Curso não possui aulas' }, 400)
+    }
+    
+    // Check user progress
+    const progress = await supabase.query('user_progress', {
+      select: '*',
+      filters: { user_email: user.email }
+    })
+    
+    const completedLessonIds = progress
+      .filter((p: any) => p.completed && allLessonIds.includes(p.lesson_id))
+      .map((p: any) => p.lesson_id)
+    
+    const completionPercentage = (completedLessonIds.length / allLessonIds.length) * 100
+    
+    console.log('📊 Course completion:', {
+      total_lessons: allLessonIds.length,
+      completed_lessons: completedLessonIds.length,
+      percentage: completionPercentage
+    })
+    
+    if (completionPercentage < 100) {
+      return c.json({ 
+        error: 'Você precisa completar 100% do curso para receber o certificado',
+        completion: completionPercentage
+      }, 400)
+    }
+    
+    // Generate certificate
+    const certificate = await supabase.insert('certificates', {
+      user_email: user.email,
+      user_name: user.user_metadata?.name || 'Aluno',
+      course_id: parseInt(course_id),
+      course_title: course.title,
+      issued_at: new Date().toISOString(),
+      completion_date: new Date().toISOString()
+    })
+    
+    console.log('✅ Certificate generated successfully')
+    
+    return c.json({ 
+      success: true,
+      certificate,
+      message: 'Parabéns! Seu certificado foi gerado com sucesso!'
+    })
+  } catch (error) {
+    console.error('💥 Certificate generation error:', error)
+    return c.json({ error: 'Erro ao gerar certificado' }, 500)
+  }
+})
+
+// Get user certificates
+app.get('/api/certificates', async (c) => {
+  try {
+    const token = getCookie(c, 'sb-access-token')
+    
+    if (!token) {
+      return c.json({ error: 'Não autenticado' }, 401)
+    }
+    
+    const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    if (!user) {
+      return c.json({ error: 'Usuário não encontrado' }, 401)
+    }
+    
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    const certificates = await supabase.query('certificates', {
+      select: '*',
+      filters: { user_email: user.email },
+      order: 'issued_at.desc'
+    })
+    
+    // Get certificate templates for each certificate
+    const certificatesWithTemplates = await Promise.all(
+      certificates.map(async (cert: any) => {
+        const template = await supabase.query('certificate_templates', {
+          select: '*',
+          filters: { course_id: cert.course_id },
+          single: true
+        })
+        return {
+          ...cert,
+          template_url: template?.template_url || null
+        }
+      })
+    )
+    
+    return c.json({ certificates: certificatesWithTemplates })
+  } catch (error) {
+    console.error('💥 Certificates fetch error:', error)
+    return c.json({ error: 'Erro ao buscar certificados' }, 500)
+  }
+})
+
+// Get specific certificate
+app.get('/api/certificates/:id', async (c) => {
+  try {
+    const certId = c.req.param('id')
+    
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    const certificate = await supabase.query('certificates', {
+      select: '*',
+      filters: { id: certId },
+      single: true
+    })
+    
+    if (!certificate) {
+      return c.json({ error: 'Certificado não encontrado' }, 404)
+    }
+    
+    // Get template
+    const template = await supabase.query('certificate_templates', {
+      select: '*',
+      filters: { course_id: certificate.course_id },
+      single: true
+    })
+    
+    return c.json({ 
+      certificate: {
+        ...certificate,
+        template_url: template?.template_url || null
+      }
+    })
+  } catch (error) {
+    return c.json({ error: 'Erro ao buscar certificado' }, 500)
+  }
+})
+
+// ============================================
 // FRONTEND - Main page
 // ============================================
 
@@ -1643,6 +1917,13 @@ app.get('/', (c) => {
                             </div>
                         </div>
                         
+                        <!-- Certificates Button -->
+                        <button onclick="window.location.href='/certificates'" 
+                                class="px-3 md:px-4 py-2 bg-yellow-600 hover:bg-yellow-700 rounded-lg text-xs md:text-sm font-semibold transition-colors">
+                            <i class="fas fa-certificate"></i>
+                            <span class="hidden sm:inline ml-2">Certificados</span>
+                        </button>
+                        
                         <!-- Profile Button -->
                         <button onclick="window.location.href='/profile'" 
                                 class="px-3 md:px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-xs md:text-sm font-semibold transition-colors">
@@ -2021,6 +2302,215 @@ app.get('/profile', (c) => {
         
         // Initialize
         loadUserProfile()
+    </script>
+</body>
+</html>
+  `)
+})
+
+// Certificates page
+app.get('/certificates', (c) => {
+  return c.html(`
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meus Certificados - CCT</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen">
+        <!-- Header -->
+        <header class="bg-gradient-to-r from-blue-900 to-blue-700 text-white shadow-lg">
+            <div class="container mx-auto px-4 py-4">
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center gap-3">
+                        <i class="fas fa-graduation-cap text-3xl"></i>
+                        <div>
+                            <h1 class="text-2xl font-bold">CCT</h1>
+                            <p class="text-blue-200 text-xs">Clube do Cálculo Trabalhista</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <div id="userInfo" class="text-right hidden">
+                            <p class="text-sm font-semibold" id="userName">Carregando...</p>
+                            <p class="text-xs text-blue-200" id="userEmail">...</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="window.location.href='/'" 
+                                    class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors flex items-center gap-2">
+                                <i class="fas fa-home"></i>
+                                <span class="hidden sm:inline">Início</span>
+                            </button>
+                            <button onclick="window.location.href='/profile'" 
+                                    class="px-4 py-2 bg-purple-600 hover:bg-purple-500 rounded-lg transition-colors flex items-center gap-2">
+                                <i class="fas fa-user"></i>
+                                <span class="hidden sm:inline">Perfil</span>
+                            </button>
+                            <button id="logoutBtn" 
+                                    class="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg transition-colors flex items-center gap-2">
+                                <i class="fas fa-sign-out-alt"></i>
+                                <span class="hidden sm:inline">Sair</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="container mx-auto px-4 py-8 max-w-6xl">
+            <div class="mb-6">
+                <h2 class="text-3xl font-bold text-gray-800 mb-2">
+                    <i class="fas fa-certificate text-yellow-500 mr-2"></i>
+                    Meus Certificados
+                </h2>
+                <p class="text-gray-600">Visualize e baixe seus certificados de conclusão de curso</p>
+            </div>
+
+            <!-- Message Div -->
+            <div id="messageDiv" class="hidden mb-6"></div>
+
+            <!-- Loading State -->
+            <div id="loadingState" class="text-center py-12">
+                <i class="fas fa-spinner fa-spin text-4xl text-blue-600 mb-4"></i>
+                <p class="text-gray-600">Carregando certificados...</p>
+            </div>
+
+            <!-- Empty State -->
+            <div id="emptyState" class="hidden text-center py-12 bg-white rounded-xl shadow-md">
+                <i class="fas fa-certificate text-6xl text-gray-300 mb-4"></i>
+                <h3 class="text-xl font-bold text-gray-800 mb-2">Nenhum certificado ainda</h3>
+                <p class="text-gray-600 mb-6">Complete um curso para receber seu certificado!</p>
+                <button onclick="window.location.href='/'" 
+                        class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors">
+                    <i class="fas fa-book mr-2"></i>
+                    Ver Cursos
+                </button>
+            </div>
+
+            <!-- Certificates Grid -->
+            <div id="certificatesGrid" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Certificates will be loaded here -->
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+    <script src="/static/auth.js"></script>
+    <script>
+        const loadingState = document.getElementById('loadingState')
+        const emptyState = document.getElementById('emptyState')
+        const certificatesGrid = document.getElementById('certificatesGrid')
+        const messageDiv = document.getElementById('messageDiv')
+        
+        function showMessage(message, isError = false) {
+            messageDiv.innerHTML = \`
+                <div class="p-4 rounded-lg border \${isError ? 'bg-red-50 border-red-200 text-red-700' : 'bg-green-50 border-green-200 text-green-700'}">
+                    <i class="fas \${isError ? 'fa-exclamation-circle' : 'fa-check-circle'} mr-2"></i>
+                    \${message}
+                </div>
+            \`
+            messageDiv.classList.remove('hidden')
+            
+            setTimeout(() => {
+                messageDiv.classList.add('hidden')
+            }, 5000)
+        }
+        
+        function formatDate(dateString) {
+            const date = new Date(dateString)
+            return date.toLocaleDateString('pt-BR', {
+                day: '2-digit',
+                month: 'long',
+                year: 'numeric'
+            })
+        }
+        
+        async function loadCertificates() {
+            try {
+                // Load user info
+                const userResponse = await axios.get('/api/auth/me')
+                if (userResponse.data.user) {
+                    document.getElementById('userName').textContent = userResponse.data.user.user_metadata?.name || 'Usuário'
+                    document.getElementById('userEmail').textContent = userResponse.data.user.email || ''
+                    document.getElementById('userInfo').classList.remove('hidden')
+                }
+                
+                // Load certificates
+                const response = await axios.get('/api/certificates')
+                const certificates = response.data.certificates || []
+                
+                loadingState.classList.add('hidden')
+                
+                if (certificates.length === 0) {
+                    emptyState.classList.remove('hidden')
+                } else {
+                    certificatesGrid.classList.remove('hidden')
+                    certificatesGrid.innerHTML = certificates.map(cert => \`
+                        <div class="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-shadow">
+                            <div class="relative h-48 bg-gradient-to-br from-yellow-400 via-yellow-500 to-orange-500 flex items-center justify-center">
+                                \${cert.template_url ? 
+                                    \`<img src="\${cert.template_url}" alt="Certificado" class="w-full h-full object-cover">\` :
+                                    \`<div class="text-center text-white p-6">
+                                        <i class="fas fa-award text-6xl mb-2 opacity-75"></i>
+                                        <p class="text-sm font-bold">CERTIFICADO</p>
+                                    </div>\`
+                                }
+                                <div class="absolute top-2 right-2 bg-white px-3 py-1 rounded-full text-xs font-bold text-yellow-600">
+                                    <i class="fas fa-star mr-1"></i>
+                                    Concluído
+                                </div>
+                            </div>
+                            <div class="p-6">
+                                <h3 class="text-lg font-bold text-gray-800 mb-2 line-clamp-2">
+                                    \${cert.course_title}
+                                </h3>
+                                <div class="space-y-2 mb-4 text-sm text-gray-600">
+                                    <p>
+                                        <i class="fas fa-user text-blue-600 mr-2"></i>
+                                        \${cert.user_name}
+                                    </p>
+                                    <p>
+                                        <i class="fas fa-calendar text-green-600 mr-2"></i>
+                                        Concluído em \${formatDate(cert.completion_date)}
+                                    </p>
+                                </div>
+                                <button onclick="viewCertificate(\${cert.id}, '\${cert.template_url || ''}')" 
+                                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg transition-colors flex items-center justify-center gap-2">
+                                    <i class="fas fa-eye"></i>
+                                    Visualizar Certificado
+                                </button>
+                            </div>
+                        </div>
+                    \`).join('')
+                }
+            } catch (error) {
+                console.error('Error loading certificates:', error)
+                loadingState.classList.add('hidden')
+                emptyState.classList.remove('hidden')
+            }
+        }
+        
+        function viewCertificate(certId, templateUrl) {
+            if (templateUrl) {
+                window.open(templateUrl, '_blank')
+            } else {
+                showMessage('⚠️ Template de certificado não configurado para este curso', true)
+            }
+        }
+        
+        // Handle logout
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            if (confirm('Tem certeza que deseja sair?')) {
+                await auth.logout()
+            }
+        })
+        
+        // Initialize
+        loadCertificates()
     </script>
 </body>
 </html>

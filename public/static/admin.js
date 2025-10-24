@@ -60,6 +60,20 @@ const adminManager = {
   async deleteLesson(id) {
     const response = await axios.delete(`/api/admin/lessons/${id}`)
     return response.data
+  },
+  
+  // Certificate template
+  async uploadCertificateTemplate(courseId, templateUrl) {
+    const response = await axios.post('/api/admin/certificate-template', {
+      course_id: courseId,
+      template_url: templateUrl
+    })
+    return response.data
+  },
+  
+  async getCertificateTemplate(courseId) {
+    const response = await axios.get(`/api/certificate-template/${courseId}`)
+    return response.data.template
   }
 }
 
@@ -241,9 +255,22 @@ const adminUI = {
   },
   
   // Show course form
-  showCourseForm(course = null) {
+  async showCourseForm(course = null) {
     const isEdit = course !== null
     const content = document.getElementById('adminContent')
+    
+    // Load certificate template if editing
+    let certificateUrl = ''
+    if (isEdit) {
+      try {
+        const template = await adminManager.getCertificateTemplate(course.id)
+        if (template) {
+          certificateUrl = template.template_url
+        }
+      } catch (error) {
+        console.log('No certificate template found')
+      }
+    }
     
     content.innerHTML = `
       <div class="bg-white rounded-lg shadow-md p-6">
@@ -284,6 +311,22 @@ const adminUI = {
             </div>
           </div>
           
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-2">
+              <i class="fas fa-certificate text-yellow-500 mr-2"></i>
+              Template de Certificado (URL da imagem)
+            </label>
+            <input type="url" id="certificateTemplate"
+                   value="${certificateUrl}"
+                   placeholder="https://exemplo.com/certificado.jpg"
+                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <p class="text-xs text-gray-500 mt-1">
+              <i class="fas fa-info-circle"></i> 
+              Faça upload da imagem do certificado em um serviço como Imgur, Cloudinary ou similar e cole a URL aqui.
+              O certificado será gerado automaticamente quando o aluno completar 100% do curso.
+            </p>
+          </div>
+          
           <div class="flex items-center gap-3 pt-4">
             <button type="submit" 
                     class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors">
@@ -310,13 +353,29 @@ const adminUI = {
       instructor: document.getElementById('courseInstructor').value
     }
     
+    const certificateTemplate = document.getElementById('certificateTemplate').value
+    
     try {
+      let savedCourseId = courseId
+      
       if (courseId) {
         await adminManager.updateCourse(courseId, data)
         alert('✅ Curso atualizado com sucesso!')
       } else {
-        await adminManager.createCourse(data)
+        const result = await adminManager.createCourse(data)
+        savedCourseId = result.course.id
         alert('✅ Curso criado com sucesso!')
+      }
+      
+      // Save certificate template if provided
+      if (certificateTemplate && certificateTemplate.trim()) {
+        try {
+          await adminManager.uploadCertificateTemplate(savedCourseId, certificateTemplate.trim())
+          console.log('✅ Template de certificado salvo!')
+        } catch (certError) {
+          console.error('Erro ao salvar template:', certError)
+          alert('⚠️ Curso salvo, mas houve erro ao salvar o template de certificado')
+        }
       }
       await this.loadData()
       this.renderCoursesTab()

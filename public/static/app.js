@@ -632,10 +632,95 @@ const app = {
       
       // Reload lesson to update UI
       this.loadLesson(lessonId)
+      
+      // If marking as complete, check if course is 100% done
+      if (!isCompleted && this.currentCourse) {
+        await this.checkCourseCompletion(this.currentCourse)
+      }
     } catch (error) {
       console.error('Error updating progress:', error)
       alert('Erro ao atualizar progresso')
     }
+  },
+  
+  // Check if course is 100% complete and generate certificate
+  async checkCourseCompletion(courseId) {
+    try {
+      // Get course progress
+      const progressResponse = await axios.get(`/api/progress/${this.currentUser}/${courseId}`)
+      const progress = progressResponse.data.progress || []
+      
+      // Get course details
+      const courseResponse = await axios.get(`/api/courses/${courseId}`)
+      const course = courseResponse.data.course
+      
+      // Count total lessons
+      let totalLessons = 0
+      course.modules.forEach(module => {
+        totalLessons += module.lessons.length
+      })
+      
+      // Count completed lessons
+      const completedLessons = progress.filter(p => p.completed).length
+      
+      // If 100% complete, generate certificate
+      if (totalLessons > 0 && completedLessons === totalLessons) {
+        console.log('🎉 Course 100% complete! Generating certificate...')
+        
+        try {
+          const certResponse = await axios.post('/api/certificates/generate', {
+            course_id: courseId
+          })
+          
+          if (certResponse.data.success) {
+            // Show success message with link to certificates
+            this.showCertificateMessage(course.title)
+          }
+        } catch (certError) {
+          // Certificate might already exist, that's ok
+          if (certError.response?.data?.certificate) {
+            console.log('Certificate already exists')
+          } else {
+            console.error('Error generating certificate:', certError)
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error checking course completion:', error)
+    }
+  },
+  
+  // Show certificate generation message
+  showCertificateMessage(courseTitle) {
+    const message = document.createElement('div')
+    message.className = 'fixed top-4 right-4 z-50 bg-gradient-to-r from-yellow-400 to-orange-500 text-white p-6 rounded-xl shadow-2xl max-w-md animate-bounce'
+    message.innerHTML = `
+      <div class="flex items-start gap-4">
+        <i class="fas fa-certificate text-4xl"></i>
+        <div>
+          <h3 class="font-bold text-lg mb-2">🎉 Parabéns!</h3>
+          <p class="mb-3">Você concluiu o curso <strong>${courseTitle}</strong>!</p>
+          <p class="text-sm mb-4">Seu certificado foi gerado e está disponível.</p>
+          <button onclick="window.location.href='/certificates'" 
+                  class="bg-white text-orange-600 font-bold px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors">
+            <i class="fas fa-eye mr-2"></i>
+            Ver Certificado
+          </button>
+        </div>
+        <button onclick="this.parentElement.parentElement.remove()" 
+                class="text-white hover:text-gray-200 text-xl">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+    `
+    document.body.appendChild(message)
+    
+    // Auto-remove after 10 seconds
+    setTimeout(() => {
+      if (message.parentElement) {
+        message.remove()
+      }
+    }, 10000)
   },
   
   // View management
