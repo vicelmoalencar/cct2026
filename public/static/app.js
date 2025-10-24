@@ -130,6 +130,8 @@ const app = {
       }
       
       // Load progress for all courses to show completion badges
+      console.log('🔄 Loading progress for', courses.length, 'courses')
+      
       const progressPromises = courses.map(async (course) => {
         try {
           const response = await axios.get(`/api/progress/${this.currentUser}/${course.id}`)
@@ -137,8 +139,18 @@ const app = {
           const completedLessons = progress.filter(p => p.completed).length
           const totalLessons = course.lessons_count || 0
           const isComplete = totalLessons > 0 && completedLessons === totalLessons
+          
+          console.log(`📊 Course "${course.title}":`, {
+            id: course.id,
+            completed: completedLessons,
+            total: totalLessons,
+            isComplete,
+            percent: totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0
+          })
+          
           return { courseId: course.id, isComplete, progressPercent: totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0 }
         } catch (error) {
+          console.error('Error loading progress for course', course.id, error)
           return { courseId: course.id, isComplete: false, progressPercent: 0 }
         }
       })
@@ -684,9 +696,13 @@ const app = {
   // Check if course is 100% complete and generate certificate
   async checkCourseCompletion(courseId) {
     try {
+      console.log('🔍 Checking course completion for course:', courseId)
+      
       // Get course progress
       const progressResponse = await axios.get(`/api/progress/${this.currentUser}/${courseId}`)
       const progress = progressResponse.data.progress || []
+      
+      console.log('📊 Progress data:', progress)
       
       // Get course details
       const courseResponse = await axios.get(`/api/courses/${courseId}`)
@@ -701,25 +717,36 @@ const app = {
       // Count completed lessons
       const completedLessons = progress.filter(p => p.completed).length
       
+      console.log('📈 Course stats:', {
+        totalLessons,
+        completedLessons,
+        percentage: Math.round((completedLessons / totalLessons) * 100)
+      })
+      
       // If 100% complete, generate certificate
       if (totalLessons > 0 && completedLessons === totalLessons) {
         console.log('🎉 Course 100% complete! Generating certificate...')
         
         try {
+          console.log('📝 Calling API to generate certificate...')
           const certResponse = await axios.post('/api/certificates/generate', {
             course_id: courseId
           })
           
+          console.log('✅ Certificate API response:', certResponse.data)
+          
           if (certResponse.data.success) {
             // Show success message with link to certificates
+            console.log('🎉 Showing certificate popup...')
             this.showCertificateMessage(course.title)
           }
         } catch (certError) {
+          console.error('❌ Error generating certificate:', certError)
+          console.error('Response data:', certError.response?.data)
+          
           // Certificate might already exist, that's ok
           if (certError.response?.data?.certificate) {
-            console.log('Certificate already exists')
-          } else {
-            console.error('Error generating certificate:', certError)
+            console.log('ℹ️ Certificate already exists')
           }
         }
       }
