@@ -129,6 +129,26 @@ const app = {
         }
       }
       
+      // Load progress for all courses to show completion badges
+      const progressPromises = courses.map(async (course) => {
+        try {
+          const response = await axios.get(`/api/progress/${this.currentUser}/${course.id}`)
+          const progress = response.data.progress || []
+          const completedLessons = progress.filter(p => p.completed).length
+          const totalLessons = course.lessons_count || 0
+          const isComplete = totalLessons > 0 && completedLessons === totalLessons
+          return { courseId: course.id, isComplete, progressPercent: totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0 }
+        } catch (error) {
+          return { courseId: course.id, isComplete: false, progressPercent: 0 }
+        }
+      })
+      
+      const progressData = await Promise.all(progressPromises)
+      const progressMap = {}
+      progressData.forEach(p => {
+        progressMap[p.courseId] = p
+      })
+      
       coursesList.innerHTML = courses.map((course, index) => {
         // Gradient colors for variety
         const gradients = [
@@ -141,6 +161,8 @@ const app = {
         ]
         const gradient = gradients[index % gradients.length]
         
+        const courseProgress = progressMap[course.id] || { isComplete: false, progressPercent: 0 }
+        
         return `
         <div class="group bg-white rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden cursor-pointer transform hover:-translate-y-1 active:scale-95"
              onclick="app.handleCourseClick(event, ${course.id})">
@@ -149,11 +171,27 @@ const app = {
             <div class="absolute inset-0 bg-black opacity-0 group-hover:opacity-10 transition-opacity"></div>
             <i class="fas fa-graduation-cap text-white text-5xl md:text-7xl opacity-90 transform group-hover:scale-110 transition-transform duration-300"></i>
             
-            <!-- Badge -->
+            <!-- Certificate Badge (if complete) -->
+            ${courseProgress.isComplete ? `
+            <div class="absolute top-3 left-3 md:top-4 md:left-4 bg-gradient-to-r from-yellow-400 to-orange-500 px-2 md:px-3 py-1 rounded-full text-xs font-bold text-white shadow-lg animate-pulse">
+              <i class="fas fa-certificate mr-1"></i>
+              <span class="hidden sm:inline">Certificado</span>
+              <span class="sm:hidden">✓</span>
+            </div>
+            ` : ''}
+            
+            <!-- Duration Badge -->
             <div class="absolute top-3 right-3 md:top-4 md:right-4 bg-white bg-opacity-90 px-2 md:px-3 py-1 rounded-full text-xs font-bold text-gray-800">
               <i class="fas fa-star text-yellow-500 mr-1"></i>
               ${course.duration_hours}h
             </div>
+            
+            <!-- Progress Bar (if not complete) -->
+            ${!courseProgress.isComplete && courseProgress.progressPercent > 0 ? `
+            <div class="absolute bottom-0 left-0 right-0 h-2 bg-black bg-opacity-20">
+              <div class="h-full bg-green-400" style="width: ${courseProgress.progressPercent}%"></div>
+            </div>
+            ` : ''}
           </div>
           
           <!-- Course Info -->
@@ -692,35 +730,49 @@ const app = {
   
   // Show certificate generation message
   showCertificateMessage(courseTitle) {
+    // Remove any existing certificate message
+    const existing = document.getElementById('certificatePopup')
+    if (existing) {
+      existing.remove()
+    }
+    
     const message = document.createElement('div')
-    message.className = 'fixed top-4 right-4 z-50 bg-gradient-to-r from-yellow-400 to-orange-500 text-white p-6 rounded-xl shadow-2xl max-w-md animate-bounce'
+    message.id = 'certificatePopup'
+    message.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 9999; max-width: 400px;'
     message.innerHTML = `
-      <div class="flex items-start gap-4">
-        <i class="fas fa-certificate text-4xl"></i>
-        <div>
-          <h3 class="font-bold text-lg mb-2">🎉 Parabéns!</h3>
-          <p class="mb-3">Você concluiu o curso <strong>${courseTitle}</strong>!</p>
-          <p class="text-sm mb-4">Seu certificado foi gerado e está disponível.</p>
-          <button onclick="window.location.href='/certificates'" 
-                  class="bg-white text-orange-600 font-bold px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors">
-            <i class="fas fa-eye mr-2"></i>
-            Ver Certificado
+      <div class="bg-gradient-to-r from-yellow-400 to-orange-500 text-white p-6 rounded-xl shadow-2xl animate-bounce">
+        <div class="flex items-start gap-4">
+          <i class="fas fa-certificate text-4xl flex-shrink-0"></i>
+          <div class="flex-1">
+            <h3 class="font-bold text-xl mb-2">🎉 Parabéns!</h3>
+            <p class="mb-2">Você concluiu o curso:</p>
+            <p class="font-bold mb-3">${courseTitle}</p>
+            <p class="text-sm mb-4">Seu certificado foi gerado e está disponível!</p>
+            <button onclick="window.location.href='/certificates'" 
+                    class="w-full bg-white text-orange-600 font-bold px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors">
+              <i class="fas fa-eye mr-2"></i>
+              Ver Meu Certificado
+            </button>
+          </div>
+          <button onclick="document.getElementById('certificatePopup').remove()" 
+                  class="text-white hover:text-gray-200 text-xl flex-shrink-0">
+            <i class="fas fa-times"></i>
           </button>
         </div>
-        <button onclick="this.parentElement.parentElement.remove()" 
-                class="text-white hover:text-gray-200 text-xl">
-          <i class="fas fa-times"></i>
-        </button>
       </div>
     `
     document.body.appendChild(message)
     
-    // Auto-remove after 10 seconds
+    // Log to console for debugging
+    console.log('🎉 Certificate popup displayed!')
+    
+    // Auto-remove after 15 seconds
     setTimeout(() => {
-      if (message.parentElement) {
-        message.remove()
+      const popup = document.getElementById('certificatePopup')
+      if (popup) {
+        popup.remove()
       }
-    }, 10000)
+    }, 15000)
   },
   
   // View management
