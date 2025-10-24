@@ -1525,6 +1525,279 @@ app.get('/api/certificates/:id', async (c) => {
 })
 
 // ============================================
+// API ROUTES - PLANS & SUBSCRIPTIONS
+// ============================================
+
+// Get all active plans
+app.get('/api/plans', async (c) => {
+  try {
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    const plans = await supabase.query('plans', {
+      select: '*',
+      filters: { is_active: true },
+      order: 'display_order'
+    })
+    
+    return c.json({ plans })
+  } catch (error) {
+    return c.json({ error: 'Erro ao buscar planos' }, 500)
+  }
+})
+
+// Get user's current subscription
+app.get('/api/subscriptions/current', async (c) => {
+  try {
+    const token = getCookie(c, 'sb-access-token')
+    
+    if (!token) {
+      return c.json({ subscription: null })
+    }
+    
+    const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    if (!user) {
+      return c.json({ subscription: null })
+    }
+    
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    // Get user's active subscription with plan details
+    const result = await supabase.rpc('get_user_current_plan', {
+      p_user_email: user.email
+    })
+    
+    return c.json({ subscription: result && result.length > 0 ? result[0] : null })
+  } catch (error) {
+    console.error('Error fetching subscription:', error)
+    return c.json({ subscription: null })
+  }
+})
+
+// Create or update subscription (Admin only for now)
+app.post('/api/admin/subscriptions', requireAdmin, async (c) => {
+  try {
+    const { user_email, plan_id, duration_days } = await c.req.json()
+    
+    if (!user_email || !plan_id) {
+      return c.json({ error: 'Email e plano são obrigatórios' }, 400)
+    }
+    
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    // Get plan details
+    const plan = await supabase.query('plans', {
+      select: '*',
+      filters: { id: plan_id },
+      single: true
+    })
+    
+    if (!plan) {
+      return c.json({ error: 'Plano não encontrado' }, 404)
+    }
+    
+    // Calculate end date
+    const startDate = new Date()
+    const endDate = new Date(startDate)
+    endDate.setDate(endDate.getDate() + (duration_days || plan.duration_days))
+    
+    // Check if user already has active subscription
+    const existing = await supabase.query('subscriptions', {
+      select: '*',
+      filters: { user_email, status: 'active' }
+    })
+    
+    if (existing.length > 0) {
+      // Update existing subscription
+      await supabase.update('subscriptions', { id: existing[0].id }, {
+        plan_id,
+        end_date: endDate.toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      
+      return c.json({ 
+        success: true,
+        message: 'Assinatura atualizada com sucesso!',
+        subscription: existing[0]
+      })
+    } else {
+      // Create new subscription
+      const subscription = await supabase.insert('subscriptions', {
+        user_email,
+        plan_id,
+        status: 'active',
+        start_date: startDate.toISOString(),
+        end_date: endDate.toISOString()
+      })
+      
+      return c.json({ 
+        success: true,
+        message: 'Assinatura criada com sucesso!',
+        subscription: subscription[0]
+      })
+    }
+  } catch (error) {
+    console.error('Error creating subscription:', error)
+    return c.json({ error: 'Erro ao criar assinatura' }, 500)
+  }
+})
+
+// Check if user has access to a specific lesson
+app.get('/api/lessons/:id/access', async (c) => {
+  try {
+    const lessonId = c.req.param('id')
+    const token = getCookie(c, 'sb-access-token')
+    
+    if (!token) {
+      // Not logged in - check if lesson is free trial
+      const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+      const lesson = await supabase.query('lessons', {
+        select: 'free_trial',
+        filters: { id: lessonId },
+        single: true
+      })
+      
+      return c.json({ 
+        hasAccess: lesson?.free_trial || false,
+        reason: lesson?.free_trial ? 'free_trial' : 'not_authenticated'
+      })
+    }
+    
+    const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    if (!user) {
+      return c.json({ hasAccess: false, reason: 'invalid_token' })
+    }
+    
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    // Use the database function to check access
+    const result = await supabase.rpc('user_has_lesson_access', {
+      p_user_email: user.email,
+      p_lesson_id: parseInt(lessonId)
+    })
+    
+    const hasAccess = result && result.length > 0 ? result[0].user_has_lesson_access : false
+    
+    return c.json({ 
+      hasAccess,
+      reason: hasAccess ? 'active_subscription' : 'no_active_subscription'
+    })
+  } catch (error) {
+    console.error('Error checking lesson access:', error)
+    return c.json({ hasAccess: false, reason: 'error' }, 500)
+  }
+})
+
+// Expire subscriptions (can be called by cron job)
+app.post('/api/admin/subscriptions/expire', requireAdmin, async (c) => {
+  try {
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    await supabase.rpc('expire_subscriptions', {})
+    
+    return c.json({ 
+      success: true,
+      message: 'Assinaturas expiradas com sucesso!'
+    })
+  } catch (error) {
+    console.error('Error expiring subscriptions:', error)
+    return c.json({ error: 'Erro ao expirar assinaturas' }, 500)
+  }
+})
+
+// Admin: Get all plans (including inactive)
+app.get('/api/admin/plans', requireAdmin, async (c) => {
+  try {
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    const plans = await supabase.query('plans', {
+      select: '*',
+      order: 'display_order'
+    })
+    
+    return c.json({ plans })
+  } catch (error) {
+    return c.json({ error: 'Erro ao buscar planos' }, 500)
+  }
+})
+
+// Admin: Create or update plan
+app.post('/api/admin/plans', requireAdmin, async (c) => {
+  try {
+    const data = await c.req.json()
+    const { id, name, description, price, duration_days, is_active, is_free_trial, features, display_order } = data
+    
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    if (id) {
+      // Update existing plan
+      await supabase.update('plans', { id }, {
+        name,
+        description,
+        price: parseFloat(price),
+        duration_days: parseInt(duration_days),
+        is_active,
+        is_free_trial,
+        features: features || [],
+        display_order: parseInt(display_order || 0),
+        updated_at: new Date().toISOString()
+      })
+      
+      return c.json({ success: true, message: 'Plano atualizado!' })
+    } else {
+      // Create new plan
+      const plan = await supabase.insert('plans', {
+        name,
+        description,
+        price: parseFloat(price),
+        duration_days: parseInt(duration_days),
+        is_active,
+        is_free_trial,
+        features: features || [],
+        display_order: parseInt(display_order || 0)
+      })
+      
+      return c.json({ success: true, plan: plan[0], message: 'Plano criado!' })
+    }
+  } catch (error) {
+    console.error('Error saving plan:', error)
+    return c.json({ error: 'Erro ao salvar plano' }, 500)
+  }
+})
+
+// Admin: Get all subscriptions
+app.get('/api/admin/subscriptions', requireAdmin, async (c) => {
+  try {
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    const subscriptions = await supabase.query('subscriptions', {
+      select: '*',
+      order: 'created_at.desc'
+    })
+    
+    // Get plan details for each subscription
+    const subscriptionsWithPlans = await Promise.all(
+      subscriptions.map(async (sub: any) => {
+        const plan = await supabase.query('plans', {
+          select: '*',
+          filters: { id: sub.plan_id },
+          single: true
+        })
+        return {
+          ...sub,
+          plan_name: plan?.name || 'Desconhecido'
+        }
+      })
+    )
+    
+    return c.json({ subscriptions: subscriptionsWithPlans })
+  } catch (error) {
+    return c.json({ error: 'Erro ao buscar assinaturas' }, 500)
+  }
+})
+
+// ============================================
 // FRONTEND - Main page
 // ============================================
 
@@ -1990,6 +2263,13 @@ app.get('/', (c) => {
                                 <p class="font-semibold text-sm" id="userName">Aluno</p>
                             </div>
                         </div>
+                        
+                        <!-- Plans Button -->
+                        <button onclick="app.showPlans()" 
+                                class="px-3 md:px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-xs md:text-sm font-semibold transition-colors">
+                            <i class="fas fa-crown"></i>
+                            <span class="hidden sm:inline ml-2">Planos</span>
+                        </button>
                         
                         <!-- Certificates Button -->
                         <button onclick="window.location.href='/certificates'" 

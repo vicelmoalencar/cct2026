@@ -881,6 +881,182 @@ const app = {
     }, 5000)
   },
   
+  // Show plans page
+  async showPlans() {
+    try {
+      // Hide all views
+      document.getElementById('coursesView').classList.add('hidden')
+      document.getElementById('courseView').classList.add('hidden')
+      document.getElementById('lessonView').classList.add('hidden')
+      
+      // Create plans view if doesn't exist
+      let plansView = document.getElementById('plansView')
+      if (!plansView) {
+        plansView = document.createElement('div')
+        plansView.id = 'plansView'
+        plansView.className = 'container mx-auto px-4 py-8'
+        document.querySelector('main').appendChild(plansView)
+      }
+      plansView.classList.remove('hidden')
+      
+      // Load plans
+      const response = await axios.get('/api/plans')
+      const plans = response.data.plans || []
+      
+      // Load current subscription
+      let currentPlan = null
+      try {
+        const subResponse = await axios.get('/api/subscriptions/current')
+        currentPlan = subResponse.data.subscription
+      } catch (error) {
+        console.log('No active subscription')
+      }
+      
+      plansView.innerHTML = `
+        <div class="mb-6">
+          <button onclick="app.showCourses()" class="text-blue-600 hover:text-blue-800 font-semibold">
+            <i class="fas fa-arrow-left mr-2"></i>Voltar aos Cursos
+          </button>
+        </div>
+        
+        <div class="text-center mb-12">
+          <h1 class="text-4xl font-bold text-gray-800 mb-4">
+            <i class="fas fa-crown text-yellow-500 mr-3"></i>
+            Escolha seu Plano
+          </h1>
+          <p class="text-xl text-gray-600">
+            Acesse todos os cursos e materiais exclusivos
+          </p>
+        </div>
+        
+        ${currentPlan ? `
+          <div class="max-w-4xl mx-auto mb-8 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl shadow-xl p-6">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-2xl font-bold mb-2">
+                  <i class="fas fa-check-circle mr-2"></i>
+                  Assinatura Ativa
+                </h3>
+                <p class="text-green-100 text-lg">
+                  Plano: <strong>${currentPlan.plan_name}</strong>
+                </p>
+                <p class="text-green-100 text-sm mt-1">
+                  Válido até: <strong>${new Date(currentPlan.end_date).toLocaleDateString('pt-BR')}</strong>
+                  <span class="ml-2">(${currentPlan.days_remaining} dias restantes)</span>
+                </p>
+              </div>
+              <i class="fas fa-star text-6xl opacity-20"></i>
+            </div>
+          </div>
+        ` : ''}
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
+          ${plans.map(plan => {
+            const isCurrent = currentPlan && currentPlan.plan_id === plan.id
+            const isFreeTrial = plan.is_free_trial
+            
+            return `
+              <div class="relative ${isCurrent ? 'ring-4 ring-green-500' : ''} ${isFreeTrial ? 'bg-blue-50 border-blue-300' : 'bg-white'} border-2 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden">
+                ${isCurrent ? `
+                  <div class="absolute top-0 right-0 bg-green-500 text-white px-4 py-1 text-xs font-bold rounded-bl-lg">
+                    <i class="fas fa-check mr-1"></i>SEU PLANO
+                  </div>
+                ` : ''}
+                
+                ${!isFreeTrial && plan.display_order === 3 ? `
+                  <div class="absolute top-0 left-0 bg-gradient-to-r from-yellow-400 to-yellow-500 text-gray-800 px-4 py-1 text-xs font-bold shadow-md">
+                    <i class="fas fa-star mr-1"></i>MAIS POPULAR
+                  </div>
+                ` : ''}
+                
+                <div class="p-6 pt-${isCurrent || (!isFreeTrial && plan.display_order === 3) ? '12' : '6'}">
+                  <h3 class="text-2xl font-bold text-gray-800 mb-2">${plan.name}</h3>
+                  <p class="text-gray-600 text-sm mb-4">${plan.description || ''}</p>
+                  
+                  <div class="mb-6">
+                    <div class="flex items-baseline gap-1">
+                      <span class="text-4xl font-bold ${isFreeTrial ? 'text-blue-600' : 'text-gray-800'}">
+                        ${plan.price > 0 ? `R$ ${parseFloat(plan.price).toFixed(2)}` : 'Grátis'}
+                      </span>
+                      ${plan.duration_days > 0 ? `<span class="text-gray-600 text-sm">/ ${plan.duration_days} dias</span>` : ''}
+                    </div>
+                    ${plan.price > 0 && plan.duration_days >= 30 ? `
+                      <p class="text-xs text-gray-500 mt-1">
+                        ${(plan.price / (plan.duration_days / 30)).toFixed(2)} por mês
+                      </p>
+                    ` : ''}
+                  </div>
+                  
+                  <ul class="space-y-3 mb-6">
+                    ${(plan.features || []).map(feature => `
+                      <li class="flex items-start gap-2 text-sm text-gray-700">
+                        <i class="fas fa-check text-green-600 mt-1"></i>
+                        <span>${feature}</span>
+                      </li>
+                    `).join('')}
+                  </ul>
+                  
+                  ${isCurrent ? `
+                    <button disabled
+                            class="w-full py-3 bg-gray-400 text-white rounded-lg font-semibold cursor-not-allowed">
+                      <i class="fas fa-check mr-2"></i>Plano Atual
+                    </button>
+                  ` : isFreeTrial ? `
+                    <button disabled
+                            class="w-full py-3 bg-blue-200 text-blue-800 rounded-lg font-semibold cursor-not-allowed">
+                      <i class="fas fa-gift mr-2"></i>Teste Grátis
+                    </button>
+                  ` : `
+                    <button onclick="app.selectPlan(${plan.id}, '${plan.name}', ${plan.price})"
+                            class="w-full py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg font-semibold transition-all shadow-md hover:shadow-lg">
+                      <i class="fas fa-shopping-cart mr-2"></i>Assinar Agora
+                    </button>
+                  `}
+                </div>
+              </div>
+            `
+          }).join('')}
+        </div>
+        
+        <div class="max-w-4xl mx-auto mt-12 bg-gray-50 border border-gray-200 rounded-xl p-8">
+          <h3 class="text-2xl font-bold text-gray-800 mb-4">
+            <i class="fas fa-question-circle text-blue-600 mr-2"></i>
+            Perguntas Frequentes
+          </h3>
+          <div class="space-y-4">
+            <div>
+              <h4 class="font-semibold text-gray-800 mb-1">Como funciona o teste grátis?</h4>
+              <p class="text-gray-600 text-sm">Você pode acessar aulas marcadas como "Teste Grátis" sem precisar assinar nenhum plano.</p>
+            </div>
+            <div>
+              <h4 class="font-semibold text-gray-800 mb-1">Posso cancelar a qualquer momento?</h4>
+              <p class="text-gray-600 text-sm">Sim! Entre em contato com o suporte para cancelar sua assinatura.</p>
+            </div>
+            <div>
+              <h4 class="font-semibold text-gray-800 mb-1">Tenho acesso a todos os cursos?</h4>
+              <p class="text-gray-600 text-sm">Com qualquer plano pago, você tem acesso completo a todos os cursos e materiais da plataforma.</p>
+            </div>
+          </div>
+        </div>
+      `
+    } catch (error) {
+      console.error('Error loading plans:', error)
+      alert('❌ Erro ao carregar planos. Tente novamente.')
+    }
+  },
+  
+  selectPlan(planId, planName, price) {
+    alert(`
+      🚧 Funcionalidade em Desenvolvimento
+      
+      Plano selecionado: ${planName}
+      Valor: R$ ${price.toFixed(2)}
+      
+      Em breve você poderá completar a assinatura aqui!
+      Por enquanto, entre em contato com o administrador.
+    `)
+  },
+  
   // Save last accessed lesson
   saveLastAccessedLesson(lessonId, lessonTitle, moduleName, courseName) {
     const lastLesson = {
