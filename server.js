@@ -28,7 +28,10 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
 
 // Import the built worker
 const workerModule = await import('./dist/_worker.js')
-const app = workerModule.default
+const workerApp = workerModule.default
+
+// Create a NEW wrapper app to add our Node.js specific middleware
+const app = new Hono()
 
 // Add static file serving for Node.js
 // Try multiple path resolutions for Docker/Easypanel compatibility
@@ -68,6 +71,16 @@ app.use('*', async (c, next) => {
   console.log(`📤 ${c.req.method} ${path} - ${c.res.status} (${ms}ms)`)
 })
 
+// CRITICAL: Add health check endpoint for Docker/Easypanel
+app.get('/health', (c) => {
+  console.log('🩺 Health check called')
+  return c.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    supabase: SUPABASE_URL ? 'configured' : 'missing'
+  })
+})
+
 // Serve static files - try absolute path
 console.log('🔧 Configuring static file serving...')
 console.log('   Root path:', publicPath)
@@ -75,8 +88,8 @@ console.log('   Pattern: /static/*')
 
 app.use('/static/*', serveStatic({ root: publicPath }))
 
-// Also try serving directly without /static prefix as fallback
-app.use('/public/*', serveStatic({ root: __dirname }))
+// Mount the original worker app to handle all other routes
+app.route('/', workerApp)
 
 console.log(`🚀 Starting server on port ${port}...`)
 console.log(`📦 Supabase URL: ${SUPABASE_URL || 'NOT SET'}`)
