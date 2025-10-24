@@ -62,11 +62,12 @@ const adminManager = {
     return response.data
   },
   
-  // Certificate template
-  async uploadCertificateTemplate(courseId, templateUrl) {
+  // Certificate template - Upload image directly
+  async uploadCertificateTemplate(courseId, imageData, fileName) {
     const response = await axios.post('/api/admin/certificate-template', {
       course_id: courseId,
-      template_url: templateUrl
+      image_data: imageData,
+      file_name: fileName
     })
     return response.data
   },
@@ -314,15 +315,49 @@ const adminUI = {
           <div>
             <label class="block text-sm font-semibold text-gray-700 mb-2">
               <i class="fas fa-certificate text-yellow-500 mr-2"></i>
-              Template de Certificado (URL da imagem)
+              Template de Certificado
             </label>
-            <input type="url" id="certificateTemplate"
-                   value="${certificateUrl}"
-                   placeholder="https://exemplo.com/certificado.jpg"
-                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <p class="text-xs text-gray-500 mt-1">
-              <i class="fas fa-info-circle"></i> 
-              Faça upload da imagem do certificado em um serviço como Imgur, Cloudinary ou similar e cole a URL aqui.
+            
+            <!-- Current Template Preview -->
+            <div id="currentTemplatePreview" class="${certificateUrl ? '' : 'hidden'} mb-4">
+              <p class="text-xs text-gray-600 mb-2">Template atual:</p>
+              <img src="${certificateUrl}" 
+                   alt="Template atual" 
+                   class="max-w-full h-auto rounded-lg border-2 border-gray-300 shadow-sm">
+              <p class="text-xs text-gray-500 mt-1">
+                <i class="fas fa-check-circle text-green-500"></i> 
+                Template salvo no Supabase Storage
+              </p>
+            </div>
+            
+            <!-- Upload New Template -->
+            <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 bg-gray-50 hover:bg-gray-100 transition-colors">
+              <input type="file" id="certificateTemplateFile" accept="image/*"
+                     class="hidden" onchange="adminUI.handleCertificateImageSelect(event)">
+              <button type="button" onclick="document.getElementById('certificateTemplateFile').click()"
+                      class="w-full px-4 py-3 bg-yellow-100 hover:bg-yellow-200 text-yellow-700 rounded-lg font-semibold transition-colors">
+                <i class="fas fa-cloud-upload-alt mr-2"></i>
+                ${certificateUrl ? 'Alterar Template' : 'Fazer Upload do Template'}
+              </button>
+              <p class="text-xs text-gray-500 mt-2 text-center">
+                <i class="fas fa-info-circle"></i> 
+                Faça upload da imagem do certificado (JPG, PNG). A imagem será armazenada no Supabase Storage.
+              </p>
+              
+              <!-- Preview new upload -->
+              <div id="newTemplatePreview" class="hidden mt-4">
+                <p class="text-xs text-gray-600 mb-2">Nova imagem selecionada:</p>
+                <img id="newTemplateImage" src="" alt="Preview" 
+                     class="max-w-full h-auto rounded-lg border-2 border-blue-300 shadow-sm">
+                <p class="text-xs text-blue-600 mt-1">
+                  <i class="fas fa-info-circle"></i> 
+                  Clique em "Salvar" para fazer upload desta imagem
+                </p>
+              </div>
+            </div>
+            
+            <p class="text-xs text-gray-500 mt-2">
+              <i class="fas fa-magic text-purple-500"></i> 
               O certificado será gerado automaticamente quando o aluno completar 100% do curso.
             </p>
           </div>
@@ -353,33 +388,47 @@ const adminUI = {
       instructor: document.getElementById('courseInstructor').value
     }
     
-    const certificateTemplate = document.getElementById('certificateTemplate').value
-    
     try {
       let savedCourseId = courseId
       
       if (courseId) {
         await adminManager.updateCourse(courseId, data)
-        alert('✅ Curso atualizado com sucesso!')
+        console.log('✅ Curso atualizado')
       } else {
         const result = await adminManager.createCourse(data)
-        savedCourseId = result.course.id
-        alert('✅ Curso criado com sucesso!')
+        savedCourseId = result.course_id
+        console.log('✅ Curso criado com ID:', savedCourseId)
       }
       
-      // Save certificate template if provided
-      if (certificateTemplate && certificateTemplate.trim()) {
+      // Upload certificate template if new image was selected
+      if (this.certificateImageData && this.certificateImageFileName) {
         try {
-          await adminManager.uploadCertificateTemplate(savedCourseId, certificateTemplate.trim())
-          console.log('✅ Template de certificado salvo!')
+          console.log('📤 Fazendo upload do template de certificado...')
+          const uploadResult = await adminManager.uploadCertificateTemplate(
+            savedCourseId, 
+            this.certificateImageData,
+            this.certificateImageFileName
+          )
+          console.log('✅ Template de certificado salvo!', uploadResult)
+          
+          // Clear image data after successful upload
+          this.certificateImageData = null
+          this.certificateImageFileName = null
+          
+          alert('✅ Curso e template de certificado salvos com sucesso!')
         } catch (certError) {
-          console.error('Erro ao salvar template:', certError)
-          alert('⚠️ Curso salvo, mas houve erro ao salvar o template de certificado')
+          console.error('❌ Erro ao salvar template:', certError)
+          alert('⚠️ Curso salvo, mas houve erro ao fazer upload do template de certificado: ' + 
+                (certError.response?.data?.error || certError.message))
         }
+      } else {
+        alert('✅ Curso salvo com sucesso!')
       }
+      
       await this.loadData()
       this.renderCoursesTab()
     } catch (error) {
+      console.error('❌ Erro ao salvar curso:', error)
       alert('❌ Erro ao salvar curso: ' + (error.response?.data?.error || error.message))
     }
   },
@@ -1185,5 +1234,55 @@ const adminUI = {
     const sizes = ['Bytes', 'KB', 'MB', 'GB']
     const i = Math.floor(Math.log(bytes) / Math.log(k))
     return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i]
+  },
+  
+  // Certificate template image handling
+  certificateImageData: null,
+  certificateImageFileName: null,
+  
+  handleCertificateImageSelect(event) {
+    const file = event.target.files[0]
+    if (!file) return
+    
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('❌ Por favor, selecione uma imagem (JPG, PNG, etc.)')
+      return
+    }
+    
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024
+    if (file.size > maxSize) {
+      alert('❌ Imagem muito grande. Máximo: 5MB')
+      return
+    }
+    
+    // Store filename
+    this.certificateImageFileName = file.name
+    
+    // Convert to base64 for preview and upload
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      this.certificateImageData = e.target.result
+      
+      // Show preview
+      const previewContainer = document.getElementById('newTemplatePreview')
+      const previewImage = document.getElementById('newTemplateImage')
+      
+      if (previewContainer && previewImage) {
+        previewImage.src = this.certificateImageData
+        previewContainer.classList.remove('hidden')
+      }
+      
+      console.log('✅ Imagem selecionada:', {
+        name: file.name,
+        size: this.formatFileSize(file.size),
+        type: file.type
+      })
+    }
+    reader.readAsDataURL(file)
+    
+    // Clear input to allow re-selecting same file
+    event.target.value = ''
   }
 }

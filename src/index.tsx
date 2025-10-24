@@ -1183,13 +1183,55 @@ app.post('/api/progress/uncomplete', async (c) => {
 // Upload certificate template (Admin only)
 app.post('/api/admin/certificate-template', requireAdmin, async (c) => {
   try {
-    const { course_id, template_url } = await c.req.json()
+    const body = await c.req.json()
+    const { course_id, image_data, file_name } = body
     
-    console.log('📜 Certificate template upload:', { course_id, template_url })
+    console.log('📜 Certificate template upload:', { 
+      course_id, 
+      has_image: !!image_data,
+      file_name 
+    })
     
-    if (!course_id || !template_url) {
-      return c.json({ error: 'ID do curso e URL do template são obrigatórios' }, 400)
+    if (!course_id || !image_data || !file_name) {
+      return c.json({ 
+        error: 'ID do curso, imagem e nome do arquivo são obrigatórios' 
+      }, 400)
     }
+    
+    // Convert base64 to binary
+    const base64Data = image_data.split(',')[1] // Remove data:image/xxx;base64, prefix
+    const binaryData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0))
+    
+    // Upload to Supabase Storage
+    const storagePath = `certificate-templates/${course_id}/${file_name}`
+    
+    const uploadResponse = await fetch(
+      `${c.env.SUPABASE_URL}/storage/v1/object/certificate-templates/${course_id}/${file_name}`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${c.env.SUPABASE_ANON_KEY}`,
+          'apikey': c.env.SUPABASE_ANON_KEY,
+          'Content-Type': 'image/jpeg',
+          'x-upsert': 'true' // Overwrite if exists
+        },
+        body: binaryData
+      }
+    )
+    
+    if (!uploadResponse.ok) {
+      const error = await uploadResponse.json()
+      console.error('❌ Storage upload failed:', error)
+      return c.json({ 
+        error: 'Erro ao fazer upload da imagem',
+        details: error 
+      }, 400)
+    }
+    
+    console.log('✅ Image uploaded to Supabase Storage')
+    
+    // Generate public URL
+    const template_url = `${c.env.SUPABASE_URL}/storage/v1/object/public/certificate-templates/${course_id}/${file_name}`
     
     const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
     
@@ -1205,7 +1247,7 @@ app.post('/api/admin/certificate-template', requireAdmin, async (c) => {
         template_url,
         updated_at: new Date().toISOString()
       })
-      console.log('✅ Certificate template updated')
+      console.log('✅ Certificate template updated in database')
     } else {
       // Insert new template
       await supabase.insert('certificate_templates', {
@@ -1214,16 +1256,20 @@ app.post('/api/admin/certificate-template', requireAdmin, async (c) => {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
-      console.log('✅ Certificate template created')
+      console.log('✅ Certificate template created in database')
     }
     
     return c.json({ 
       success: true,
+      template_url,
       message: 'Template de certificado salvo com sucesso!'
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('💥 Certificate template error:', error)
-    return c.json({ error: 'Erro ao salvar template de certificado' }, 500)
+    return c.json({ 
+      error: 'Erro ao salvar template de certificado',
+      details: error.message 
+    }, 500)
   }
 })
 

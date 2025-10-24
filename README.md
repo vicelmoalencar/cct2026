@@ -216,14 +216,11 @@ npx wrangler pages secret put SUPABASE_ANON_KEY
 5. **Visualize/Baixe**: Clique em qualquer certificado para visualizá-lo em alta qualidade
 
 **Para Administradores:**
-1. **Configure o template**: No painel admin, ao criar/editar um curso, adicione a URL da imagem do certificado
-2. **Upload externo**: Faça upload da imagem do certificado em serviços como:
-   - Imgur (https://imgur.com)
-   - Cloudinary (https://cloudinary.com)
-   - ImgBB (https://imgbb.com)
-   - Ou qualquer serviço de hospedagem de imagens
-3. **Cole a URL**: No campo "Template de Certificado", cole a URL pública da imagem
-4. **Salve**: O template fica vinculado ao curso
+1. **Configure o template**: No painel admin, ao criar/editar um curso
+2. **Upload direto**: Arraste e solte (ou clique para selecionar) a imagem do certificado
+3. **Armazenamento automático**: A imagem é armazenada automaticamente no Supabase Storage
+4. **URL pública gerada**: O sistema gera automaticamente a URL pública do certificado
+5. **Salve**: O template fica vinculado ao curso com URL do Supabase Storage
 
 ### Recursos do Sistema
 
@@ -231,6 +228,11 @@ npx wrangler pages secret put SUPABASE_ANON_KEY
 - ✅ **Notificação visual** animada ao gerar certificado
 - ✅ **Página dedicada** para visualizar todos os certificados
 - ✅ **Templates personalizáveis** por curso
+- ✅ **Upload direto no Supabase Storage** (não precisa de serviços externos!)
+- ✅ **Interface drag & drop** para upload de imagens
+- ✅ **Preview da imagem** antes de salvar
+- ✅ **Armazenamento seguro** no Supabase Storage
+- ✅ **URLs públicas** geradas automaticamente
 - ✅ **Dados do certificado**:
   - Nome do aluno
   - Título do curso
@@ -238,12 +240,31 @@ npx wrangler pages secret put SUPABASE_ANON_KEY
   - Data de emissão
 - ✅ **Design responsivo** para mobile e desktop
 
+### Armazenamento de Certificados
+
+**Supabase Storage** (🆕 Novo!):
+- Bucket: `certificate-templates` (público)
+- Estrutura: `/certificate-templates/{course_id}/{image_name}`
+- Tamanho máximo: 5MB por imagem
+- Formatos aceitos: JPG, PNG, WebP, etc.
+- **Vantagens**:
+  - ✅ Tudo integrado no Supabase
+  - ✅ Sem necessidade de serviços externos
+  - ✅ URLs públicas automáticas
+  - ✅ CDN global do Supabase
+  - ✅ Substituição automática de templates
+
+**Configuração Necessária**:
+1. Criar bucket `certificate-templates` no Supabase Storage (veja `SUPABASE_STORAGE_SETUP.md`)
+2. Configurar como público para acesso sem autenticação
+3. Configurar políticas RLS para upload autenticado
+
 ### Tabelas de Banco de Dados
 
 **certificate_templates** (Templates de Certificados):
 - `id`: ID único
 - `course_id`: Referência ao curso
-- `template_url`: URL da imagem do template
+- `template_url`: URL da imagem no Supabase Storage
 - `created_at`, `updated_at`: Timestamps
 
 **certificates** (Certificados Emitidos):
