@@ -414,14 +414,14 @@ const app = {
       
       const lessonDetail = document.getElementById('lessonDetail')
       lessonDetail.innerHTML = `
-        <div class="bg-white rounded-lg shadow-md p-8 mb-6">
-          <div class="flex items-center justify-between mb-4">
-            <div>
-              <p class="text-sm text-blue-600 font-semibold mb-1">${lesson.module_title}</p>
-              <h2 class="text-3xl font-bold text-gray-800">${lesson.title}</h2>
+        <div class="bg-white rounded-lg shadow-md p-4 md:p-8 mb-6">
+          <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+            <div class="flex-1 min-w-0">
+              <p class="text-xs md:text-sm text-blue-600 font-semibold mb-1">${lesson.module_title}</p>
+              <h2 class="text-xl md:text-3xl font-bold text-gray-800 break-words">${lesson.title}</h2>
             </div>
             <button onclick="app.toggleComplete(${lessonId}, ${isCompleted})"
-                    class="px-6 py-3 rounded-lg font-semibold transition-colors ${
+                    class="w-full md:w-auto px-4 md:px-6 py-2 md:py-3 rounded-lg font-semibold transition-colors text-sm md:text-base whitespace-nowrap ${
                       isCompleted 
                         ? 'bg-green-500 hover:bg-green-600 text-white' 
                         : 'bg-blue-600 hover:bg-blue-700 text-white'
@@ -431,58 +431,60 @@ const app = {
             </button>
           </div>
           
-          <p class="text-gray-600 mb-4">${lesson.description || ''}</p>
-          <div class="text-sm text-gray-500">
+          <p class="text-sm md:text-base text-gray-600 mb-4 break-words">${lesson.description || ''}</p>
+          <div class="text-xs md:text-sm text-gray-500">
             <i class="fas fa-clock mr-1"></i> ${lesson.duration_minutes} minutos
           </div>
           
           <!-- Video Player -->
-          <div class="mt-6">
+          <div class="mt-4 md:mt-6">
             ${this.renderVideoPlayer(lesson)}
           </div>
         </div>
         
         <!-- Comments Section -->
-        <div class="bg-white rounded-lg shadow-md p-8">
-          <h3 class="text-2xl font-bold text-gray-800 mb-6">
+        <div class="bg-white rounded-lg shadow-md p-4 md:p-8">
+          <h3 class="text-xl md:text-2xl font-bold text-gray-800 mb-4 md:mb-6">
             <i class="fas fa-comments mr-2"></i>
             Comentários (${comments.length})
           </h3>
           
           <!-- Add Comment Form -->
-          <div class="mb-8 p-4 bg-gray-50 rounded-lg">
-            <h4 class="font-semibold text-gray-700 mb-3">Adicionar comentário</h4>
+          <div class="mb-6 md:mb-8 p-3 md:p-4 bg-gray-50 rounded-lg">
+            <h4 class="font-semibold text-gray-700 mb-3 text-sm md:text-base">Adicionar comentário</h4>
             <textarea id="commentText" 
-                      class="w-full p-3 border border-gray-300 rounded-lg mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      class="w-full p-2 md:p-3 border border-gray-300 rounded-lg mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm md:text-base"
                       rows="3"
                       placeholder="Digite seu comentário..."></textarea>
-            <div class="flex gap-3 mb-3">
+            <div class="flex flex-col sm:flex-row gap-3 mb-3">
               <input type="text" id="commentName" 
-                     class="flex-1 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                     class="flex-1 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm md:text-base"
                      placeholder="Seu nome">
               <input type="email" id="commentEmail" 
-                     class="flex-1 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                     class="flex-1 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm md:text-base"
                      placeholder="Seu email"
                      value="${this.currentUser}">
             </div>
             <button onclick="app.addComment(${lessonId})"
-                    class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors">
+                    class="w-full sm:w-auto px-4 md:px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors text-sm md:text-base">
               <i class="fas fa-paper-plane mr-2"></i>
               Enviar comentário
             </button>
           </div>
           
           <!-- Comments List -->
-          <div class="space-y-4" id="commentsList">
-            ${comments.length === 0 ? '<p class="text-gray-500 text-center py-8">Ainda não há comentários. Seja o primeiro!</p>' : ''}
+          <div class="space-y-3 md:space-y-4" id="commentsList">
+            ${comments.length === 0 ? '<p class="text-gray-500 text-center py-8 text-sm md:text-base">Ainda não há comentários. Seja o primeiro!</p>' : ''}
             ${comments.map(comment => `
-              <div class="border-l-4 border-blue-500 bg-gray-50 p-4 rounded-r-lg">
-                <div class="flex items-center gap-2 mb-2">
-                  <i class="fas fa-user-circle text-blue-600 text-xl"></i>
-                  <span class="font-semibold text-gray-800">${comment.user_name}</span>
-                  <span class="text-sm text-gray-500">• ${new Date(comment.created_at).toLocaleDateString('pt-BR')}</span>
+              <div class="border-l-4 border-blue-500 bg-gray-50 p-3 md:p-4 rounded-r-lg">
+                <div class="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
+                  <div class="flex items-center gap-2">
+                    <i class="fas fa-user-circle text-blue-600 text-lg md:text-xl"></i>
+                    <span class="font-semibold text-gray-800 text-sm md:text-base break-all">${comment.user_name}</span>
+                  </div>
+                  <span class="text-xs md:text-sm text-gray-500 sm:ml-auto">${new Date(comment.created_at).toLocaleDateString('pt-BR')}</span>
                 </div>
-                <p class="text-gray-700">${comment.comment_text}</p>
+                <p class="text-sm md:text-base text-gray-700 break-words">${comment.comment_text}</p>
               </div>
             `).join('')}
           </div>
@@ -492,16 +494,16 @@ const app = {
         ${lesson.support_text ? `
           <div class="bg-white rounded-lg shadow-md mt-6">
             <button onclick="app.toggleSection('supportText')"
-                    class="flex items-center justify-between w-full text-left p-6 hover:bg-gray-50 transition-colors rounded-lg">
-              <h3 class="text-xl font-bold text-gray-800">
+                    class="flex items-center justify-between w-full text-left p-4 md:p-6 hover:bg-gray-50 transition-colors rounded-lg">
+              <h3 class="text-lg md:text-xl font-bold text-gray-800">
                 <i class="fas fa-file-alt mr-2 text-blue-600"></i>
                 Texto de Apoio
               </h3>
               <i class="fas fa-chevron-down text-gray-400 transition-transform" id="supportTextIcon"></i>
             </button>
-            <div id="supportTextContent" class="hidden px-6 pb-6">
-              <div class="prose max-w-none bg-blue-50 rounded-lg p-6 border-t border-gray-200">
-                <div class="text-gray-700 whitespace-pre-wrap">${lesson.support_text}</div>
+            <div id="supportTextContent" class="hidden px-4 md:px-6 pb-4 md:pb-6">
+              <div class="prose max-w-none bg-blue-50 rounded-lg p-4 md:p-6 border-t border-gray-200">
+                <div class="text-sm md:text-base text-gray-700 whitespace-pre-wrap break-words">${lesson.support_text}</div>
               </div>
             </div>
           </div>
@@ -511,24 +513,25 @@ const app = {
         ${lesson.attachments && Array.isArray(lesson.attachments) && lesson.attachments.length > 0 ? `
           <div class="bg-white rounded-lg shadow-md mt-6">
             <button onclick="app.toggleSection('attachments')"
-                    class="flex items-center justify-between w-full text-left p-6 hover:bg-gray-50 transition-colors rounded-lg">
-              <h3 class="text-xl font-bold text-gray-800">
+                    class="flex items-center justify-between w-full text-left p-4 md:p-6 hover:bg-gray-50 transition-colors rounded-lg">
+              <h3 class="text-lg md:text-xl font-bold text-gray-800">
                 <i class="fas fa-paperclip mr-2 text-green-600"></i>
-                Arquivos para Download (${lesson.attachments.length})
+                <span class="hidden sm:inline">Arquivos para Download (${lesson.attachments.length})</span>
+                <span class="sm:hidden">Arquivos (${lesson.attachments.length})</span>
               </h3>
               <i class="fas fa-chevron-down text-gray-400 transition-transform" id="attachmentsIcon"></i>
             </button>
-            <div id="attachmentsContent" class="hidden px-6 pb-6">
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-gray-200 pt-6">
+            <div id="attachmentsContent" class="hidden px-4 md:px-6 pb-4 md:pb-6">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 border-t border-gray-200 pt-4 md:pt-6">
                 ${lesson.attachments.map(file => `
-                  <div class="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-lg p-4 hover:bg-gray-100 transition-colors">
-                    <i class="fas fa-file-${this.getFileIcon(file.type)} text-3xl text-blue-600"></i>
-                    <div class="flex-1">
-                      <p class="font-semibold text-gray-800">${file.name}</p>
-                      <p class="text-sm text-gray-500">${this.formatFileSize(file.size)}</p>
+                  <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-gray-50 border border-gray-200 rounded-lg p-3 md:p-4 hover:bg-gray-100 transition-colors">
+                    <i class="fas fa-file-${this.getFileIcon(file.type)} text-2xl md:text-3xl text-blue-600"></i>
+                    <div class="flex-1 min-w-0">
+                      <p class="font-semibold text-sm md:text-base text-gray-800 break-all">${file.name}</p>
+                      <p class="text-xs md:text-sm text-gray-500">${this.formatFileSize(file.size)}</p>
                     </div>
                     <button onclick="app.downloadAttachment('${file.name}', '${file.data}')"
-                            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-colors">
+                            class="w-full sm:w-auto px-3 md:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs md:text-sm font-semibold transition-colors whitespace-nowrap">
                       <i class="fas fa-download mr-1"></i>
                       Baixar
                     </button>
@@ -543,16 +546,17 @@ const app = {
         ${lesson.transcript ? `
           <div class="bg-white rounded-lg shadow-md mt-6">
             <button onclick="app.toggleSection('transcript')"
-                    class="flex items-center justify-between w-full text-left p-6 hover:bg-gray-50 transition-colors rounded-lg">
-              <h3 class="text-xl font-bold text-gray-800">
+                    class="flex items-center justify-between w-full text-left p-4 md:p-6 hover:bg-gray-50 transition-colors rounded-lg">
+              <h3 class="text-lg md:text-xl font-bold text-gray-800">
                 <i class="fas fa-closed-captioning mr-2 text-purple-600"></i>
-                Transcrição do Vídeo
+                <span class="hidden sm:inline">Transcrição do Vídeo</span>
+                <span class="sm:hidden">Transcrição</span>
               </h3>
               <i class="fas fa-chevron-down text-gray-400 transition-transform" id="transcriptIcon"></i>
             </button>
-            <div id="transcriptContent" class="hidden px-6 pb-6">
-              <div class="bg-purple-50 rounded-lg p-6 border-t border-gray-200">
-                <div class="text-gray-700 whitespace-pre-wrap font-mono text-sm">${lesson.transcript}</div>
+            <div id="transcriptContent" class="hidden px-4 md:px-6 pb-4 md:pb-6">
+              <div class="bg-purple-50 rounded-lg p-4 md:p-6 border-t border-gray-200">
+                <div class="text-xs md:text-sm text-gray-700 whitespace-pre-wrap font-mono break-words">${lesson.transcript}</div>
               </div>
             </div>
           </div>
