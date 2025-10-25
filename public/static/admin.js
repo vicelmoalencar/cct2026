@@ -1665,7 +1665,203 @@ const adminUI = {
   
   // ==================== SUBSCRIPTIONS TAB ====================
   
-  renderSubscriptionsTab() {
+  async renderSubscriptionsTab() {
+    const content = document.getElementById('adminContent')
+    
+    content.innerHTML = `
+      <div class="bg-white rounded-lg shadow-md p-6">
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="text-2xl font-bold text-gray-800">
+            <i class="fas fa-id-card mr-2"></i>
+            Histórico de Assinaturas (Membros)
+          </h2>
+          <button onclick="csvImport.showMemberImportModal()" 
+                  class="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors shadow-md hover:shadow-lg">
+            <i class="fas fa-file-upload mr-2"></i>
+            Importar CSV de Membros
+          </button>
+        </div>
+        
+        <div id="subscriptionsTableContainer">
+          <p class="text-center text-gray-500 py-8">
+            <i class="fas fa-spinner fa-spin mr-2"></i>
+            Carregando assinaturas...
+          </p>
+        </div>
+      </div>
+    `
+    
+    await this.loadSubscriptionsTable()
+  },
+  
+  async loadSubscriptionsTable() {
+    try {
+      const response = await axios.get('/api/admin/subscriptions')
+      const subscriptions = response.data.subscriptions || []
+      
+      const container = document.getElementById('subscriptionsTableContainer')
+      
+      if (subscriptions.length === 0) {
+        container.innerHTML = `
+          <p class="text-center text-gray-500 py-8">
+            Nenhuma assinatura cadastrada. Importe o CSV de membros para começar.
+          </p>
+        `
+        return
+      }
+      
+      // Separate active and expired
+      const now = new Date()
+      const active = subscriptions.filter(s => s.ativo && (!s.data_expiracao || new Date(s.data_expiracao) > now))
+      const expired = subscriptions.filter(s => !s.ativo || (s.data_expiracao && new Date(s.data_expiracao) <= now))
+      
+      container.innerHTML = `
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm text-blue-700 font-semibold">Total</p>
+                <p class="text-2xl font-bold text-blue-800">${subscriptions.length}</p>
+              </div>
+              <i class="fas fa-list text-3xl text-blue-600"></i>
+            </div>
+          </div>
+          
+          <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm text-green-700 font-semibold">Ativas</p>
+                <p class="text-2xl font-bold text-green-800">${active.length}</p>
+              </div>
+              <i class="fas fa-check-circle text-3xl text-green-600"></i>
+            </div>
+          </div>
+          
+          <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm text-red-700 font-semibold">Expiradas</p>
+                <p class="text-2xl font-bold text-red-800">${expired.length}</p>
+              </div>
+              <i class="fas fa-times-circle text-3xl text-red-600"></i>
+            </div>
+          </div>
+          
+          <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm text-purple-700 font-semibold">Teste Grátis</p>
+                <p class="text-2xl font-bold text-purple-800">${subscriptions.filter(s => s.teste_gratis).length}</p>
+              </div>
+              <i class="fas fa-gift text-3xl text-purple-600"></i>
+            </div>
+          </div>
+        </div>
+        
+        <div class="mb-4 text-sm text-gray-600">
+          <i class="fas fa-info-circle mr-1"></i>
+          Exibindo todas as assinaturas/membros importados
+        </div>
+        
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expiração</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Origem</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Detalhe</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              ${subscriptions.map(sub => {
+                const expirationDate = sub.data_expiracao ? new Date(sub.data_expiracao) : null
+                const isExpired = expirationDate && expirationDate <= now
+                const isActive = sub.ativo && !isExpired
+                
+                return `
+                  <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <div class="flex items-center">
+                        <i class="fas fa-user-circle text-2xl text-gray-400 mr-2"></i>
+                        <div>
+                          <div class="text-sm font-medium text-gray-900">${sub.email_membro}</div>
+                          ${sub.teste_gratis ? '<span class="text-xs bg-purple-500 text-white px-2 py-1 rounded">Teste Grátis</span>' : ''}
+                        </div>
+                      </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      ${expirationDate ? `
+                        <div>
+                          <div class="${isExpired ? 'text-red-600 font-semibold' : 'text-gray-900'}">${expirationDate.toLocaleDateString('pt-BR')}</div>
+                          <div class="text-xs text-gray-500">${expirationDate.toLocaleTimeString('pt-BR')}</div>
+                        </div>
+                      ` : '<span class="text-gray-400">Sem data</span>'}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      ${sub.origem ? `
+                        <span class="px-2 py-1 text-xs bg-gray-200 text-gray-800 rounded">${sub.origem}</span>
+                      ` : '<span class="text-gray-400">-</span>'}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      ${isActive ? `
+                        <span class="px-2 py-1 text-xs bg-green-500 text-white rounded font-semibold">
+                          <i class="fas fa-check-circle mr-1"></i>ATIVA
+                        </span>
+                      ` : `
+                        <span class="px-2 py-1 text-xs bg-red-500 text-white rounded font-semibold">
+                          <i class="fas fa-ban mr-1"></i>EXPIRADA
+                        </span>
+                      `}
+                    </td>
+                    <td class="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
+                      ${sub.detalhe || '<span class="text-gray-400">-</span>'}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <button onclick="adminUI.deleteSubscription(${sub.id}, '${sub.email_membro}')"
+                              class="text-red-600 hover:text-red-900">
+                        <i class="fas fa-trash"></i>
+                      </button>
+                    </td>
+                  </tr>
+                `
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      `
+    } catch (error) {
+      console.error('Error loading subscriptions:', error)
+      const container = document.getElementById('subscriptionsTableContainer')
+      container.innerHTML = `
+        <p class="text-center text-red-500 py-8">
+          <i class="fas fa-exclamation-triangle mr-2"></i>
+          Erro ao carregar assinaturas
+        </p>
+      `
+    }
+  },
+  
+  async deleteSubscription(id, email) {
+    if (!confirm(`Tem certeza que deseja deletar a assinatura de "${email}"?`)) {
+      return
+    }
+    
+    try {
+      await axios.delete(`/api/admin/subscriptions/${id}`)
+      alert('✅ Assinatura deletada com sucesso!')
+      await this.loadSubscriptionsTable()
+    } catch (error) {
+      console.error('Error deleting subscription:', error)
+      alert('❌ Erro ao deletar assinatura: ' + (error.response?.data?.error || error.message))
+    }
+  },
+  
+  // OLD FUNCTIONS - Keep for compatibility but update later
+  renderOldSubscriptionsTab_DEPRECATED() {
     const content = document.getElementById('adminContent')
     
     // Group subscriptions by status
@@ -2858,6 +3054,291 @@ const csvImport = {
     this.usersData = null
     document.getElementById('userCsvPreviewArea').classList.add('hidden')
     document.getElementById('userCsvFileInput').value = ''
+  },
+  
+  // ==================== MEMBER SUBSCRIPTION IMPORT ====================
+  
+  membersData: null,
+  
+  showMemberImportModal() {
+    const modal = document.createElement('div')
+    modal.id = 'memberImportModal'
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4'
+    modal.innerHTML = `
+      <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div class="bg-gradient-to-r from-purple-600 to-purple-700 p-6 text-white">
+          <div class="flex items-center justify-between">
+            <h2 class="text-2xl font-bold">
+              <i class="fas fa-id-card mr-2"></i>
+              Importar Membros/Assinaturas via CSV
+            </h2>
+            <button onclick="csvImport.closeMemberModal()" class="text-white hover:text-gray-200">
+              <i class="fas fa-times text-2xl"></i>
+            </button>
+          </div>
+          <p class="mt-2 text-purple-100 text-sm">
+            Importe o histórico de assinaturas dos membros do sistema
+          </p>
+        </div>
+        
+        <div class="p-6">
+          <!-- Upload Section -->
+          <div class="mb-6">
+            <label class="block text-sm font-semibold text-gray-700 mb-2">
+              Selecione o arquivo CSV de Membros
+            </label>
+            <input type="file" 
+                   id="memberCsvFileInput" 
+                   accept=".csv"
+                   onchange="csvImport.handleMemberFileSelect(event)"
+                   class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 cursor-pointer">
+            <p class="mt-2 text-xs text-gray-500">
+              <i class="fas fa-info-circle mr-1"></i>
+              Formato esperado: email_membro; data_expiracao; detalhe; origem; teste_gratis
+            </p>
+          </div>
+          
+          <!-- Preview Area -->
+          <div id="memberCsvPreviewArea" class="hidden">
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+              <h3 class="font-semibold text-blue-900 mb-2">
+                <i class="fas fa-eye mr-2"></i>
+                Preview da Importação
+              </h3>
+              <div id="memberCsvStats" class="text-sm text-blue-800"></div>
+            </div>
+            
+            <div class="mb-4">
+              <div id="memberCsvPreviewContent" class="bg-gray-50 rounded-lg p-4 max-h-60 overflow-y-auto text-sm"></div>
+            </div>
+            
+            <div class="flex gap-3">
+              <button onclick="csvImport.importMembers()" 
+                      class="flex-1 px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold transition-colors">
+                <i class="fas fa-check mr-2"></i>
+                Confirmar Importação
+              </button>
+              <button onclick="csvImport.cancelMember()" 
+                      class="px-6 py-3 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg font-semibold transition-colors">
+                <i class="fas fa-times mr-2"></i>
+                Cancelar
+              </button>
+            </div>
+          </div>
+          
+          <!-- Progress Area -->
+          <div id="memberImportProgress" class="hidden">
+            <div class="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-4">
+              <h3 class="font-semibold text-purple-900 mb-2">
+                <i class="fas fa-spinner fa-spin mr-2"></i>
+                Importando Membros...
+              </h3>
+              <div id="memberImportLog" class="text-sm text-purple-800 max-h-96 overflow-y-auto font-mono"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `
+    
+    document.body.appendChild(modal)
+  },
+  
+  closeMemberModal() {
+    const modal = document.getElementById('memberImportModal')
+    if (modal) modal.remove()
+    this.membersData = null
+  },
+  
+  handleMemberFileSelect(event) {
+    const file = event.target.files[0]
+    if (!file) return
+    
+    if (!file.name.endsWith('.csv')) {
+      alert('❌ Por favor, selecione um arquivo CSV')
+      return
+    }
+    
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      try {
+        const csvText = e.target.result
+        this.membersData = this.parseMemberCSV(csvText)
+        this.showMemberPreview()
+      } catch (error) {
+        console.error('Parse error:', error)
+        alert('❌ Erro ao ler arquivo CSV: ' + error.message)
+      }
+    }
+    reader.readAsText(file, 'UTF-8')
+  },
+  
+  parseMemberCSV(csvText) {
+    const lines = csvText.split('\n').filter(line => line.trim())
+    const headers = lines[0].split(';').map(h => h.trim())
+    
+    const members = []
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(';').map(v => v.trim().replace(/^"|"$/g, ''))
+      
+      const email = values[0]
+      if (!email || !email.includes('@')) continue // Skip empty or invalid emails
+      
+      const member = {
+        email_membro: email,
+        data_expiracao: values[1] || null,
+        detalhe: values[2] || null,
+        origem: values[3] || null,
+        teste_gratis: values[4] || 'não'
+      }
+      
+      members.push(member)
+    }
+    
+    return members
+  },
+  
+  showMemberPreview() {
+    document.getElementById('memberCsvPreviewArea').classList.remove('hidden')
+    
+    const stats = document.getElementById('memberCsvStats')
+    stats.innerHTML = `
+      <p class="mb-1"><strong>Total de membros:</strong> ${this.membersData.length}</p>
+      <p class="mb-1"><strong>Teste grátis:</strong> ${this.membersData.filter(m => m.teste_gratis.toLowerCase() === 'sim').length}</p>
+      <p><strong>Origens:</strong> ${[...new Set(this.membersData.map(m => m.origem).filter(Boolean))].join(', ')}</p>
+    `
+    
+    const preview = document.getElementById('memberCsvPreviewContent')
+    const sample = this.membersData.slice(0, 10)
+    preview.innerHTML = `
+      <p class="font-semibold mb-2">Primeiros 10 membros:</p>
+      <div class="space-y-1">
+        ${sample.map((m, i) => `
+          <div class="text-xs bg-white p-2 rounded border">
+            <strong>${i + 1}.</strong> ${m.email_membro} - 
+            Exp: ${m.data_expiracao || 'N/A'} - 
+            Origem: ${m.origem || 'N/A'} - 
+            ${m.teste_gratis.toLowerCase() === 'sim' ? '🎁 Teste Grátis' : ''}
+          </div>
+        `).join('')}
+      </div>
+      ${this.membersData.length > 10 ? `<p class="text-xs text-gray-500 mt-2">... e mais ${this.membersData.length - 10} membros</p>` : ''}
+    `
+  },
+  
+  async importMembers() {
+    if (!this.membersData || this.membersData.length === 0) {
+      alert('❌ Nenhum dado para importar')
+      return
+    }
+    
+    const confirmed = confirm(`Tem certeza que deseja importar ${this.membersData.length} membros?\n\n⚠️ Esta operação pode levar alguns minutos.`)
+    if (!confirmed) return
+    
+    // Hide preview, show progress
+    document.getElementById('memberCsvPreviewArea').classList.add('hidden')
+    document.getElementById('memberImportProgress').classList.remove('hidden')
+    
+    const logArea = document.getElementById('memberImportLog')
+    const log = (message, type = 'info') => {
+      const color = type === 'error' ? 'text-red-600' : type === 'success' ? 'text-green-600' : 'text-gray-700'
+      logArea.innerHTML += `<div class="${color}">${message}</div>`
+      logArea.scrollTop = logArea.scrollHeight
+    }
+    
+    let created = 0
+    let skipped = 0
+    let errors = 0
+    
+    try {
+      log(`🚀 Iniciando importação de ${this.membersData.length} membros...`)
+      log(`⏳ Aguarde, processando...`)
+      
+      for (let i = 0; i < this.membersData.length; i++) {
+        const row = this.membersData[i]
+        const progress = Math.round(((i + 1) / this.membersData.length) * 100)
+        
+        if (i % 10 === 0) {
+          log(`📊 Progresso: ${i + 1}/${this.membersData.length} (${progress}%)`)
+        }
+        
+        try {
+          // Check if subscription already exists
+          const existing = await adminManager.findSubscriptionByEmail(row.email_membro)
+          
+          if (existing && existing.length > 0) {
+            skipped++
+            if (i % 50 === 0) {
+              log(`⏭️  Pulado (duplicado): ${row.email_membro}`)
+            }
+            continue
+          }
+          
+          // Parse date from "Aug 10, 2023 12:00 am" to ISO format
+          let data_expiracao = null
+          if (row.data_expiracao) {
+            try {
+              const parsedDate = new Date(row.data_expiracao)
+              if (!isNaN(parsedDate.getTime())) {
+                data_expiracao = parsedDate.toISOString()
+              }
+            } catch (e) {
+              log(`⚠️  Data inválida para ${row.email_membro}: ${row.data_expiracao}`, 'error')
+            }
+          }
+          
+          // Create subscription
+          await axios.post('/api/admin/subscriptions', {
+            email_membro: row.email_membro,
+            data_expiracao: data_expiracao,
+            detalhe: row.detalhe || null,
+            origem: row.origem || null,
+            teste_gratis: row.teste_gratis.toLowerCase() === 'sim',
+            ativo: true
+          })
+          
+          created++
+          
+          if (i % 100 === 0 && i > 0) {
+            log(`✅ ${created} criados até agora...`, 'success')
+          }
+          
+        } catch (error) {
+          errors++
+          log(`❌ Erro ao criar ${row.email_membro}: ${error.message}`, 'error')
+        }
+        
+        // Small delay to avoid overwhelming the server
+        if (i % 50 === 0) {
+          await new Promise(resolve => setTimeout(resolve, 100))
+        }
+      }
+      
+      log('', 'info')
+      log('═'.repeat(50), 'info')
+      log(`✅ Importação concluída!`, 'success')
+      log(`📊 Resumo:`, 'info')
+      log(`   ✅ Criados: ${created}`, 'success')
+      log(`   ⏭️  Pulados (duplicados): ${skipped}`, 'info')
+      log(`   ❌ Erros: ${errors}`, errors > 0 ? 'error' : 'info')
+      log('═'.repeat(50), 'info')
+      
+      setTimeout(() => {
+        this.closeMemberModal()
+        adminUI.loadSubscriptionsTable()
+        alert(`✅ Importação concluída!\n\n${created} criados\n${skipped} pulados\n${errors} erros`)
+      }, 2000)
+      
+    } catch (error) {
+      console.error('Import error:', error)
+      log(`❌ Erro na importação: ${error.message}`, 'error')
+      alert('❌ Erro durante a importação. Verifique o log para detalhes.')
+    }
+  },
+  
+  cancelMember() {
+    this.membersData = null
+    document.getElementById('memberCsvPreviewArea').classList.add('hidden')
+    document.getElementById('memberCsvFileInput').value = ''
   }
 }
 
@@ -2868,5 +3349,15 @@ adminManager.findUserByEmail = async function(email) {
     return response.data.user
   } catch (error) {
     return null
+  }
+}
+
+// Add findSubscriptionByEmail to adminManager
+adminManager.findSubscriptionByEmail = async function(email) {
+  try {
+    const response = await axios.get(`/api/admin/subscriptions/find?email=${encodeURIComponent(email)}`)
+    return response.data.subscriptions || []
+  } catch (error) {
+    return []
   }
 }

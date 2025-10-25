@@ -1175,6 +1175,120 @@ app.delete('/api/admin/users/:id', requireAdmin, async (c) => {
   }
 })
 
+// ============================================================================
+// SUBSCRIPTIONS (ASSINATURAS) MANAGEMENT - Admin Only
+// ============================================================================
+
+// List all subscriptions (admin only)
+app.get('/api/admin/subscriptions', requireAdmin, async (c) => {
+  try {
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    const subscriptions = await supabase.query('subscriptions', {
+      select: '*',
+      order: 'created_at.desc'
+    })
+    
+    return c.json({ subscriptions: subscriptions || [] })
+  } catch (error: any) {
+    console.error('List subscriptions error:', error)
+    return c.json({ error: error.message || 'Failed to list subscriptions' }, 500)
+  }
+})
+
+// Find subscription by email (for duplicate checking)
+app.get('/api/admin/subscriptions/find', requireAdmin, async (c) => {
+  try {
+    const email = c.req.query('email')
+    
+    if (!email) {
+      return c.json({ error: 'Email parameter is required' }, 400)
+    }
+    
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    const subscriptions = await supabase.query('subscriptions', {
+      select: '*',
+      filters: { email_membro: email }
+    })
+    
+    return c.json({ subscriptions: subscriptions || [] })
+  } catch (error: any) {
+    console.error('Find subscription error:', error)
+    return c.json({ error: error.message || 'Failed to find subscription' }, 500)
+  }
+})
+
+// Create subscription (admin only)
+app.post('/api/admin/subscriptions', requireAdmin, async (c) => {
+  try {
+    const subData = await c.req.json()
+    
+    if (!subData.email_membro) {
+      return c.json({ error: 'Email is required' }, 400)
+    }
+    
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    const result = await supabase.insert('subscriptions', {
+      email_membro: subData.email_membro,
+      data_expiracao: subData.data_expiracao || null,
+      detalhe: subData.detalhe || null,
+      origem: subData.origem || null,
+      teste_gratis: subData.teste_gratis || false,
+      ativo: subData.ativo !== undefined ? subData.ativo : true
+    })
+    
+    return c.json({ 
+      success: true, 
+      subscription_id: result && result.length > 0 ? result[0].id : null 
+    })
+  } catch (error: any) {
+    console.error('Create subscription error:', error)
+    return c.json({ error: error.message || 'Failed to create subscription' }, 500)
+  }
+})
+
+// Update subscription (admin only)
+app.put('/api/admin/subscriptions/:id', requireAdmin, async (c) => {
+  try {
+    const subId = c.req.param('id')
+    const subData = await c.req.json()
+    
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    await supabase.update('subscriptions', { id: subId }, {
+      email_membro: subData.email_membro,
+      data_expiracao: subData.data_expiracao,
+      detalhe: subData.detalhe,
+      origem: subData.origem,
+      teste_gratis: subData.teste_gratis,
+      ativo: subData.ativo,
+      updated_at: new Date().toISOString()
+    })
+    
+    return c.json({ success: true })
+  } catch (error: any) {
+    console.error('Update subscription error:', error)
+    return c.json({ error: error.message || 'Failed to update subscription' }, 500)
+  }
+})
+
+// Delete subscription (admin only)
+app.delete('/api/admin/subscriptions/:id', requireAdmin, async (c) => {
+  try {
+    const subId = c.req.param('id')
+    
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    await supabase.delete('subscriptions', { id: subId })
+    
+    return c.json({ success: true })
+  } catch (error: any) {
+    console.error('Delete user error:', error)
+    return c.json({ error: error.message || 'Failed to delete user' }, 500)
+  }
+})
+
 // ============================================
 // API ROUTES - COURSES
 // ============================================
