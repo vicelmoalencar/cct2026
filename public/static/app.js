@@ -1375,6 +1375,179 @@ const app = {
         }
       }
     })
+  },
+  
+  // Show my certificates
+  async showMyCertificates() {
+    try {
+      const response = await axios.get('/api/my-certificates')
+      const certificates = response.data.certificates
+      
+      const coursesView = document.getElementById('coursesView')
+      
+      if (certificates.length === 0) {
+        coursesView.innerHTML = `
+          <div class="text-center py-16">
+            <i class="fas fa-certificate text-gray-300 text-6xl mb-4"></i>
+            <h3 class="text-xl font-semibold text-gray-600 mb-2">Nenhum certificado disponível</h3>
+            <p class="text-gray-500">Complete cursos para receber seus certificados!</p>
+            <button onclick="location.reload()" class="mt-6 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">
+              <i class="fas fa-arrow-left mr-2"></i>Voltar aos Cursos
+            </button>
+          </div>
+        `
+        return
+      }
+      
+      const certificatesHTML = certificates.map(cert => {
+        const completionDate = new Date(cert.completion_date).toLocaleDateString('pt-BR')
+        const verificationUrl = `${window.location.origin}/verificar/${cert.verification_code}`
+        
+        return `
+          <div class="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition">
+            <div class="bg-gradient-to-r from-blue-600 to-purple-600 p-6 text-white">
+              <div class="flex items-start justify-between">
+                <div class="flex-1">
+                  <div class="flex items-center gap-2 mb-2">
+                    <i class="fas fa-certificate text-2xl"></i>
+                    <span class="bg-white/20 px-3 py-1 rounded-full text-xs font-semibold">
+                      ✓ Certificado
+                    </span>
+                  </div>
+                  <h3 class="text-xl font-bold mb-1">${cert.course_title}</h3>
+                  <p class="text-blue-100 text-sm">Concluído em ${completionDate}</p>
+                </div>
+              </div>
+            </div>
+            
+            <div class="p-6">
+              <div class="grid grid-cols-2 gap-4 mb-6">
+                <div class="bg-gray-50 p-4 rounded-lg">
+                  <div class="text-xs text-gray-500 mb-1">Carga Horária</div>
+                  <div class="text-lg font-bold text-gray-800">
+                    ${cert.carga_horaria || 'N/A'} ${cert.carga_horaria ? 'horas' : ''}
+                  </div>
+                </div>
+                <div class="bg-gray-50 p-4 rounded-lg">
+                  <div class="text-xs text-gray-500 mb-1">Código</div>
+                  <div class="text-sm font-mono font-bold text-gray-800">
+                    ${cert.verification_code}
+                  </div>
+                </div>
+              </div>
+              
+              <div class="space-y-3">
+                <button onclick="certificateManager.viewCertificate(${cert.id})" 
+                  class="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2">
+                  <i class="fas fa-eye"></i>
+                  Visualizar Certificado
+                </button>
+                
+                <button onclick="certificateManager.downloadCertificate(${cert.id})" 
+                  class="w-full bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition flex items-center justify-center gap-2">
+                  <i class="fas fa-download"></i>
+                  Baixar PDF
+                </button>
+                
+                <button onclick="certificateManager.shareCertificate('${verificationUrl}')" 
+                  class="w-full bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 transition flex items-center justify-center gap-2">
+                  <i class="fas fa-share-alt"></i>
+                  Compartilhar Link de Verificação
+                </button>
+              </div>
+              
+              <div class="mt-4 p-3 bg-blue-50 rounded-lg">
+                <div class="text-xs text-gray-600">
+                  <i class="fas fa-info-circle mr-1"></i>
+                  Link de verificação: <a href="${verificationUrl}" target="_blank" class="text-blue-600 hover:underline break-all">${verificationUrl}</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        `
+      }).join('')
+      
+      coursesView.innerHTML = `
+        <div class="mb-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-2xl font-bold text-gray-800 mb-2">
+                <i class="fas fa-certificate mr-2 text-blue-600"></i>
+                Meus Certificados
+              </h2>
+              <p class="text-gray-600">Total de ${certificates.length} certificado(s) disponível(is)</p>
+            </div>
+            <button onclick="location.reload()" class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition">
+              <i class="fas fa-arrow-left mr-2"></i>Voltar aos Cursos
+            </button>
+          </div>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          ${certificatesHTML}
+        </div>
+      `
+    } catch (error) {
+      console.error('Error loading certificates:', error)
+      alert('Erro ao carregar certificados: ' + (error.response?.data?.error || error.message))
+    }
+  }
+}
+
+// Certificate Manager
+const certificateManager = {
+  // View certificate in new window
+  async viewCertificate(certId) {
+    try {
+      const url = `/api/certificates/${certId}/html`
+      window.open(url, '_blank')
+    } catch (error) {
+      console.error('Error viewing certificate:', error)
+      alert('Erro ao visualizar certificado: ' + (error.response?.data?.error || error.message))
+    }
+  },
+  
+  // Download certificate as PDF
+  async downloadCertificate(certId) {
+    try {
+      // Open certificate in new window with print dialog
+      const url = `/api/certificates/${certId}/html`
+      const printWindow = window.open(url, '_blank')
+      
+      // Wait for window to load and trigger print
+      printWindow.addEventListener('load', () => {
+        setTimeout(() => {
+          printWindow.print()
+        }, 500)
+      })
+      
+      alert('📄 Certificado aberto em nova janela. Use Ctrl+P ou Cmd+P para imprimir ou salvar como PDF.')
+    } catch (error) {
+      console.error('Error downloading certificate:', error)
+      alert('Erro ao baixar certificado: ' + (error.response?.data?.error || error.message))
+    }
+  },
+  
+  // Share verification link
+  async shareCertificate(verificationUrl) {
+    try {
+      // Try to use Web Share API if available
+      if (navigator.share) {
+        await navigator.share({
+          title: 'Verificar Certificado - CCT 2026',
+          text: 'Verifique a autenticidade deste certificado',
+          url: verificationUrl
+        })
+      } else {
+        // Fallback: copy to clipboard
+        await navigator.clipboard.writeText(verificationUrl)
+        alert('✅ Link de verificação copiado para a área de transferência!')
+      }
+    } catch (error) {
+      console.error('Error sharing certificate:', error)
+      // Final fallback: show URL in prompt
+      prompt('Link de verificação do certificado:', verificationUrl)
+    }
   }
 }
 

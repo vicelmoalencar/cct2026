@@ -2545,41 +2545,63 @@ const adminUI = {
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aluno</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Curso</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Carga Horária</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código Verificação</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Emitido em</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
-              ${certificates.map(cert => `
+              ${certificates.map(cert => {
+                const verificationUrl = cert.verification_code ? 
+                  \`\${window.location.origin}/verificar/\${cert.verification_code}\` : null;
+                
+                return \`
                 <tr class="hover:bg-gray-50">
                   <td class="px-6 py-4">
                     <div class="flex items-center">
                       <i class="fas fa-user-circle text-2xl text-gray-400 mr-3"></i>
                       <div>
-                        <div class="text-sm font-medium text-gray-900">${cert.user_name || 'Sem nome'}</div>
-                        <div class="text-xs text-gray-500">${cert.user_email}</div>
+                        <div class="text-sm font-medium text-gray-900">\${cert.user_name || 'Sem nome'}</div>
+                        <div class="text-xs text-gray-500">\${cert.user_email}</div>
                       </div>
                     </div>
                   </td>
                   <td class="px-6 py-4">
                     <span class="px-2 py-1 text-xs font-semibold bg-blue-100 text-blue-800 rounded">
-                      ${cert.course_title}
+                      \${cert.course_title}
                     </span>
                   </td>
                   <td class="px-6 py-4 text-sm text-gray-900">
-                    ${cert.carga_horaria ? `${cert.carga_horaria}h` : '<span class="text-gray-400">N/A</span>'}
+                    \${cert.carga_horaria ? \`\${cert.carga_horaria}h\` : '<span class="text-gray-400">N/A</span>'}
+                  </td>
+                  <td class="px-6 py-4">
+                    \${cert.verification_code ? \`
+                      <div class="text-xs font-mono text-gray-700 mb-1">\${cert.verification_code}</div>
+                      <a href="\${verificationUrl}" target="_blank" 
+                         class="text-blue-600 hover:underline text-xs flex items-center gap-1">
+                        <i class="fas fa-external-link-alt"></i> Verificar
+                      </a>
+                    \` : '<span class="text-gray-400 text-xs">Sem código</span>'}
                   </td>
                   <td class="px-6 py-4 text-sm text-gray-500">
-                    ${cert.created_at ? new Date(cert.created_at).toLocaleDateString('pt-BR') : 'N/A'}
+                    \${cert.created_at ? new Date(cert.created_at).toLocaleDateString('pt-BR') : 'N/A'}
                   </td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <button onclick="adminUI.deleteCertificate(${cert.id}, '${cert.user_email}', '${cert.course_title}')"
+                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                    \${cert.verification_code ? \`
+                      <button onclick="adminUI.viewCertificate(\${cert.id})" 
+                              title="Visualizar Certificado"
+                              class="text-blue-600 hover:text-blue-900">
+                        <i class="fas fa-eye"></i>
+                      </button>
+                    \` : ''}
+                    <button onclick="adminUI.deleteCertificate(\${cert.id}, '\${cert.user_email}', '\${cert.course_title}')"
+                            title="Deletar Certificado"
                             class="text-red-600 hover:text-red-900">
                       <i class="fas fa-trash"></i>
                     </button>
                   </td>
                 </tr>
-              `).join('')}
+              \`}).join('')}
             </tbody>
           </table>
         </div>
@@ -2594,6 +2616,11 @@ const adminUI = {
         </p>
       `
     }
+  },
+  
+  viewCertificate(certId) {
+    const url = `/api/certificates/${certId}/html`
+    window.open(url, '_blank')
   },
   
   async deleteCertificate(id, email, course) {

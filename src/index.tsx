@@ -1300,6 +1300,560 @@ app.delete('/api/admin/certificates/:id', requireAdmin, async (c) => {
 })
 
 // ============================================================================
+// CERTIFICATE HTML TEMPLATE GENERATOR
+// ============================================================================
+
+function generateCertificateHTML(data: {
+  studentName: string;
+  courseName: string;
+  workload: string;
+  completionDate: string;
+  issueDate: string;
+  verificationCode: string;
+  verificationUrl: string;
+}) {
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Certificado - CCT 2026</title>
+    <style>
+        @page {
+            size: A4 landscape;
+            margin: 0;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Georgia', 'Times New Roman', serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            width: 297mm;
+            height: 210mm;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20mm;
+        }
+        
+        .certificate-container {
+            width: 100%;
+            height: 100%;
+            background: white;
+            border: 15px solid #2c3e50;
+            border-radius: 20px;
+            box-shadow: 0 10px 50px rgba(0,0,0,0.3);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .certificate-border {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            bottom: 10px;
+            border: 3px solid #3498db;
+            border-radius: 10px;
+        }
+        
+        .certificate-content {
+            position: relative;
+            z-index: 1;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 30px 50px;
+        }
+        
+        .header {
+            text-align: center;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 15px;
+        }
+        
+        .logo {
+            font-size: 32px;
+            font-weight: bold;
+            color: #2c3e50;
+            letter-spacing: 3px;
+            margin-bottom: 5px;
+        }
+        
+        .subtitle {
+            font-size: 14px;
+            color: #7f8c8d;
+            font-style: italic;
+        }
+        
+        .main-content {
+            text-align: center;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 20px 0;
+        }
+        
+        .certificate-title {
+            font-size: 48px;
+            color: #2c3e50;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .certificate-text {
+            font-size: 18px;
+            color: #34495e;
+            line-height: 1.8;
+            margin-bottom: 15px;
+        }
+        
+        .student-name {
+            font-size: 32px;
+            color: #3498db;
+            font-weight: bold;
+            margin: 20px 0;
+            border-bottom: 2px solid #3498db;
+            display: inline-block;
+            padding: 10px 40px;
+        }
+        
+        .course-name {
+            font-size: 24px;
+            color: #2c3e50;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+        
+        .details {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+            font-size: 14px;
+            color: #7f8c8d;
+        }
+        
+        .detail-item {
+            text-align: center;
+        }
+        
+        .detail-label {
+            font-weight: bold;
+            color: #2c3e50;
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        .footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            border-top: 3px solid #3498db;
+            padding-top: 15px;
+        }
+        
+        .signature-line {
+            text-align: center;
+            flex: 1;
+            margin: 0 20px;
+        }
+        
+        .signature-line::before {
+            content: '';
+            display: block;
+            width: 200px;
+            height: 1px;
+            background: #2c3e50;
+            margin: 0 auto 5px;
+        }
+        
+        .signature-name {
+            font-size: 14px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        .signature-title {
+            font-size: 12px;
+            color: #7f8c8d;
+            font-style: italic;
+        }
+        
+        .verification-code {
+            position: absolute;
+            bottom: 20px;
+            right: 30px;
+            font-size: 11px;
+            color: #95a5a6;
+            text-align: right;
+        }
+        
+        .verification-code-label {
+            font-weight: bold;
+            display: block;
+            margin-bottom: 3px;
+        }
+        
+        .verification-url {
+            font-size: 10px;
+            color: #3498db;
+        }
+        
+        .watermark {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-45deg);
+            font-size: 120px;
+            color: rgba(52, 152, 219, 0.05);
+            font-weight: bold;
+            z-index: 0;
+            pointer-events: none;
+        }
+        
+        @media print {
+            body {
+                background: white;
+            }
+            
+            .certificate-container {
+                box-shadow: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="certificate-container">
+        <div class="certificate-border"></div>
+        <div class="watermark">CCT 2026</div>
+        
+        <div class="certificate-content">
+            <div class="header">
+                <div class="logo">CCT 2026</div>
+                <div class="subtitle">Centro de Capacitação Técnica</div>
+            </div>
+            
+            <div class="main-content">
+                <div class="certificate-title">Certificado</div>
+                
+                <div class="certificate-text">
+                    Certificamos que
+                </div>
+                
+                <div class="student-name">${data.studentName}</div>
+                
+                <div class="certificate-text">
+                    concluiu com êxito o curso
+                </div>
+                
+                <div class="course-name">${data.courseName}</div>
+                
+                <div class="details">
+                    <div class="detail-item">
+                        <span class="detail-label">Carga Horária</span>
+                        <span>${data.workload} horas</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Data de Conclusão</span>
+                        <span>${data.completionDate}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Data de Emissão</span>
+                        <span>${data.issueDate}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="footer">
+                <div class="signature-line">
+                    <div class="signature-name">Sistema CCT 2026</div>
+                    <div class="signature-title">Certificação Digital</div>
+                </div>
+            </div>
+            
+            <div class="verification-code">
+                <span class="verification-code-label">Código de Verificação:</span>
+                <span>${data.verificationCode}</span>
+                <div class="verification-url">
+                    Verifique em: ${data.verificationUrl}
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>`
+}
+
+// ============================================================================
+// CERTIFICATES - USER ENDPOINTS (Logged In Users)
+// ============================================================================
+
+// Get my certificates (for logged-in user)
+app.get('/api/my-certificates', requireAuth, async (c) => {
+  try {
+    const user = c.get('user')
+    const userEmail = user.email
+    
+    if (!userEmail) {
+      return c.json({ error: 'User email not found' }, 400)
+    }
+    
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    const certificates = await supabase.query('certificates', {
+      select: '*',
+      filters: { user_email: userEmail },
+      order: 'completion_date.desc'
+    })
+    
+    return c.json({ certificates: certificates || [] })
+  } catch (error: any) {
+    console.error('Get my certificates error:', error)
+    return c.json({ error: error.message || 'Failed to get certificates' }, 500)
+  }
+})
+
+// Generate certificate HTML (for logged-in user)
+app.get('/api/certificates/:id/html', requireAuth, async (c) => {
+  try {
+    const certId = c.req.param('id')
+    const user = c.get('user')
+    const userEmail = user.email
+    
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    // Get certificate
+    const certificates = await supabase.query('certificates', {
+      select: '*',
+      filters: { id: certId }
+    })
+    
+    if (!certificates || certificates.length === 0) {
+      return c.json({ error: 'Certificate not found' }, 404)
+    }
+    
+    const cert = certificates[0]
+    
+    // Verify ownership
+    if (cert.user_email !== userEmail) {
+      return c.json({ error: 'Unauthorized' }, 403)
+    }
+    
+    // Generate certificate HTML directly (inline template for Cloudflare Workers)
+    const completionDate = new Date(cert.completion_date).toLocaleDateString('pt-BR')
+    const issueDate = new Date(cert.issued_at).toLocaleDateString('pt-BR')
+    const baseUrl = new URL(c.req.url).origin
+    const verificationUrl = `${baseUrl}/verificar/${cert.verification_code}`
+    
+    const html = generateCertificateHTML({
+      studentName: cert.user_name,
+      courseName: cert.course_title,
+      workload: cert.carga_horaria || 'N/A',
+      completionDate,
+      issueDate,
+      verificationCode: cert.verification_code,
+      verificationUrl
+    })
+    
+    return c.html(html)
+  } catch (error: any) {
+    console.error('Generate certificate HTML error:', error)
+    return c.json({ error: error.message || 'Failed to generate certificate' }, 500)
+  }
+})
+
+// ============================================================================
+// CERTIFICATE VERIFICATION - PUBLIC ENDPOINT
+// ============================================================================
+
+// Public verification endpoint
+app.get('/verificar/:code', async (c) => {
+  try {
+    const code = c.req.param('code')
+    
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    const certificates = await supabase.query('certificates', {
+      select: '*',
+      filters: { verification_code: code }
+    })
+    
+    if (!certificates || certificates.length === 0) {
+      return c.html(`
+        <!DOCTYPE html>
+        <html lang="pt-BR">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Certificado Não Encontrado - CCT 2026</title>
+          <script src="https://cdn.tailwindcss.com"></script>
+        </head>
+        <body class="bg-gray-100">
+          <div class="min-h-screen flex items-center justify-center p-4">
+            <div class="bg-white rounded-lg shadow-xl p-8 max-w-md w-full text-center">
+              <div class="text-red-500 text-6xl mb-4">❌</div>
+              <h1 class="text-2xl font-bold text-gray-800 mb-4">Certificado Não Encontrado</h1>
+              <p class="text-gray-600 mb-6">
+                O código de verificação <strong>${code}</strong> não foi encontrado em nossa base de dados.
+              </p>
+              <p class="text-sm text-gray-500">
+                Verifique se o código está correto ou entre em contato com o emissor do certificado.
+              </p>
+              <a href="/" class="mt-6 inline-block bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">
+                Voltar ao Início
+              </a>
+            </div>
+          </div>
+        </body>
+        </html>
+      `)
+    }
+    
+    const cert = certificates[0]
+    
+    // Increment verification count
+    await supabase.update('certificates', { id: cert.id }, {
+      verification_count: (cert.verification_count || 0) + 1
+    })
+    
+    const completionDate = new Date(cert.completion_date).toLocaleDateString('pt-BR')
+    const issueDate = new Date(cert.issued_at).toLocaleDateString('pt-BR')
+    
+    return c.html(`
+      <!DOCTYPE html>
+      <html lang="pt-BR">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Verificação de Certificado - CCT 2026</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+      </head>
+      <body class="bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div class="min-h-screen flex items-center justify-center p-4">
+          <div class="bg-white rounded-lg shadow-2xl p-8 max-w-2xl w-full">
+            <div class="text-center mb-6">
+              <div class="text-green-500 text-6xl mb-4">
+                <i class="fas fa-certificate"></i>
+              </div>
+              <h1 class="text-3xl font-bold text-gray-800 mb-2">✅ Certificado Verificado</h1>
+              <p class="text-gray-600">Este certificado é válido e autêntico</p>
+            </div>
+            
+            <div class="border-t-2 border-b-2 border-blue-200 py-6 my-6">
+              <div class="grid grid-cols-1 gap-4">
+                <div>
+                  <span class="text-sm text-gray-500 block">Aluno</span>
+                  <span class="text-xl font-bold text-gray-800">${cert.user_name}</span>
+                </div>
+                <div>
+                  <span class="text-sm text-gray-500 block">Curso</span>
+                  <span class="text-lg font-semibold text-gray-800">${cert.course_title}</span>
+                </div>
+              </div>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4 mb-6">
+              <div class="bg-blue-50 p-4 rounded-lg">
+                <span class="text-xs text-gray-500 block mb-1">Carga Horária</span>
+                <span class="text-lg font-bold text-blue-600">${cert.carga_horaria || 'N/A'} horas</span>
+              </div>
+              <div class="bg-blue-50 p-4 rounded-lg">
+                <span class="text-xs text-gray-500 block mb-1">Data de Conclusão</span>
+                <span class="text-lg font-bold text-blue-600">${completionDate}</span>
+              </div>
+            </div>
+            
+            <div class="bg-gray-50 p-4 rounded-lg mb-6">
+              <div class="flex items-center justify-between">
+                <div>
+                  <span class="text-xs text-gray-500 block mb-1">Código de Verificação</span>
+                  <span class="text-sm font-mono font-bold text-gray-800">${cert.verification_code}</span>
+                </div>
+                <div class="text-right">
+                  <span class="text-xs text-gray-500 block mb-1">Emitido em</span>
+                  <span class="text-sm font-semibold text-gray-800">${issueDate}</span>
+                </div>
+              </div>
+            </div>
+            
+            <div class="text-center text-xs text-gray-500">
+              <p class="mb-2">
+                <i class="fas fa-eye mr-1"></i>
+                Este certificado foi verificado ${cert.verification_count || 1} vez(es)
+              </p>
+              <p>
+                Certificado emitido por <strong>CCT 2026 - Centro de Capacitação Técnica</strong>
+              </p>
+            </div>
+            
+            <div class="mt-6 text-center">
+              <a href="/" class="inline-block bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition">
+                <i class="fas fa-home mr-2"></i>Voltar ao Início
+              </a>
+            </div>
+          </div>
+        </div>
+      </body>
+      </html>
+    `)
+  } catch (error: any) {
+    console.error('Verify certificate error:', error)
+    return c.json({ error: error.message || 'Failed to verify certificate' }, 500)
+  }
+})
+
+// API endpoint for verification (JSON response)
+app.get('/api/verify/:code', async (c) => {
+  try {
+    const code = c.req.param('code')
+    
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    const certificates = await supabase.query('certificates', {
+      select: '*',
+      filters: { verification_code: code }
+    })
+    
+    if (!certificates || certificates.length === 0) {
+      return c.json({ valid: false, message: 'Certificate not found' }, 404)
+    }
+    
+    const cert = certificates[0]
+    
+    // Increment verification count
+    await supabase.update('certificates', { id: cert.id }, {
+      verification_count: (cert.verification_count || 0) + 1
+    })
+    
+    return c.json({
+      valid: true,
+      certificate: {
+        student_name: cert.user_name,
+        course_title: cert.course_title,
+        workload: cert.carga_horaria,
+        completion_date: cert.completion_date,
+        issued_at: cert.issued_at,
+        verification_code: cert.verification_code,
+        verification_count: cert.verification_count + 1
+      }
+    })
+  } catch (error: any) {
+    console.error('Verify certificate API error:', error)
+    return c.json({ error: error.message || 'Failed to verify certificate' }, 500)
+  }
+})
+
+// ============================================================================
 // MEMBER SUBSCRIPTIONS (HISTÓRICO DE MEMBROS) - Admin Only
 // ============================================================================
 
@@ -2833,6 +3387,263 @@ app.get('/', (c) => {
         <script src="/static/app.js"></script>
     </body>
     </html>
+  `)
+})
+
+// Certificates page
+app.get('/certificates', (c) => {
+  return c.html(`
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meus Certificados - CCT</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen">
+        <!-- Header -->
+        <header class="bg-gradient-to-r from-blue-900 to-blue-700 text-white shadow-lg">
+            <div class="container mx-auto px-4 py-4">
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center gap-3">
+                        <img src="https://page.gensparksite.com/v1/base64_upload/8f96be1bcec5a62130e0023674c921df" 
+                             alt="CCT Logo" 
+                             class="h-12 md:h-16 w-auto">
+                        <div>
+                            <h1 class="text-2xl font-bold">CCT</h1>
+                            <p class="text-blue-200 text-xs">Clube do Cálculo Trabalhista</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 md:gap-4">
+                        <button onclick="window.location.href='/'" 
+                                class="px-3 md:px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors flex items-center gap-2">
+                            <i class="fas fa-home"></i>
+                            <span class="hidden sm:inline">Início</span>
+                        </button>
+                        <button onclick="window.location.href='/profile'" 
+                                class="px-3 md:px-4 py-2 bg-purple-600 hover:bg-purple-500 rounded-lg transition-colors flex items-center gap-2">
+                            <i class="fas fa-user-circle"></i>
+                            <span class="hidden sm:inline">Perfil</span>
+                        </button>
+                        <button id="logoutBtn" 
+                                class="px-3 md:px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg transition-colors flex items-center gap-2">
+                            <i class="fas fa-sign-out-alt"></i>
+                            <span class="hidden sm:inline">Sair</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="container mx-auto px-4 py-8">
+            <div class="mb-6">
+                <h2 class="text-3xl font-bold text-gray-800 mb-2">
+                    <i class="fas fa-certificate text-yellow-600 mr-2"></i>
+                    Meus Certificados
+                </h2>
+                <p class="text-gray-600">Visualize e baixe seus certificados de conclusão</p>
+            </div>
+
+            <!-- Loading State -->
+            <div id="loadingDiv" class="text-center py-16">
+                <i class="fas fa-spinner fa-spin text-4xl text-blue-600 mb-4"></i>
+                <p class="text-gray-600">Carregando certificados...</p>
+            </div>
+
+            <!-- Certificates Grid -->
+            <div id="certificatesGrid" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Certificates will be loaded here -->
+            </div>
+
+            <!-- Empty State -->
+            <div id="emptyState" class="hidden text-center py-16">
+                <i class="fas fa-certificate text-gray-300 text-6xl mb-4"></i>
+                <h3 class="text-xl font-semibold text-gray-600 mb-2">Nenhum certificado disponível</h3>
+                <p class="text-gray-500 mb-6">Complete cursos para receber seus certificados!</p>
+                <button onclick="window.location.href='/'" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">
+                    <i class="fas fa-arrow-left mr-2"></i>Voltar aos Cursos
+                </button>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+    <script src="/static/auth.js"></script>
+    <script>
+        let currentUser = null;
+
+        // Initialize page
+        async function init() {
+            // Check authentication
+            const user = await authManager.init()
+            
+            if (!user) {
+                window.location.href = '/'
+                return
+            }
+            
+            currentUser = user
+            loadCertificates()
+        }
+
+        // Load certificates
+        async function loadCertificates() {
+            try {
+                const response = await axios.get('/api/my-certificates')
+                const certificates = response.data.certificates
+
+                document.getElementById('loadingDiv').classList.add('hidden')
+
+                if (certificates.length === 0) {
+                    document.getElementById('emptyState').classList.remove('hidden')
+                    return
+                }
+
+                renderCertificates(certificates)
+            } catch (error) {
+                console.error('Error loading certificates:', error)
+                document.getElementById('loadingDiv').innerHTML = \`
+                    <div class="text-center py-16">
+                        <i class="fas fa-exclamation-circle text-4xl text-red-500 mb-4"></i>
+                        <p class="text-gray-600">Erro ao carregar certificados</p>
+                        <button onclick="location.reload()" class="mt-4 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">
+                            Tentar Novamente
+                        </button>
+                    </div>
+                \`
+            }
+        }
+
+        // Render certificates
+        function renderCertificates(certificates) {
+            const grid = document.getElementById('certificatesGrid')
+            grid.classList.remove('hidden')
+
+            grid.innerHTML = certificates.map(cert => {
+                const completionDate = new Date(cert.completion_date).toLocaleDateString('pt-BR')
+                const verificationUrl = \`\${window.location.origin}/verificar/\${cert.verification_code}\`
+
+                return \`
+                    <div class="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition">
+                        <div class="bg-gradient-to-r from-blue-600 to-purple-600 p-6 text-white">
+                            <div class="flex items-start justify-between">
+                                <div class="flex-1">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <i class="fas fa-certificate text-2xl"></i>
+                                        <span class="bg-white/20 px-3 py-1 rounded-full text-xs font-semibold">
+                                            ✓ Certificado
+                                        </span>
+                                    </div>
+                                    <h3 class="text-xl font-bold mb-1">\${cert.course_title}</h3>
+                                    <p class="text-blue-100 text-sm">Concluído em \${completionDate}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="p-6">
+                            <div class="grid grid-cols-2 gap-4 mb-6">
+                                <div class="bg-gray-50 p-4 rounded-lg">
+                                    <div class="text-xs text-gray-500 mb-1">Carga Horária</div>
+                                    <div class="text-lg font-bold text-gray-800">
+                                        \${cert.carga_horaria || 'N/A'} \${cert.carga_horaria ? 'horas' : ''}
+                                    </div>
+                                </div>
+                                <div class="bg-gray-50 p-4 rounded-lg">
+                                    <div class="text-xs text-gray-500 mb-1">Código</div>
+                                    <div class="text-sm font-mono font-bold text-gray-800">
+                                        \${cert.verification_code}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="space-y-3">
+                                <button onclick="viewCertificate(\${cert.id})" 
+                                    class="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2">
+                                    <i class="fas fa-eye"></i>
+                                    Visualizar Certificado
+                                </button>
+
+                                <button onclick="downloadCertificate(\${cert.id})" 
+                                    class="w-full bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition flex items-center justify-center gap-2">
+                                    <i class="fas fa-download"></i>
+                                    Baixar PDF
+                                </button>
+
+                                <button onclick="shareCertificate('\${verificationUrl}')" 
+                                    class="w-full bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 transition flex items-center justify-center gap-2">
+                                    <i class="fas fa-share-alt"></i>
+                                    Compartilhar Link
+                                </button>
+                            </div>
+
+                            <div class="mt-4 p-3 bg-blue-50 rounded-lg">
+                                <div class="text-xs text-gray-600">
+                                    <i class="fas fa-info-circle mr-1"></i>
+                                    Verificação: <a href="\${verificationUrl}" target="_blank" class="text-blue-600 hover:underline break-all">\${verificationUrl}</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                \`
+            }).join('')
+        }
+
+        // View certificate
+        function viewCertificate(certId) {
+            const url = \`/api/certificates/\${certId}/html\`
+            window.open(url, '_blank')
+        }
+
+        // Download certificate as PDF
+        function downloadCertificate(certId) {
+            const url = \`/api/certificates/\${certId}/html\`
+            const printWindow = window.open(url, '_blank')
+            
+            printWindow.addEventListener('load', () => {
+                setTimeout(() => {
+                    printWindow.print()
+                }, 500)
+            })
+            
+            alert('📄 Certificado aberto em nova janela. Use Ctrl+P ou Cmd+P para imprimir ou salvar como PDF.')
+        }
+
+        // Share verification link
+        async function shareCertificate(verificationUrl) {
+            try {
+                if (navigator.share) {
+                    await navigator.share({
+                        title: 'Verificar Certificado - CCT 2026',
+                        text: 'Verifique a autenticidade deste certificado',
+                        url: verificationUrl
+                    })
+                } else {
+                    await navigator.clipboard.writeText(verificationUrl)
+                    alert('✅ Link de verificação copiado para a área de transferência!')
+                }
+            } catch (error) {
+                console.error('Error sharing certificate:', error)
+                prompt('Link de verificação do certificado:', verificationUrl)
+            }
+        }
+
+        // Logout
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            const result = await authManager.logout()
+            if (result.success) {
+                window.location.href = '/'
+            }
+        })
+
+        // Initialize when DOM is ready
+        document.addEventListener('DOMContentLoaded', init)
+    </script>
+</body>
+</html>
   `)
 })
 
