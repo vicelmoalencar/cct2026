@@ -1176,6 +1176,124 @@ app.delete('/api/admin/users/:id', requireAdmin, async (c) => {
 })
 
 // ============================================================================
+// CERTIFICATES MANAGEMENT - Admin Only
+// ============================================================================
+
+// List all certificates (admin only)
+app.get('/api/admin/certificates', requireAdmin, async (c) => {
+  try {
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    const certificates = await supabase.query('certificates', {
+      select: '*',
+      order: 'created_at.desc'
+    })
+    
+    return c.json({ certificates: certificates || [] })
+  } catch (error: any) {
+    console.error('List certificates error:', error)
+    return c.json({ error: error.message || 'Failed to list certificates' }, 500)
+  }
+})
+
+// Find certificate by email (for duplicate checking)
+app.get('/api/admin/certificates/find', requireAdmin, async (c) => {
+  try {
+    const email = c.req.query('email')
+    const course = c.req.query('course')
+    
+    if (!email || !course) {
+      return c.json({ error: 'Email and course parameters are required' }, 400)
+    }
+    
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    const certificates = await supabase.query('certificates', {
+      select: '*',
+      filters: { 
+        user_email: email,
+        course_title: course
+      }
+    })
+    
+    return c.json({ certificates: certificates || [] })
+  } catch (error: any) {
+    console.error('Find certificate error:', error)
+    return c.json({ error: error.message || 'Failed to find certificate' }, 500)
+  }
+})
+
+// Create certificate (admin only)
+app.post('/api/admin/certificates', requireAdmin, async (c) => {
+  try {
+    const certData = await c.req.json()
+    
+    if (!certData.user_email || !certData.course_title) {
+      return c.json({ error: 'Email and course title are required' }, 400)
+    }
+    
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    const result = await supabase.insert('certificates', {
+      user_email: certData.user_email,
+      user_name: certData.user_name || null,
+      course_title: certData.course_title,
+      carga_horaria: certData.carga_horaria || null,
+      certificate_code: certData.certificate_code || null,
+      generated_at: certData.generated_at || null
+    })
+    
+    return c.json({ 
+      success: true, 
+      certificate_id: result && result.length > 0 ? result[0].id : null 
+    })
+  } catch (error: any) {
+    console.error('Create certificate error:', error)
+    return c.json({ error: error.message || 'Failed to create certificate' }, 500)
+  }
+})
+
+// Update certificate (admin only)
+app.put('/api/admin/certificates/:id', requireAdmin, async (c) => {
+  try {
+    const certId = c.req.param('id')
+    const certData = await c.req.json()
+    
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    await supabase.update('certificates', { id: certId }, {
+      user_email: certData.user_email,
+      user_name: certData.user_name,
+      course_title: certData.course_title,
+      carga_horaria: certData.carga_horaria,
+      certificate_code: certData.certificate_code,
+      generated_at: certData.generated_at,
+      updated_at: new Date().toISOString()
+    })
+    
+    return c.json({ success: true })
+  } catch (error: any) {
+    console.error('Update certificate error:', error)
+    return c.json({ error: error.message || 'Failed to update certificate' }, 500)
+  }
+})
+
+// Delete certificate (admin only)
+app.delete('/api/admin/certificates/:id', requireAdmin, async (c) => {
+  try {
+    const certId = c.req.param('id')
+    
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    await supabase.delete('certificates', { id: certId })
+    
+    return c.json({ success: true })
+  } catch (error: any) {
+    console.error('Delete certificate error:', error)
+    return c.json({ error: error.message || 'Failed to delete certificate' }, 500)
+  }
+})
+
+// ============================================================================
 // MEMBER SUBSCRIPTIONS (HISTÓRICO DE MEMBROS) - Admin Only
 // ============================================================================
 

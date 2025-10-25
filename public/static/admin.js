@@ -279,6 +279,11 @@ const adminUI = {
                   class="flex-1 py-4 px-6 font-semibold text-gray-400 border-b-2 border-transparent hover:text-blue-600 transition-colors whitespace-nowrap">
             <i class="fas fa-user-friends mr-2"></i> Usuários
           </button>
+          <button onclick="adminUI.switchTab('certificates')" 
+                  id="tabCertificates"
+                  class="flex-1 py-4 px-6 font-semibold text-gray-400 border-b-2 border-transparent hover:text-blue-600 transition-colors whitespace-nowrap">
+            <i class="fas fa-certificate mr-2"></i> Certificados
+          </button>
           <button onclick="adminUI.switchTab('import')" 
                   id="tabImport"
                   class="flex-1 py-4 px-6 font-semibold text-gray-400 border-b-2 border-transparent hover:text-blue-600 transition-colors whitespace-nowrap">
@@ -299,7 +304,7 @@ const adminUI = {
     this.currentView = tab
     
     // Update tab styles
-    const tabs = ['courses', 'modules', 'lessons', 'plans', 'subscriptions', 'users', 'import']
+    const tabs = ['courses', 'modules', 'lessons', 'plans', 'subscriptions', 'users', 'certificates', 'import']
     tabs.forEach(t => {
       const tabEl = document.getElementById(`tab${t.charAt(0).toUpperCase() + t.slice(1)}`)
       if (t === tab) {
@@ -317,6 +322,7 @@ const adminUI = {
     if (tab === 'lessons') this.renderLessonsTab()
     if (tab === 'plans') this.renderPlansTab()
     if (tab === 'subscriptions') this.renderSubscriptionsTab()
+    if (tab === 'certificates') this.renderCertificatesTab()
     if (tab === 'users') this.renderUsersTab()
     if (tab === 'import') this.renderImportTab()
   },
@@ -2386,6 +2392,252 @@ const adminUI = {
     }
   },
   
+  // ==================== CERTIFICATES TAB ====================
+  
+  async renderCertificatesTab() {
+    const content = document.getElementById('adminContent')
+    
+    content.innerHTML = `
+      <div class="bg-white rounded-lg shadow-md p-6">
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="text-2xl font-bold text-gray-800">
+            <i class="fas fa-certificate mr-2"></i>
+            Certificados Emitidos
+          </h2>
+          <button onclick="csvImport.showCertificateImportModal()" 
+                  class="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors shadow-md hover:shadow-lg">
+            <i class="fas fa-file-upload mr-2"></i>
+            Importar CSV de Certificados
+          </button>
+        </div>
+        
+        <div id="certificatesTableContainer">
+          <p class="text-center text-gray-500 py-8">
+            <i class="fas fa-spinner fa-spin mr-2"></i>
+            Carregando certificados...
+          </p>
+        </div>
+      </div>
+    `
+    
+    await this.loadCertificatesTable()
+  },
+  
+  async loadCertificatesTable(filters = {}) {
+    try {
+      const response = await axios.get('/api/admin/certificates')
+      let certificates = response.data.certificates || []
+      
+      const container = document.getElementById('certificatesTableContainer')
+      
+      if (certificates.length === 0) {
+        container.innerHTML = `
+          <p class="text-center text-gray-500 py-8">
+            Nenhum certificado cadastrado. Importe o CSV para começar.
+          </p>
+        `
+        return
+      }
+      
+      // Store original data
+      this.allCertificates = certificates
+      
+      // Get unique courses for filter
+      const courses = [...new Set(certificates.map(c => c.course_title).filter(Boolean))].sort()
+      
+      // Apply filters
+      if (filters.course && filters.course !== 'all') {
+        certificates = certificates.filter(c => c.course_title === filters.course)
+      }
+      
+      if (filters.search) {
+        const searchLower = filters.search.toLowerCase()
+        certificates = certificates.filter(c => 
+          c.user_email?.toLowerCase().includes(searchLower) ||
+          c.user_name?.toLowerCase().includes(searchLower) ||
+          c.course_title?.toLowerCase().includes(searchLower)
+        )
+      }
+      
+      container.innerHTML = `
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm text-blue-700 font-semibold">Total de Certificados</p>
+                <p class="text-2xl font-bold text-blue-800">${this.allCertificates.length}</p>
+              </div>
+              <i class="fas fa-certificate text-3xl text-blue-600"></i>
+            </div>
+          </div>
+          
+          <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm text-green-700 font-semibold">Alunos Certificados</p>
+                <p class="text-2xl font-bold text-green-800">${[...new Set(this.allCertificates.map(c => c.user_email))].length}</p>
+              </div>
+              <i class="fas fa-users text-3xl text-green-600"></i>
+            </div>
+          </div>
+          
+          <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm text-purple-700 font-semibold">Cursos Diferentes</p>
+                <p class="text-2xl font-bold text-purple-800">${courses.length}</p>
+              </div>
+              <i class="fas fa-book text-3xl text-purple-600"></i>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Filters -->
+        <div class="bg-gray-50 rounded-lg p-4 mb-4">
+          <div class="flex items-center gap-4 flex-wrap">
+            <div class="flex-1 min-w-[200px]">
+              <label class="block text-xs font-semibold text-gray-700 mb-1">
+                <i class="fas fa-search mr-1"></i> Buscar
+              </label>
+              <input type="text" 
+                     id="certificateSearch" 
+                     placeholder="Email, nome ou curso..."
+                     value="${filters.search || ''}"
+                     onkeyup="adminUI.handleCertificateSearch(event)"
+                     class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            
+            <div class="min-w-[200px]">
+              <label class="block text-xs font-semibold text-gray-700 mb-1">
+                <i class="fas fa-book mr-1"></i> Curso
+              </label>
+              <select id="certificateCourseFilter" 
+                      onchange="adminUI.handleCertificateCourseFilter(event)"
+                      class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="all" ${!filters.course || filters.course === 'all' ? 'selected' : ''}>Todos os cursos</option>
+                ${courses.map(course => `
+                  <option value="${course}" ${filters.course === course ? 'selected' : ''}>${course}</option>
+                `).join('')}
+              </select>
+            </div>
+            
+            <div class="flex items-end">
+              <button onclick="adminUI.clearCertificateFilters()" 
+                      class="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg text-sm font-semibold transition-colors">
+                <i class="fas fa-times mr-1"></i> Limpar
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        <div class="mb-4 text-sm text-gray-600">
+          <i class="fas fa-info-circle mr-1"></i>
+          Exibindo <strong>${certificates.length}</strong> de <strong>${this.allCertificates.length}</strong> certificados
+          ${filters.course || filters.search ? 
+            '<span class="ml-2 text-blue-600 font-semibold">(filtrado)</span>' : ''}
+        </div>
+        
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aluno</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Curso</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Carga Horária</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Emitido em</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              ${certificates.map(cert => `
+                <tr class="hover:bg-gray-50">
+                  <td class="px-6 py-4">
+                    <div class="flex items-center">
+                      <i class="fas fa-user-circle text-2xl text-gray-400 mr-3"></i>
+                      <div>
+                        <div class="text-sm font-medium text-gray-900">${cert.user_name || 'Sem nome'}</div>
+                        <div class="text-xs text-gray-500">${cert.user_email}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="px-6 py-4">
+                    <span class="px-2 py-1 text-xs font-semibold bg-blue-100 text-blue-800 rounded">
+                      ${cert.course_title}
+                    </span>
+                  </td>
+                  <td class="px-6 py-4 text-sm text-gray-900">
+                    ${cert.carga_horaria ? `${cert.carga_horaria}h` : '<span class="text-gray-400">N/A</span>'}
+                  </td>
+                  <td class="px-6 py-4 text-sm text-gray-500">
+                    ${cert.created_at ? new Date(cert.created_at).toLocaleDateString('pt-BR') : 'N/A'}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <button onclick="adminUI.deleteCertificate(${cert.id}, '${cert.user_email}', '${cert.course_title}')"
+                            class="text-red-600 hover:text-red-900">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `
+    } catch (error) {
+      console.error('Error loading certificates:', error)
+      const container = document.getElementById('certificatesTableContainer')
+      container.innerHTML = `
+        <p class="text-center text-red-500 py-8">
+          <i class="fas fa-exclamation-triangle mr-2"></i>
+          Erro ao carregar certificados
+        </p>
+      `
+    }
+  },
+  
+  async deleteCertificate(id, email, course) {
+    if (!confirm(`Tem certeza que deseja deletar o certificado de "${email}" para o curso "${course}"?`)) {
+      return
+    }
+    
+    try {
+      await axios.delete(`/api/admin/certificates/${id}`)
+      alert('✅ Certificado deletado com sucesso!')
+      
+      const filters = this.getCurrentCertificateFilters()
+      await this.loadCertificatesTable(filters)
+    } catch (error) {
+      console.error('Error deleting certificate:', error)
+      alert('❌ Erro ao deletar certificado: ' + (error.response?.data?.error || error.message))
+    }
+  },
+  
+  getCurrentCertificateFilters() {
+    return {
+      search: document.getElementById('certificateSearch')?.value || '',
+      course: document.getElementById('certificateCourseFilter')?.value || 'all'
+    }
+  },
+  
+  handleCertificateSearch(event) {
+    if (event.key === 'Enter' || event.type === 'keyup') {
+      const filters = this.getCurrentCertificateFilters()
+      this.loadCertificatesTable(filters)
+    }
+  },
+  
+  handleCertificateCourseFilter(event) {
+    const filters = this.getCurrentCertificateFilters()
+    this.loadCertificatesTable(filters)
+  },
+  
+  clearCertificateFilters() {
+    document.getElementById('certificateSearch').value = ''
+    document.getElementById('certificateCourseFilter').value = 'all'
+    this.loadCertificatesTable({})
+  },
+  
   // ==================== IMPORT TAB ====================
   
   renderImportTab() {
@@ -3466,6 +3718,291 @@ const csvImport = {
     this.membersData = null
     document.getElementById('memberCsvPreviewArea').classList.add('hidden')
     document.getElementById('memberCsvFileInput').value = ''
+  },
+  
+  // ==================== CERTIFICATE IMPORT ====================
+  
+  certificatesData: null,
+  
+  showCertificateImportModal() {
+    const modal = document.createElement('div')
+    modal.id = 'certificateImportModal'
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4'
+    modal.innerHTML = `
+      <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div class="bg-gradient-to-r from-yellow-600 to-yellow-700 p-6 text-white">
+          <div class="flex items-center justify-between">
+            <h2 class="text-2xl font-bold">
+              <i class="fas fa-certificate mr-2"></i>
+              Importar Certificados via CSV
+            </h2>
+            <button onclick="csvImport.closeCertificateModal()" class="text-white hover:text-gray-200">
+              <i class="fas fa-times text-2xl"></i>
+            </button>
+          </div>
+          <p class="mt-2 text-yellow-100 text-sm">
+            Importe certificados emitidos para alunos
+          </p>
+        </div>
+        
+        <div class="p-6">
+          <!-- Upload Section -->
+          <div class="mb-6">
+            <label class="block text-sm font-semibold text-gray-700 mb-2">
+              Selecione o arquivo CSV de Certificados
+            </label>
+            <input type="file" 
+                   id="certificateCsvFileInput" 
+                   accept=".csv"
+                   onchange="csvImport.handleCertificateFileSelect(event)"
+                   class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-yellow-50 file:text-yellow-700 hover:file:bg-yellow-100 cursor-pointer">
+            <p class="mt-2 text-xs text-gray-500">
+              <i class="fas fa-info-circle mr-1"></i>
+              Formato esperado: user_email; user_name; course_title; carga_horaria
+            </p>
+          </div>
+          
+          <!-- Preview Area -->
+          <div id="certificateCsvPreviewArea" class="hidden">
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+              <h3 class="font-semibold text-blue-900 mb-2">
+                <i class="fas fa-eye mr-2"></i>
+                Preview da Importação
+              </h3>
+              <div id="certificateCsvStats" class="text-sm text-blue-800"></div>
+            </div>
+            
+            <div class="mb-4">
+              <div id="certificateCsvPreviewContent" class="bg-gray-50 rounded-lg p-4 max-h-60 overflow-y-auto text-sm"></div>
+            </div>
+            
+            <div class="flex gap-3">
+              <button onclick="csvImport.importCertificates()" 
+                      class="flex-1 px-6 py-3 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg font-semibold transition-colors">
+                <i class="fas fa-check mr-2"></i>
+                Confirmar Importação
+              </button>
+              <button onclick="csvImport.cancelCertificate()" 
+                      class="px-6 py-3 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg font-semibold transition-colors">
+                <i class="fas fa-times mr-2"></i>
+                Cancelar
+              </button>
+            </div>
+          </div>
+          
+          <!-- Progress Area -->
+          <div id="certificateImportProgress" class="hidden">
+            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+              <h3 class="font-semibold text-yellow-900 mb-2">
+                <i class="fas fa-spinner fa-spin mr-2"></i>
+                Importando Certificados...
+              </h3>
+              <div id="certificateImportLog" class="text-sm text-yellow-800 max-h-96 overflow-y-auto font-mono"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `
+    
+    document.body.appendChild(modal)
+  },
+  
+  closeCertificateModal() {
+    const modal = document.getElementById('certificateImportModal')
+    if (modal) modal.remove()
+    this.certificatesData = null
+  },
+  
+  handleCertificateFileSelect(event) {
+    const file = event.target.files[0]
+    if (!file) return
+    
+    if (!file.name.endsWith('.csv')) {
+      alert('❌ Por favor, selecione um arquivo CSV')
+      return
+    }
+    
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      try {
+        const csvText = e.target.result
+        this.certificatesData = this.parseCertificateCSV(csvText)
+        this.showCertificatePreview()
+      } catch (error) {
+        console.error('Parse error:', error)
+        alert('❌ Erro ao ler arquivo CSV: ' + error.message)
+      }
+    }
+    reader.readAsText(file, 'UTF-8')
+  },
+  
+  parseCertificateCSV(csvText) {
+    const lines = csvText.split('\n').filter(line => line.trim())
+    const headers = lines[0].split(';').map(h => h.trim())
+    
+    const certificates = []
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(';').map(v => v.trim().replace(/^"|"$/g, ''))
+      
+      const email = values[0]
+      const name = values[1]
+      const course = values[2]
+      
+      // Skip if email or course is empty
+      if (!email || !email.includes('@') || !course) continue
+      
+      // Fix malformed data (sometimes name is in course position)
+      let finalName = name
+      let finalCourse = course
+      
+      // If name looks like course title (all caps or no @), it's probably wrong
+      if (name && !name.includes(' ') && name === name.toUpperCase()) {
+        finalName = null
+        finalCourse = name
+      }
+      
+      const certificate = {
+        user_email: email,
+        user_name: finalName || null,
+        course_title: finalCourse,
+        carga_horaria: values[3] ? parseInt(values[3]) : null
+      }
+      
+      certificates.push(certificate)
+    }
+    
+    return certificates
+  },
+  
+  showCertificatePreview() {
+    document.getElementById('certificateCsvPreviewArea').classList.remove('hidden')
+    
+    const courses = [...new Set(this.certificatesData.map(c => c.course_title))]
+    const students = [...new Set(this.certificatesData.map(c => c.user_email))]
+    
+    const stats = document.getElementById('certificateCsvStats')
+    stats.innerHTML = `
+      <p class="mb-1"><strong>Total de certificados:</strong> ${this.certificatesData.length}</p>
+      <p class="mb-1"><strong>Alunos únicos:</strong> ${students.length}</p>
+      <p><strong>Cursos:</strong> ${courses.join(', ')}</p>
+    `
+    
+    const preview = document.getElementById('certificateCsvPreviewContent')
+    const sample = this.certificatesData.slice(0, 10)
+    preview.innerHTML = `
+      <p class="font-semibold mb-2">Primeiros 10 certificados:</p>
+      <div class="space-y-1">
+        ${sample.map((c, i) => `
+          <div class="text-xs bg-white p-2 rounded border">
+            <strong>${i + 1}.</strong> ${c.user_name || 'Sem nome'} (${c.user_email}) - 
+            <span class="font-semibold text-blue-600">${c.course_title}</span> - 
+            ${c.carga_horaria ? c.carga_horaria + 'h' : 'Sem carga horária'}
+          </div>
+        `).join('')}
+      </div>
+      ${this.certificatesData.length > 10 ? `<p class="text-xs text-gray-500 mt-2">... e mais ${this.certificatesData.length - 10} certificados</p>` : ''}
+    `
+  },
+  
+  async importCertificates() {
+    if (!this.certificatesData || this.certificatesData.length === 0) {
+      alert('❌ Nenhum dado para importar')
+      return
+    }
+    
+    const confirmed = confirm(`Tem certeza que deseja importar ${this.certificatesData.length} certificados?\n\n⚠️ Duplicatas serão detectadas por email + curso.`)
+    if (!confirmed) return
+    
+    // Hide preview, show progress
+    document.getElementById('certificateCsvPreviewArea').classList.add('hidden')
+    document.getElementById('certificateImportProgress').classList.remove('hidden')
+    
+    const logArea = document.getElementById('certificateImportLog')
+    const log = (message, type = 'info') => {
+      const color = type === 'error' ? 'text-red-600' : type === 'success' ? 'text-green-600' : 'text-gray-700'
+      logArea.innerHTML += `<div class="${color}">${message}</div>`
+      logArea.scrollTop = logArea.scrollHeight
+    }
+    
+    let created = 0
+    let skipped = 0
+    let errors = 0
+    
+    try {
+      log(`🚀 Iniciando importação de ${this.certificatesData.length} certificados...`)
+      log(`⏳ Aguarde, processando...`)
+      
+      for (let i = 0; i < this.certificatesData.length; i++) {
+        const row = this.certificatesData[i]
+        const progress = Math.round(((i + 1) / this.certificatesData.length) * 100)
+        
+        if (i % 10 === 0) {
+          log(`📊 Progresso: ${i + 1}/${this.certificatesData.length} (${progress}%)`)
+        }
+        
+        try {
+          // Check if certificate already exists (email + course)
+          const existing = await adminManager.findCertificateBoth(row.user_email, row.course_title)
+          
+          if (existing && existing.length > 0) {
+            skipped++
+            if (i % 20 === 0) {
+              log(`⏭️  Pulado (duplicado): ${row.user_email} - ${row.course_title}`)
+            }
+            continue
+          }
+          
+          // Create certificate
+          await axios.post('/api/admin/certificates', {
+            user_email: row.user_email,
+            user_name: row.user_name,
+            course_title: row.course_title,
+            carga_horaria: row.carga_horaria
+          })
+          
+          created++
+          
+          if (i % 50 === 0 && i > 0) {
+            log(`✅ ${created} criados até agora...`, 'success')
+          }
+          
+        } catch (error) {
+          errors++
+          log(`❌ Erro ao criar certificado para ${row.user_email}: ${error.message}`, 'error')
+        }
+        
+        // Small delay to avoid overwhelming the server
+        if (i % 25 === 0) {
+          await new Promise(resolve => setTimeout(resolve, 50))
+        }
+      }
+      
+      log('', 'info')
+      log('═'.repeat(50), 'info')
+      log(`✅ Importação concluída!`, 'success')
+      log(`📊 Resumo:`, 'info')
+      log(`   ✅ Criados: ${created}`, 'success')
+      log(`   ⏭️  Pulados (duplicados): ${skipped}`, 'info')
+      log(`   ❌ Erros: ${errors}`, errors > 0 ? 'error' : 'info')
+      log('═'.repeat(50), 'info')
+      
+      setTimeout(() => {
+        this.closeCertificateModal()
+        adminUI.loadCertificatesTable()
+        alert(`✅ Importação concluída!\n\n${created} criados\n${skipped} pulados\n${errors} erros`)
+      }, 2000)
+      
+    } catch (error) {
+      console.error('Import error:', error)
+      log(`❌ Erro na importação: ${error.message}`, 'error')
+      alert('❌ Erro durante a importação. Verifique o log para detalhes.')
+    }
+  },
+  
+  cancelCertificate() {
+    this.certificatesData = null
+    document.getElementById('certificateCsvPreviewArea').classList.add('hidden')
+    document.getElementById('certificateCsvFileInput').value = ''
   }
 }
 
@@ -3484,6 +4021,16 @@ adminManager.findMemberSubscriptionByEmail = async function(email) {
   try {
     const response = await axios.get(`/api/admin/member-subscriptions/find?email=${encodeURIComponent(email)}`)
     return response.data.subscriptions || []
+  } catch (error) {
+    return []
+  }
+}
+
+// Add findCertificateBoth to adminManager
+adminManager.findCertificateBoth = async function(email, course) {
+  try {
+    const response = await axios.get(`/api/admin/certificates/find?email=${encodeURIComponent(email)}&course=${encodeURIComponent(course)}`)
+    return response.data.certificates || []
   } catch (error) {
     return []
   }
