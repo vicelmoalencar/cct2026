@@ -57,9 +57,9 @@ WHERE c.course_id IS NOT NULL
   AND (c.course_modules IS NULL OR c.course_modules = '')
   AND EXISTS (SELECT 1 FROM modules m WHERE m.course_id = c.course_id);
 
--- 4. ADICIONAR ADMIN (Seu email)
-INSERT INTO admins (email)
-VALUES ('antoniovicelmo@gmail.com')
+-- 4. ADICIONAR ADMIN (Seu email com nome)
+INSERT INTO admins (email, name)
+VALUES ('antoniovicelmo@gmail.com', 'ANTONIO VICELMO')
 ON CONFLICT (email) DO NOTHING;
 
 -- 5. VERIFICAÇÃO (Ver resultados)

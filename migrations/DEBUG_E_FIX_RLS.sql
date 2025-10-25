@@ -175,8 +175,8 @@ WHERE c.course_id IS NOT NULL
 -- ============================================
 
 -- 5.1. Inserir antoniovicelmo@gmail.com como admin (SE NÃO EXISTIR)
-INSERT INTO admins (email)
-VALUES ('antoniovicelmo@gmail.com')
+INSERT INTO admins (email, name)
+VALUES ('antoniovicelmo@gmail.com', 'ANTONIO VICELMO')
 ON CONFLICT (email) DO NOTHING;
 
 

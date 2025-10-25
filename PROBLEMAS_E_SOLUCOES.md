@@ -190,8 +190,8 @@ WHERE c.course_id IS NOT NULL
   AND EXISTS (SELECT 1 FROM modules m WHERE m.course_id = c.course_id);
 
 -- 4. Adicionar seu email como admin
-INSERT INTO admins (email)
-VALUES ('antoniovicelmo@gmail.com')
+INSERT INTO admins (email, name)
+VALUES ('antoniovicelmo@gmail.com', 'ANTONIO VICELMO')
 ON CONFLICT (email) DO NOTHING;
 
 -- 5. Verificar resultados
