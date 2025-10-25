@@ -37,10 +37,20 @@ const app = {
   
   // Check admin access
   async checkAdminAccess() {
-    const isAdmin = await adminManager.checkAdmin()
-    const adminButton = document.getElementById('adminButton')
-    if (adminButton && isAdmin) {
-      adminButton.classList.remove('hidden')
+    try {
+      // Check if adminManager is available
+      if (typeof adminManager === 'undefined') {
+        console.error('adminManager not loaded')
+        return
+      }
+      
+      const isAdmin = await adminManager.checkAdmin()
+      const adminButton = document.getElementById('adminButton')
+      if (adminButton && isAdmin) {
+        adminButton.classList.remove('hidden')
+      }
+    } catch (error) {
+      console.error('Error checking admin access:', error)
     }
   },
   

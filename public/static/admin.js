@@ -2553,9 +2553,9 @@ const adminUI = {
             <tbody class="bg-white divide-y divide-gray-200">
               ${certificates.map(cert => {
                 const verificationUrl = cert.verification_code ? 
-                  \`\${window.location.origin}/verificar/\${cert.verification_code}\` : null;
+                  `${window.location.origin}/verificar/${cert.verification_code}` : null;
                 
-                return \`
+                return `
                 <tr class="hover:bg-gray-50">
                   <td class="px-6 py-4">
                     <div class="flex items-center">
@@ -2601,7 +2601,7 @@ const adminUI = {
                     </button>
                   </td>
                 </tr>
-              \`}).join('')}
+              `}).join('')}
             </tbody>
           </table>
         </div>
