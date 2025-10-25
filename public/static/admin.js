@@ -246,6 +246,11 @@ const adminUI = {
                   class="flex-1 py-4 px-6 font-semibold text-gray-400 border-b-2 border-transparent hover:text-blue-600 transition-colors whitespace-nowrap">
             <i class="fas fa-users mr-2"></i> Assinaturas
           </button>
+          <button onclick="adminUI.switchTab('import')" 
+                  id="tabImport"
+                  class="flex-1 py-4 px-6 font-semibold text-gray-400 border-b-2 border-transparent hover:text-blue-600 transition-colors whitespace-nowrap">
+            <i class="fas fa-file-import mr-2"></i> Importar
+          </button>
         </div>
       </div>
       
@@ -261,7 +266,7 @@ const adminUI = {
     this.currentView = tab
     
     // Update tab styles
-    const tabs = ['courses', 'modules', 'lessons', 'plans', 'subscriptions']
+    const tabs = ['courses', 'modules', 'lessons', 'plans', 'subscriptions', 'import']
     tabs.forEach(t => {
       const tabEl = document.getElementById(`tab${t.charAt(0).toUpperCase() + t.slice(1)}`)
       if (t === tab) {
@@ -279,6 +284,7 @@ const adminUI = {
     if (tab === 'lessons') this.renderLessonsTab()
     if (tab === 'plans') this.renderPlansTab()
     if (tab === 'subscriptions') this.renderSubscriptionsTab()
+    if (tab === 'import') this.renderImportTab()
   },
   
   // Render courses tab
@@ -1885,5 +1891,444 @@ const adminUI = {
       console.error('Error expiring subscriptions:', error)
       alert('❌ Erro ao expirar assinaturas: ' + (error.response?.data?.error || error.message))
     }
+  },
+  
+  // ==================== IMPORT TAB ====================
+  
+  renderImportTab() {
+    const content = document.getElementById('adminContent')
+    
+    content.innerHTML = `
+      <div class="bg-white rounded-lg shadow-md p-6">
+        <div class="mb-6">
+          <h3 class="text-xl font-bold text-gray-800 mb-2">
+            <i class="fas fa-file-import text-blue-600 mr-2"></i>
+            Importar Cursos Completos
+          </h3>
+          <p class="text-sm text-gray-600">
+            Importe cursos, módulos e aulas de forma rápida usando arquivo CSV
+          </p>
+        </div>
+        
+        <!-- CSV Format Instructions -->
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <h4 class="font-bold text-blue-800 mb-2">
+            <i class="fas fa-info-circle mr-1"></i>
+            Formato do Arquivo CSV
+          </h4>
+          <p class="text-sm text-blue-700 mb-3">
+            O arquivo CSV deve conter as seguintes colunas (nesta ordem):
+          </p>
+          <div class="bg-white rounded p-3 font-mono text-xs overflow-x-auto mb-3">
+            <code class="text-gray-800">
+              tipo,curso_titulo,curso_descricao,curso_instrutor,curso_duracao_horas,modulo_titulo,modulo_descricao,aula_titulo,aula_descricao,aula_video_provider,aula_video_id,aula_duracao_minutos,aula_ordem,aula_teste_gratis
+            </code>
+          </div>
+          
+          <div class="space-y-2 text-sm text-gray-700">
+            <p><strong>tipo:</strong> "curso", "modulo" ou "aula"</p>
+            <p><strong>aula_video_provider:</strong> "youtube", "vimeo" ou "url"</p>
+            <p><strong>aula_teste_gratis:</strong> "sim" ou "nao"</p>
+            <p><strong>Campos vazios:</strong> Use células vazias para campos não aplicáveis</p>
+          </div>
+        </div>
+        
+        <!-- Example CSV -->
+        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+          <h4 class="font-bold text-yellow-800 mb-2">
+            <i class="fas fa-lightbulb mr-1"></i>
+            Exemplo de CSV
+          </h4>
+          <div class="bg-white rounded p-3 font-mono text-xs overflow-x-auto">
+            <pre class="text-gray-800">tipo,curso_titulo,curso_descricao,curso_instrutor,curso_duracao_horas,modulo_titulo,modulo_descricao,aula_titulo,aula_descricao,aula_video_provider,aula_video_id,aula_duracao_minutos,aula_ordem,aula_teste_gratis
+curso,Cálculos Trabalhistas Básico,Aprenda os fundamentos,João Silva,20,,,,,,,,
+modulo,,,,,Módulo 1: Introdução,Conceitos básicos,,,,,,,
+aula,,,,,,,Aula 1: O que é CLT,Introdução à CLT,youtube,dQw4w9WgXcQ,15,1,sim
+aula,,,,,,,Aula 2: Conceitos iniciais,Conceitos fundamentais,youtube,dQw4w9WgXcQ,20,2,nao</pre>
+          </div>
+        </div>
+        
+        <!-- Download Template -->
+        <div class="mb-6">
+          <button onclick="adminUI.downloadCSVTemplate()" 
+                  class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors">
+            <i class="fas fa-download mr-2"></i>
+            Baixar Modelo CSV
+          </button>
+        </div>
+        
+        <!-- File Upload -->
+        <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 mb-6">
+          <input type="file" 
+                 id="csvFileInput" 
+                 accept=".csv"
+                 class="hidden" 
+                 onchange="adminUI.handleCSVFileSelect(event)">
+          <button onclick="document.getElementById('csvFileInput').click()"
+                  class="w-full px-6 py-4 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg font-semibold transition-colors">
+            <i class="fas fa-cloud-upload-alt text-2xl mr-3"></i>
+            <span class="text-lg">Selecionar Arquivo CSV</span>
+          </button>
+          <p class="text-center text-sm text-gray-500 mt-3">
+            Clique para selecionar um arquivo CSV do seu computador
+          </p>
+        </div>
+        
+        <!-- Preview Area -->
+        <div id="csvPreviewArea" class="hidden">
+          <h4 class="font-bold text-gray-800 mb-3">
+            <i class="fas fa-eye mr-2"></i>
+            Preview dos Dados
+          </h4>
+          <div id="csvPreviewContent" class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4 max-h-96 overflow-auto">
+            <!-- Preview will be inserted here -->
+          </div>
+          <div class="flex gap-3">
+            <button onclick="adminUI.importCSVData()" 
+                    class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors">
+              <i class="fas fa-check mr-2"></i>
+              Confirmar Importação
+            </button>
+            <button onclick="adminUI.cancelCSVImport()" 
+                    class="px-6 py-3 bg-gray-400 hover:bg-gray-500 text-white rounded-lg font-semibold transition-colors">
+              <i class="fas fa-times mr-2"></i>
+              Cancelar
+            </button>
+          </div>
+        </div>
+        
+        <!-- Import Progress -->
+        <div id="importProgress" class="hidden">
+          <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h4 class="font-bold text-blue-800 mb-3">
+              <i class="fas fa-spinner fa-spin mr-2"></i>
+              Importando...
+            </h4>
+            <div class="space-y-2" id="importLog">
+              <!-- Import log will be inserted here -->
+            </div>
+          </div>
+        </div>
+      </div>
+    `
+  },
+  
+  downloadCSVTemplate() {
+    const template = `tipo,curso_titulo,curso_descricao,curso_instrutor,curso_duracao_horas,modulo_titulo,modulo_descricao,aula_titulo,aula_descricao,aula_video_provider,aula_video_id,aula_duracao_minutos,aula_ordem,aula_teste_gratis
+curso,Cálculos Trabalhistas Básico,Aprenda os fundamentos dos cálculos,João Silva,20,,,,,,,,
+modulo,,,,,Módulo 1: Introdução,Conceitos básicos e fundamentais,,,,,,,
+aula,,,,,,,Aula 1: O que é CLT,Introdução à Consolidação das Leis do Trabalho,youtube,dQw4w9WgXcQ,15,1,sim
+aula,,,,,,,Aula 2: Conceitos iniciais,Conceitos fundamentais do direito trabalhista,youtube,dQw4w9WgXcQ,20,2,nao
+modulo,,,,,Módulo 2: Cálculos Básicos,Aprenda cálculos essenciais,,,,,,,
+aula,,,,,,,Aula 3: Horas Extras,Como calcular horas extras,youtube,dQw4w9WgXcQ,25,1,nao
+curso,Cálculos Trabalhistas Avançado,Cálculos complexos e avançados,Maria Santos,30,,,,,,,,
+modulo,,,,,Módulo 1: Verbas Rescisórias,Cálculo de rescisões,,,,,,,
+aula,,,,,,,Aula 1: Aviso Prévio,Como calcular aviso prévio,youtube,dQw4w9WgXcQ,30,1,nao`
+
+    const blob = new Blob([template], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    
+    link.setAttribute('href', url)
+    link.setAttribute('download', 'template_importacao_cursos.csv')
+    link.style.visibility = 'hidden'
+    
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  },
+  
+  csvData: null,
+  
+  handleCSVFileSelect(event) {
+    const file = event.target.files[0]
+    if (!file) return
+    
+    if (!file.name.endsWith('.csv')) {
+      alert('❌ Por favor, selecione um arquivo CSV')
+      return
+    }
+    
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      try {
+        const csvText = e.target.result
+        this.parseCSV(csvText)
+      } catch (error) {
+        console.error('Error reading CSV:', error)
+        alert('❌ Erro ao ler arquivo CSV: ' + error.message)
+      }
+    }
+    reader.readAsText(file, 'UTF-8')
+  },
+  
+  parseCSV(csvText) {
+    const lines = csvText.split('\n').filter(line => line.trim())
+    if (lines.length < 2) {
+      alert('❌ Arquivo CSV vazio ou inválido')
+      return
+    }
+    
+    // Parse header
+    const header = lines[0].split(',').map(h => h.trim())
+    
+    // Validate header
+    const requiredColumns = ['tipo', 'curso_titulo', 'modulo_titulo', 'aula_titulo']
+    const hasRequiredColumns = requiredColumns.some(col => header.includes(col))
+    
+    if (!hasRequiredColumns) {
+      alert('❌ Formato de CSV inválido. Certifique-se de que o arquivo contém as colunas necessárias.')
+      return
+    }
+    
+    // Parse data
+    const data = []
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i]
+      const values = this.parseCSVLine(line)
+      
+      if (values.length !== header.length) {
+        console.warn(`Linha ${i + 1} ignorada: número de colunas não coincide`)
+        continue
+      }
+      
+      const row = {}
+      header.forEach((col, idx) => {
+        row[col] = values[idx]
+      })
+      
+      data.push(row)
+    }
+    
+    this.csvData = data
+    this.showCSVPreview(data)
+  },
+  
+  parseCSVLine(line) {
+    const values = []
+    let current = ''
+    let inQuotes = false
+    
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i]
+      
+      if (char === '"') {
+        inQuotes = !inQuotes
+      } else if (char === ',' && !inQuotes) {
+        values.push(current.trim())
+        current = ''
+      } else {
+        current += char
+      }
+    }
+    
+    values.push(current.trim())
+    return values
+  },
+  
+  showCSVPreview(data) {
+    const previewArea = document.getElementById('csvPreviewArea')
+    const previewContent = document.getElementById('csvPreviewContent')
+    
+    // Count items
+    const courses = data.filter(row => row.tipo === 'curso')
+    const modules = data.filter(row => row.tipo === 'modulo')
+    const lessons = data.filter(row => row.tipo === 'aula')
+    
+    let html = `
+      <div class="mb-4 p-4 bg-white rounded-lg border border-gray-200">
+        <h5 class="font-bold text-gray-800 mb-3">Resumo da Importação:</h5>
+        <div class="grid grid-cols-3 gap-4">
+          <div class="text-center p-3 bg-blue-50 rounded">
+            <div class="text-3xl font-bold text-blue-600">${courses.length}</div>
+            <div class="text-sm text-gray-600">Cursos</div>
+          </div>
+          <div class="text-center p-3 bg-green-50 rounded">
+            <div class="text-3xl font-bold text-green-600">${modules.length}</div>
+            <div class="text-sm text-gray-600">Módulos</div>
+          </div>
+          <div class="text-center p-3 bg-purple-50 rounded">
+            <div class="text-3xl font-bold text-purple-600">${lessons.length}</div>
+            <div class="text-sm text-gray-600">Aulas</div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="space-y-4">
+    `
+    
+    // Group by course
+    let currentCourse = null
+    let currentModule = null
+    
+    data.forEach(row => {
+      if (row.tipo === 'curso') {
+        if (currentCourse) html += '</div></div>' // Close previous course
+        currentCourse = row
+        html += `
+          <div class="border-2 border-blue-200 rounded-lg overflow-hidden">
+            <div class="bg-blue-100 p-3">
+              <h5 class="font-bold text-blue-800">
+                <i class="fas fa-book mr-2"></i>
+                ${row.curso_titulo}
+              </h5>
+              <p class="text-sm text-blue-600">${row.curso_instrutor} | ${row.curso_duracao_horas}h</p>
+            </div>
+            <div class="p-3 space-y-2">
+        `
+      } else if (row.tipo === 'modulo') {
+        if (currentModule) html += '</div>' // Close previous module
+        currentModule = row
+        html += `
+          <div class="border-l-4 border-green-400 pl-3 ml-3">
+            <h6 class="font-semibold text-green-700">
+              <i class="fas fa-folder mr-1"></i>
+              ${row.modulo_titulo}
+            </h6>
+            <div class="ml-4 mt-2 space-y-1">
+        `
+      } else if (row.tipo === 'aula') {
+        html += `
+          <div class="text-sm text-gray-700 flex items-center gap-2">
+            <i class="fas fa-play-circle text-purple-500"></i>
+            <span>${row.aula_titulo}</span>
+            <span class="text-xs text-gray-500">(${row.aula_duracao_minutos}min)</span>
+            ${row.aula_teste_gratis === 'sim' ? '<span class="text-xs bg-blue-500 text-white px-2 py-0.5 rounded">GRÁTIS</span>' : ''}
+          </div>
+        `
+      }
+    })
+    
+    if (currentModule) html += '</div></div>' // Close last module
+    if (currentCourse) html += '</div></div>' // Close last course
+    
+    html += '</div>'
+    
+    previewContent.innerHTML = html
+    previewArea.classList.remove('hidden')
+  },
+  
+  async importCSVData() {
+    if (!this.csvData) {
+      alert('❌ Nenhum dado para importar')
+      return
+    }
+    
+    const previewArea = document.getElementById('csvPreviewArea')
+    const progressArea = document.getElementById('importProgress')
+    const importLog = document.getElementById('importLog')
+    
+    previewArea.classList.add('hidden')
+    progressArea.classList.remove('hidden')
+    importLog.innerHTML = ''
+    
+    const log = (message, type = 'info') => {
+      const colors = {
+        info: 'text-blue-600',
+        success: 'text-green-600',
+        error: 'text-red-600'
+      }
+      importLog.innerHTML += `<div class="${colors[type]}">• ${message}</div>`
+      importLog.scrollTop = importLog.scrollHeight
+    }
+    
+    try {
+      let currentCourseId = null
+      let currentModuleId = null
+      let coursesCreated = 0
+      let modulesCreated = 0
+      let lessonsCreated = 0
+      
+      for (const row of this.csvData) {
+        if (row.tipo === 'curso') {
+          log(`Criando curso: ${row.curso_titulo}`, 'info')
+          
+          const courseData = {
+            title: row.curso_titulo,
+            description: row.curso_descricao || '',
+            instructor: row.curso_instrutor || 'Instrutor',
+            duration_hours: parseInt(row.curso_duracao_horas) || 0
+          }
+          
+          const result = await adminManager.createCourse(courseData)
+          currentCourseId = result.course_id
+          coursesCreated++
+          
+          log(`✓ Curso criado: ${row.curso_titulo}`, 'success')
+          
+        } else if (row.tipo === 'modulo') {
+          if (!currentCourseId) {
+            log(`✗ Erro: Módulo sem curso definido`, 'error')
+            continue
+          }
+          
+          log(`Criando módulo: ${row.modulo_titulo}`, 'info')
+          
+          const moduleData = {
+            course_id: currentCourseId,
+            title: row.modulo_titulo,
+            description: row.modulo_descricao || '',
+            order_index: modulesCreated
+          }
+          
+          const result = await adminManager.createModule(moduleData)
+          currentModuleId = result.module_id
+          modulesCreated++
+          
+          log(`✓ Módulo criado: ${row.modulo_titulo}`, 'success')
+          
+        } else if (row.tipo === 'aula') {
+          if (!currentModuleId) {
+            log(`✗ Erro: Aula sem módulo definido`, 'error')
+            continue
+          }
+          
+          log(`Criando aula: ${row.aula_titulo}`, 'info')
+          
+          const lessonData = {
+            module_id: currentModuleId,
+            title: row.aula_titulo,
+            description: row.aula_descricao || '',
+            video_provider: row.aula_video_provider || 'youtube',
+            video_id: row.aula_video_id || '',
+            duration_minutes: parseInt(row.aula_duracao_minutos) || 0,
+            order_index: parseInt(row.aula_ordem) || lessonsCreated,
+            free_trial: row.aula_teste_gratis === 'sim'
+          }
+          
+          await adminManager.createLesson(lessonData)
+          lessonsCreated++
+          
+          log(`✓ Aula criada: ${row.aula_titulo}`, 'success')
+        }
+        
+        // Small delay to avoid overwhelming the server
+        await new Promise(resolve => setTimeout(resolve, 100))
+      }
+      
+      log('', 'info')
+      log('========================================', 'info')
+      log(`✅ Importação concluída com sucesso!`, 'success')
+      log(`Cursos criados: ${coursesCreated}`, 'success')
+      log(`Módulos criados: ${modulesCreated}`, 'success')
+      log(`Aulas criadas: ${lessonsCreated}`, 'success')
+      
+      setTimeout(async () => {
+        await this.loadData()
+        this.switchTab('courses')
+        alert(`✅ Importação concluída!\n\n${coursesCreated} cursos\n${modulesCreated} módulos\n${lessonsCreated} aulas`)
+      }, 2000)
+      
+    } catch (error) {
+      console.error('Import error:', error)
+      log(`❌ Erro na importação: ${error.message}`, 'error')
+      alert('❌ Erro durante a importação. Verifique o log para detalhes.')
+    }
+  },
+  
+  cancelCSVImport() {
+    this.csvData = null
+    document.getElementById('csvPreviewArea').classList.add('hidden')
+    document.getElementById('csvFileInput').value = ''
   }
 }
