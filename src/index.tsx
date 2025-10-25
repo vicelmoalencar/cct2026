@@ -1176,28 +1176,28 @@ app.delete('/api/admin/users/:id', requireAdmin, async (c) => {
 })
 
 // ============================================================================
-// SUBSCRIPTIONS (ASSINATURAS) MANAGEMENT - Admin Only
+// MEMBER SUBSCRIPTIONS (HISTÓRICO DE MEMBROS) - Admin Only
 // ============================================================================
 
-// List all subscriptions (admin only)
-app.get('/api/admin/subscriptions', requireAdmin, async (c) => {
+// List all member subscriptions (admin only)
+app.get('/api/admin/member-subscriptions', requireAdmin, async (c) => {
   try {
     const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
     
-    const subscriptions = await supabase.query('subscriptions', {
+    const subscriptions = await supabase.query('member_subscriptions', {
       select: '*',
       order: 'created_at.desc'
     })
     
     return c.json({ subscriptions: subscriptions || [] })
   } catch (error: any) {
-    console.error('List subscriptions error:', error)
-    return c.json({ error: error.message || 'Failed to list subscriptions' }, 500)
+    console.error('List member subscriptions error:', error)
+    return c.json({ error: error.message || 'Failed to list member subscriptions' }, 500)
   }
 })
 
-// Find subscription by email (for duplicate checking)
-app.get('/api/admin/subscriptions/find', requireAdmin, async (c) => {
+// Find member subscription by email (for duplicate checking)
+app.get('/api/admin/member-subscriptions/find', requireAdmin, async (c) => {
   try {
     const email = c.req.query('email')
     
@@ -1207,20 +1207,20 @@ app.get('/api/admin/subscriptions/find', requireAdmin, async (c) => {
     
     const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
     
-    const subscriptions = await supabase.query('subscriptions', {
+    const subscriptions = await supabase.query('member_subscriptions', {
       select: '*',
       filters: { email_membro: email }
     })
     
     return c.json({ subscriptions: subscriptions || [] })
   } catch (error: any) {
-    console.error('Find subscription error:', error)
-    return c.json({ error: error.message || 'Failed to find subscription' }, 500)
+    console.error('Find member subscription error:', error)
+    return c.json({ error: error.message || 'Failed to find member subscription' }, 500)
   }
 })
 
-// Create subscription (admin only)
-app.post('/api/admin/subscriptions', requireAdmin, async (c) => {
+// Create member subscription (admin only)
+app.post('/api/admin/member-subscriptions', requireAdmin, async (c) => {
   try {
     const subData = await c.req.json()
     
@@ -1230,7 +1230,7 @@ app.post('/api/admin/subscriptions', requireAdmin, async (c) => {
     
     const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
     
-    const result = await supabase.insert('subscriptions', {
+    const result = await supabase.insert('member_subscriptions', {
       email_membro: subData.email_membro,
       data_expiracao: subData.data_expiracao || null,
       detalhe: subData.detalhe || null,
@@ -1244,20 +1244,20 @@ app.post('/api/admin/subscriptions', requireAdmin, async (c) => {
       subscription_id: result && result.length > 0 ? result[0].id : null 
     })
   } catch (error: any) {
-    console.error('Create subscription error:', error)
-    return c.json({ error: error.message || 'Failed to create subscription' }, 500)
+    console.error('Create member subscription error:', error)
+    return c.json({ error: error.message || 'Failed to create member subscription' }, 500)
   }
 })
 
-// Update subscription (admin only)
-app.put('/api/admin/subscriptions/:id', requireAdmin, async (c) => {
+// Update member subscription (admin only)
+app.put('/api/admin/member-subscriptions/:id', requireAdmin, async (c) => {
   try {
     const subId = c.req.param('id')
     const subData = await c.req.json()
     
     const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
     
-    await supabase.update('subscriptions', { id: subId }, {
+    await supabase.update('member_subscriptions', { id: subId }, {
       email_membro: subData.email_membro,
       data_expiracao: subData.data_expiracao,
       detalhe: subData.detalhe,
@@ -1269,18 +1269,18 @@ app.put('/api/admin/subscriptions/:id', requireAdmin, async (c) => {
     
     return c.json({ success: true })
   } catch (error: any) {
-    console.error('Update subscription error:', error)
-    return c.json({ error: error.message || 'Failed to update subscription' }, 500)
+    console.error('Update member subscription error:', error)
+    return c.json({ error: error.message || 'Failed to update member subscription' }, 500)
   }
 })
 
-// Delete subscription (admin only)
-app.delete('/api/admin/subscriptions/:id', requireAdmin, async (c) => {
+// Delete member subscription (admin only)
+app.delete('/api/admin/member-subscriptions/:id', requireAdmin, async (c) => {
   try {
     const subId = c.req.param('id')
     
     const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
-    await supabase.delete('subscriptions', { id: subId })
+    await supabase.delete('member_subscriptions', { id: subId })
     
     return c.json({ success: true })
   } catch (error: any) {

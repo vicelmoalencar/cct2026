@@ -1696,7 +1696,7 @@ const adminUI = {
   
   async loadSubscriptionsTable() {
     try {
-      const response = await axios.get('/api/admin/subscriptions')
+      const response = await axios.get('/api/admin/member-subscriptions')
       const subscriptions = response.data.subscriptions || []
       
       const container = document.getElementById('subscriptionsTableContainer')
@@ -1851,7 +1851,7 @@ const adminUI = {
     }
     
     try {
-      await axios.delete(`/api/admin/subscriptions/${id}`)
+      await axios.delete(`/api/admin/member-subscriptions/${id}`)
       alert('✅ Assinatura deletada com sucesso!')
       await this.loadSubscriptionsTable()
     } catch (error) {
@@ -3262,8 +3262,8 @@ const csvImport = {
         }
         
         try {
-          // Check if subscription already exists
-          const existing = await adminManager.findSubscriptionByEmail(row.email_membro)
+          // Check if member subscription already exists
+          const existing = await adminManager.findMemberSubscriptionByEmail(row.email_membro)
           
           if (existing && existing.length > 0) {
             skipped++
@@ -3286,8 +3286,8 @@ const csvImport = {
             }
           }
           
-          // Create subscription
-          await axios.post('/api/admin/subscriptions', {
+          // Create member subscription
+          await axios.post('/api/admin/member-subscriptions', {
             email_membro: row.email_membro,
             data_expiracao: data_expiracao,
             detalhe: row.detalhe || null,
@@ -3352,10 +3352,10 @@ adminManager.findUserByEmail = async function(email) {
   }
 }
 
-// Add findSubscriptionByEmail to adminManager
-adminManager.findSubscriptionByEmail = async function(email) {
+// Add findMemberSubscriptionByEmail to adminManager
+adminManager.findMemberSubscriptionByEmail = async function(email) {
   try {
-    const response = await axios.get(`/api/admin/subscriptions/find?email=${encodeURIComponent(email)}`)
+    const response = await axios.get(`/api/admin/member-subscriptions/find?email=${encodeURIComponent(email)}`)
     return response.data.subscriptions || []
   } catch (error) {
     return []
