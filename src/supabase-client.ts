@@ -81,7 +81,13 @@ export class SupabaseClient {
     
     if (!response.ok) {
       const error = await response.text()
-      throw new Error(`Supabase insert failed: ${error}`)
+      console.error(`Supabase insert failed for table ${table}:`, {
+        status: response.status,
+        statusText: response.statusText,
+        error: error,
+        data: data
+      })
+      throw new Error(`Supabase insert failed (${response.status}): ${error}`)
     }
     
     return await response.json()

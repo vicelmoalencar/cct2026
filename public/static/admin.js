@@ -2322,8 +2322,22 @@ aula,,,,,,,Aula 1: Aviso Prévio,Como calcular aviso prévio,youtube,dQw4w9WgXcQ
       
     } catch (error) {
       console.error('Import error:', error)
-      log(`❌ Erro na importação: ${error.message}`, 'error')
-      alert('❌ Erro durante a importação. Verifique o log para detalhes.')
+      
+      // Try to extract more detailed error information
+      let errorMessage = error.message || error.toString()
+      
+      if (error.response) {
+        // Axios error with response
+        errorMessage = error.response.data?.error || error.response.statusText || errorMessage
+        log(`❌ Erro HTTP ${error.response.status}: ${errorMessage}`, 'error')
+      } else if (error.request) {
+        // Axios error without response
+        log(`❌ Erro de rede: ${errorMessage}`, 'error')
+      } else {
+        log(`❌ Erro na importação: ${errorMessage}`, 'error')
+      }
+      
+      alert(`❌ Erro durante a importação:\n\n${errorMessage}\n\nVerifique o log para mais detalhes.`)
     }
   },
   
