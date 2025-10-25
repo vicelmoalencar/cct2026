@@ -501,9 +501,18 @@ const app = {
       const response = await axios.get(`/api/lessons/${lessonId}`)
       const { lesson, comments } = response.data
       
-      // Get course info for "Continue Learning"
+      // Get course info with all modules and lessons
       const courseResponse = await axios.get(`/api/courses/${lesson.course_id}`)
-      const { course } = courseResponse.data
+      const { course, modules } = courseResponse.data
+      
+      // Find current module and get all lessons
+      const currentModule = modules.find(m => m.id === lesson.module_id)
+      const moduleLessons = currentModule ? currentModule.lessons : []
+      
+      // Find current lesson index
+      const currentLessonIndex = moduleLessons.findIndex(l => l.id === lessonId)
+      const previousLesson = currentLessonIndex > 0 ? moduleLessons[currentLessonIndex - 1] : null
+      const nextLesson = currentLessonIndex < moduleLessons.length - 1 ? moduleLessons[currentLessonIndex + 1] : null
       
       // Save last accessed lesson
       this.saveLastAccessedLesson(
@@ -520,36 +529,157 @@ const app = {
       
       const lessonDetail = document.getElementById('lessonDetail')
       lessonDetail.innerHTML = `
-        <div class="bg-white rounded-lg shadow-md p-4 md:p-8 mb-6">
-          <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
-            <div class="flex-1 min-w-0">
-              <p class="text-xs md:text-sm text-blue-600 font-semibold mb-1">${lesson.module_title}</p>
-              <h2 class="text-xl md:text-3xl font-bold text-gray-800 break-words">${lesson.title}</h2>
-            </div>
-            <button onclick="app.toggleComplete(${lessonId}, ${isCompleted})"
-                    class="w-full md:w-auto px-4 md:px-6 py-2 md:py-3 rounded-lg font-semibold transition-colors text-sm md:text-base whitespace-nowrap ${
-                      isCompleted 
-                        ? 'bg-green-500 hover:bg-green-600 text-white' 
-                        : 'bg-blue-600 hover:bg-blue-700 text-white'
-                    }">
-              <i class="fas ${isCompleted ? 'fa-check-circle' : 'fa-circle'} mr-2"></i>
-              ${isCompleted ? 'Concluída' : 'Marcar como concluída'}
-            </button>
-          </div>
-          
-          <p class="text-sm md:text-base text-gray-600 mb-4 break-words">${lesson.description || ''}</p>
-          <div class="text-xs md:text-sm text-gray-500">
-            <i class="fas fa-clock mr-1"></i> ${lesson.duration_minutes} minutos
-          </div>
-          
-          <!-- Video Player -->
-          <div class="mt-4 md:mt-6">
-            ${this.renderVideoPlayer(lesson)}
-          </div>
+        <!-- Breadcrumb Navigation -->
+        <div class="mb-4 flex items-center text-sm text-gray-600">
+          <button onclick="app.showCourses()" class="hover:text-blue-600 transition-colors">
+            <i class="fas fa-home mr-1"></i>Cursos
+          </button>
+          <i class="fas fa-chevron-right mx-2 text-gray-400 text-xs"></i>
+          <button onclick="app.loadCourse(${lesson.course_id})" class="hover:text-blue-600 transition-colors">
+            ${course.title}
+          </button>
+          <i class="fas fa-chevron-right mx-2 text-gray-400 text-xs"></i>
+          <span class="text-gray-800 font-semibold">${lesson.module_title}</span>
         </div>
-        
-        <!-- Comments Section -->
-        <div class="bg-white rounded-lg shadow-md p-4 md:p-8">
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <!-- Main Content (Video + Info) -->
+          <div class="lg:col-span-2 space-y-6">
+            <!-- Video Player Card -->
+            <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+              <div class="relative">
+                ${this.renderVideoPlayer(lesson)}
+                ${lesson.free_trial ? 
+                  '<div class="absolute top-4 right-4 bg-blue-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg"><i class="fas fa-gift mr-1"></i>GRÁTIS</div>' : 
+                  '<div class="absolute top-4 right-4 bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg"><i class="fas fa-crown mr-1"></i>PREMIUM</div>'
+                }
+              </div>
+              
+              <!-- Lesson Info -->
+              <div class="p-6">
+                <div class="flex items-start justify-between gap-4 mb-4">
+                  <div class="flex-1">
+                    <p class="text-sm text-blue-600 font-semibold mb-2">
+                      <i class="fas fa-folder mr-1"></i>${lesson.module_title}
+                    </p>
+                    <h1 class="text-2xl md:text-3xl font-bold text-gray-800 mb-3">${lesson.title}</h1>
+                    ${lesson.description ? `<p class="text-gray-600 leading-relaxed">${lesson.description}</p>` : ''}
+                  </div>
+                </div>
+                
+                <!-- Lesson Meta -->
+                <div class="flex flex-wrap items-center gap-4 py-4 border-t border-gray-200">
+                  <div class="flex items-center text-gray-600">
+                    <i class="fas fa-clock mr-2 text-blue-600"></i>
+                    <span class="text-sm font-semibold">${lesson.duration_minutes} min</span>
+                  </div>
+                  <div class="flex items-center text-gray-600">
+                    <i class="fas fa-comments mr-2 text-green-600"></i>
+                    <span class="text-sm font-semibold">${comments.length} comentários</span>
+                  </div>
+                  ${lesson.attachments && lesson.attachments.length > 0 ? `
+                    <div class="flex items-center text-gray-600">
+                      <i class="fas fa-paperclip mr-2 text-purple-600"></i>
+                      <span class="text-sm font-semibold">${lesson.attachments.length} arquivos</span>
+                    </div>
+                  ` : ''}
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="flex flex-wrap gap-3 pt-4 border-t border-gray-200">
+                  <button onclick="app.toggleComplete(${lessonId}, ${isCompleted})"
+                          class="flex-1 px-6 py-3 rounded-lg font-semibold transition-all shadow-md hover:shadow-lg ${
+                            isCompleted 
+                              ? 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white' 
+                              : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white'
+                          }">
+                    <i class="fas ${isCompleted ? 'fa-check-circle' : 'fa-circle'} mr-2"></i>
+                    ${isCompleted ? 'Aula Concluída' : 'Marcar como Concluída'}
+                  </button>
+                  <button onclick="app.loadCourse(${lesson.course_id})"
+                          class="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-semibold transition-colors">
+                    <i class="fas fa-list mr-2"></i>
+                    Ver Todas as Aulas
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Navigation Buttons -->
+            ${previousLesson || nextLesson ? `
+              <div class="grid grid-cols-2 gap-4">
+                ${previousLesson ? `
+                  <button onclick="app.loadLesson(${previousLesson.id})"
+                          class="flex items-center gap-3 bg-white rounded-xl shadow-md p-4 hover:shadow-lg transition-all group">
+                    <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+                      <i class="fas fa-chevron-left text-blue-600"></i>
+                    </div>
+                    <div class="flex-1 text-left">
+                      <p class="text-xs text-gray-500 mb-1">Anterior</p>
+                      <p class="text-sm font-semibold text-gray-800 line-clamp-2">${previousLesson.title}</p>
+                    </div>
+                  </button>
+                ` : '<div></div>'}
+                
+                ${nextLesson ? `
+                  <button onclick="app.loadLesson(${nextLesson.id})"
+                          class="flex items-center gap-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl shadow-md p-4 hover:shadow-lg transition-all group">
+                    <div class="flex-1 text-left">
+                      <p class="text-xs text-blue-100 mb-1">Próxima</p>
+                      <p class="text-sm font-semibold line-clamp-2">${nextLesson.title}</p>
+                    </div>
+                    <div class="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center group-hover:bg-opacity-30 transition-colors">
+                      <i class="fas fa-chevron-right"></i>
+                    </div>
+                  </button>
+                ` : '<div></div>'}
+              </div>
+            ` : ''}
+
+            
+            <!-- Tabs for Additional Content -->
+            <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+              <div class="flex border-b border-gray-200">
+                <button onclick="app.switchLessonTab('comments')" 
+                        id="tabComments"
+                        class="flex-1 py-4 px-6 font-semibold text-blue-600 border-b-2 border-blue-600 transition-colors">
+                  <i class="fas fa-comments mr-2"></i>
+                  <span class="hidden sm:inline">Comentários</span>
+                  <span class="sm:hidden">Coment.</span>
+                  <span class="ml-1">(${comments.length})</span>
+                </button>
+                ${lesson.support_text ? `
+                  <button onclick="app.switchLessonTab('support')" 
+                          id="tabSupport"
+                          class="flex-1 py-4 px-6 font-semibold text-gray-500 border-b-2 border-transparent hover:text-blue-600 transition-colors">
+                    <i class="fas fa-file-alt mr-2"></i>
+                    <span class="hidden sm:inline">Texto de Apoio</span>
+                    <span class="sm:hidden">Apoio</span>
+                  </button>
+                ` : ''}
+                ${lesson.attachments && lesson.attachments.length > 0 ? `
+                  <button onclick="app.switchLessonTab('attachments')" 
+                          id="tabAttachments"
+                          class="flex-1 py-4 px-6 font-semibold text-gray-500 border-b-2 border-transparent hover:text-blue-600 transition-colors">
+                    <i class="fas fa-paperclip mr-2"></i>
+                    <span class="hidden sm:inline">Arquivos</span>
+                    <span class="sm:hidden">Arq.</span>
+                    <span class="ml-1">(${lesson.attachments.length})</span>
+                  </button>
+                ` : ''}
+                ${lesson.transcript ? `
+                  <button onclick="app.switchLessonTab('transcript')" 
+                          id="tabTranscript"
+                          class="flex-1 py-4 px-6 font-semibold text-gray-500 border-b-2 border-transparent hover:text-blue-600 transition-colors">
+                    <i class="fas fa-closed-captioning mr-2"></i>
+                    <span class="hidden sm:inline">Transcrição</span>
+                    <span class="sm:hidden">Trans.</span>
+                  </button>
+                ` : ''}
+              </div>
+              
+              <!-- Comments Tab -->
+              <div id="contentComments" class="p-6">
           <h3 class="text-xl md:text-2xl font-bold text-gray-800 mb-4 md:mb-6">
             <i class="fas fa-comments mr-2"></i>
             Comentários (${comments.length})
@@ -594,79 +724,102 @@ const app = {
               </div>
             `).join('')}
           </div>
-        </div>
-        
-        <!-- Support Text Section (Collapsible) -->
-        ${lesson.support_text ? `
-          <div class="bg-white rounded-lg shadow-md mt-6">
-            <button onclick="app.toggleSection('supportText')"
-                    class="flex items-center justify-between w-full text-left p-4 md:p-6 hover:bg-gray-50 transition-colors rounded-lg">
-              <h3 class="text-lg md:text-xl font-bold text-gray-800">
-                <i class="fas fa-file-alt mr-2 text-blue-600"></i>
-                Texto de Apoio
-              </h3>
-              <i class="fas fa-chevron-down text-gray-400 transition-transform" id="supportTextIcon"></i>
-            </button>
-            <div id="supportTextContent" class="hidden px-4 md:px-6 pb-4 md:pb-6">
-              <div class="prose max-w-none bg-blue-50 rounded-lg p-4 md:p-6 border-t border-gray-200">
-                <div class="text-sm md:text-base text-gray-700 whitespace-pre-wrap break-words">${lesson.support_text}</div>
               </div>
+              
+              <!-- Support Text Tab -->
+              ${lesson.support_text ? `
+                <div id="contentSupport" class="p-6 hidden">
+                  <div class="prose max-w-none bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
+                    <div class="text-gray-700 whitespace-pre-wrap leading-relaxed">${lesson.support_text}</div>
+                  </div>
+                </div>
+              ` : ''}
+              
+              <!-- Attachments Tab -->
+              ${lesson.attachments && lesson.attachments.length > 0 ? `
+                <div id="contentAttachments" class="p-6 hidden">
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    ${lesson.attachments.map(file => `
+                      <div class="flex items-center gap-4 bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-xl p-4 hover:shadow-md transition-all">
+                        <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <i class="fas fa-file-${this.getFileIcon(file.type)} text-2xl text-blue-600"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                          <p class="font-semibold text-gray-800 truncate">${file.name}</p>
+                          <p class="text-sm text-gray-500">${this.formatFileSize(file.size)}</p>
+                        </div>
+                        <button onclick="app.downloadAttachment('${file.name}', '${file.data}')"
+                                class="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg text-sm font-semibold transition-all shadow-md hover:shadow-lg">
+                          <i class="fas fa-download"></i>
+                        </button>
+                      </div>
+                    `).join('')}
+                  </div>
+                </div>
+              ` : ''}
+              
+              <!-- Transcript Tab -->
+              ${lesson.transcript ? `
+                <div id="contentTranscript" class="p-6 hidden">
+                  <div class="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-6 border border-purple-100">
+                    <div class="text-sm text-gray-700 whitespace-pre-wrap font-mono leading-relaxed">${lesson.transcript}</div>
+                  </div>
+                </div>
+              ` : ''}
             </div>
           </div>
-        ` : ''}
-        
-        <!-- Attachments Section (Collapsible) -->
-        ${lesson.attachments && Array.isArray(lesson.attachments) && lesson.attachments.length > 0 ? `
-          <div class="bg-white rounded-lg shadow-md mt-6">
-            <button onclick="app.toggleSection('attachments')"
-                    class="flex items-center justify-between w-full text-left p-4 md:p-6 hover:bg-gray-50 transition-colors rounded-lg">
-              <h3 class="text-lg md:text-xl font-bold text-gray-800">
-                <i class="fas fa-paperclip mr-2 text-green-600"></i>
-                <span class="hidden sm:inline">Arquivos para Download (${lesson.attachments.length})</span>
-                <span class="sm:hidden">Arquivos (${lesson.attachments.length})</span>
-              </h3>
-              <i class="fas fa-chevron-down text-gray-400 transition-transform" id="attachmentsIcon"></i>
-            </button>
-            <div id="attachmentsContent" class="hidden px-4 md:px-6 pb-4 md:pb-6">
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 border-t border-gray-200 pt-4 md:pt-6">
-                ${lesson.attachments.map(file => `
-                  <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-gray-50 border border-gray-200 rounded-lg p-3 md:p-4 hover:bg-gray-100 transition-colors">
-                    <i class="fas fa-file-${this.getFileIcon(file.type)} text-2xl md:text-3xl text-blue-600"></i>
-                    <div class="flex-1 min-w-0">
-                      <p class="font-semibold text-sm md:text-base text-gray-800 break-all">${file.name}</p>
-                      <p class="text-xs md:text-sm text-gray-500">${this.formatFileSize(file.size)}</p>
+          
+          <!-- Sidebar: Module Lessons -->
+          <div class="lg:col-span-1">
+            <div class="bg-white rounded-xl shadow-lg overflow-hidden sticky top-6">
+              <div class="bg-gradient-to-r from-blue-600 to-blue-700 p-4 text-white">
+                <h3 class="font-bold text-lg">
+                  <i class="fas fa-list mr-2"></i>
+                  Aulas do Módulo
+                </h3>
+                <p class="text-sm text-blue-100 mt-1">${currentModule ? currentModule.title : ''}</p>
+              </div>
+              
+              <div class="max-h-[600px] overflow-y-auto">
+                ${moduleLessons.map((l, index) => `
+                  <button onclick="app.loadLesson(${l.id})"
+                          class="w-full text-left p-4 border-b border-gray-100 transition-all ${
+                            l.id === lessonId 
+                              ? 'bg-blue-50 border-l-4 border-l-blue-600' 
+                              : 'hover:bg-gray-50'
+                          }">
+                    <div class="flex items-start gap-3">
+                      <div class="w-8 h-8 ${
+                        l.id === lessonId ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
+                      } rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm">
+                        ${index + 1}
+                      </div>
+                      <div class="flex-1 min-w-0">
+                        <p class="font-semibold text-gray-800 text-sm mb-1 line-clamp-2">${l.title}</p>
+                        <div class="flex items-center gap-3 text-xs text-gray-500">
+                          <span><i class="fas fa-clock mr-1"></i>${l.duration_minutes}min</span>
+                          ${l.free_trial ? 
+                            '<span class="text-blue-600 font-semibold"><i class="fas fa-gift mr-1"></i>Grátis</span>' : 
+                            '<span class="text-yellow-600 font-semibold"><i class="fas fa-crown mr-1"></i>Premium</span>'
+                          }
+                        </div>
+                      </div>
+                      ${l.id === lessonId ? '<i class="fas fa-play text-blue-600"></i>' : ''}
                     </div>
-                    <button onclick="app.downloadAttachment('${file.name}', '${file.data}')"
-                            class="w-full sm:w-auto px-3 md:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs md:text-sm font-semibold transition-colors whitespace-nowrap">
-                      <i class="fas fa-download mr-1"></i>
-                      Baixar
-                    </button>
-                  </div>
+                  </button>
                 `).join('')}
               </div>
-            </div>
-          </div>
-        ` : ''}
-        
-        <!-- Transcript Section (Collapsible) -->
-        ${lesson.transcript ? `
-          <div class="bg-white rounded-lg shadow-md mt-6">
-            <button onclick="app.toggleSection('transcript')"
-                    class="flex items-center justify-between w-full text-left p-4 md:p-6 hover:bg-gray-50 transition-colors rounded-lg">
-              <h3 class="text-lg md:text-xl font-bold text-gray-800">
-                <i class="fas fa-closed-captioning mr-2 text-purple-600"></i>
-                <span class="hidden sm:inline">Transcrição do Vídeo</span>
-                <span class="sm:hidden">Transcrição</span>
-              </h3>
-              <i class="fas fa-chevron-down text-gray-400 transition-transform" id="transcriptIcon"></i>
-            </button>
-            <div id="transcriptContent" class="hidden px-4 md:px-6 pb-4 md:pb-6">
-              <div class="bg-purple-50 rounded-lg p-4 md:p-6 border-t border-gray-200">
-                <div class="text-xs md:text-sm text-gray-700 whitespace-pre-wrap font-mono break-words">${lesson.transcript}</div>
+              
+              <div class="p-4 bg-gray-50 border-t border-gray-200">
+                <button onclick="app.loadCourse(${lesson.course_id})"
+                        class="w-full px-4 py-2 bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white rounded-lg font-semibold transition-all shadow-md hover:shadow-lg text-sm">
+                  <i class="fas fa-th-list mr-2"></i>
+                  Ver Todos os Módulos
+                </button>
               </div>
             </div>
           </div>
-        ` : ''}
+        </div>
       `
       
       this.showLessonView()
@@ -1199,6 +1352,34 @@ const app = {
         overlay.classList.add('hidden')
       }, 300)
     }
+  },
+  
+  // Switch lesson content tabs
+  switchLessonTab(tab) {
+    const tabs = ['comments', 'support', 'attachments', 'transcript']
+    
+    tabs.forEach(t => {
+      const tabBtn = document.getElementById(`tab${t.charAt(0).toUpperCase() + t.slice(1)}`)
+      const content = document.getElementById(`content${t.charAt(0).toUpperCase() + t.slice(1)}`)
+      
+      if (tabBtn) {
+        if (t === tab) {
+          tabBtn.classList.remove('text-gray-500', 'border-transparent')
+          tabBtn.classList.add('text-blue-600', 'border-blue-600')
+        } else {
+          tabBtn.classList.add('text-gray-500', 'border-transparent')
+          tabBtn.classList.remove('text-blue-600', 'border-blue-600')
+        }
+      }
+      
+      if (content) {
+        if (t === tab) {
+          content.classList.remove('hidden')
+        } else {
+          content.classList.add('hidden')
+        }
+      }
+    })
   }
 }
 
