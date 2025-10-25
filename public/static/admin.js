@@ -1694,10 +1694,10 @@ const adminUI = {
     await this.loadSubscriptionsTable()
   },
   
-  async loadSubscriptionsTable() {
+  async loadSubscriptionsTable(filters = {}) {
     try {
       const response = await axios.get('/api/admin/member-subscriptions')
-      const subscriptions = response.data.subscriptions || []
+      let subscriptions = response.data.subscriptions || []
       
       const container = document.getElementById('subscriptionsTableContainer')
       
@@ -1710,25 +1710,56 @@ const adminUI = {
         return
       }
       
-      // Separate active and expired
+      // Store original data
+      this.allSubscriptions = subscriptions
+      
+      // Separate active and expired (before filtering)
       const now = new Date()
       const active = subscriptions.filter(s => s.ativo && (!s.data_expiracao || new Date(s.data_expiracao) > now))
       const expired = subscriptions.filter(s => !s.ativo || (s.data_expiracao && new Date(s.data_expiracao) <= now))
       
+      // Get unique origins for filter dropdown
+      const origins = [...new Set(subscriptions.map(s => s.origem).filter(Boolean))].sort()
+      
+      // Apply filters
+      if (filters.status) {
+        if (filters.status === 'active') {
+          subscriptions = active
+        } else if (filters.status === 'expired') {
+          subscriptions = expired
+        } else if (filters.status === 'free_trial') {
+          subscriptions = subscriptions.filter(s => s.teste_gratis)
+        }
+      }
+      
+      if (filters.origem && filters.origem !== 'all') {
+        subscriptions = subscriptions.filter(s => s.origem === filters.origem)
+      }
+      
+      if (filters.search) {
+        const searchLower = filters.search.toLowerCase()
+        subscriptions = subscriptions.filter(s => 
+          s.email_membro?.toLowerCase().includes(searchLower) ||
+          s.detalhe?.toLowerCase().includes(searchLower)
+        )
+      }
+      
       container.innerHTML = `
         <!-- Stats Cards -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 cursor-pointer hover:shadow-md transition-shadow" 
+               onclick="adminUI.filterSubscriptions({status: null})">
             <div class="flex items-center justify-between">
               <div>
                 <p class="text-sm text-blue-700 font-semibold">Total</p>
-                <p class="text-2xl font-bold text-blue-800">${subscriptions.length}</p>
+                <p class="text-2xl font-bold text-blue-800">${this.allSubscriptions.length}</p>
               </div>
               <i class="fas fa-list text-3xl text-blue-600"></i>
             </div>
           </div>
           
-          <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+          <div class="bg-green-50 border border-green-200 rounded-lg p-4 cursor-pointer hover:shadow-md transition-shadow" 
+               onclick="adminUI.filterSubscriptions({status: 'active'})">
             <div class="flex items-center justify-between">
               <div>
                 <p class="text-sm text-green-700 font-semibold">Ativas</p>
@@ -1738,7 +1769,8 @@ const adminUI = {
             </div>
           </div>
           
-          <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div class="bg-red-50 border border-red-200 rounded-lg p-4 cursor-pointer hover:shadow-md transition-shadow" 
+               onclick="adminUI.filterSubscriptions({status: 'expired'})">
             <div class="flex items-center justify-between">
               <div>
                 <p class="text-sm text-red-700 font-semibold">Expiradas</p>
@@ -1748,20 +1780,75 @@ const adminUI = {
             </div>
           </div>
           
-          <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
+          <div class="bg-purple-50 border border-purple-200 rounded-lg p-4 cursor-pointer hover:shadow-md transition-shadow" 
+               onclick="adminUI.filterSubscriptions({status: 'free_trial'})">
             <div class="flex items-center justify-between">
               <div>
                 <p class="text-sm text-purple-700 font-semibold">Teste Grátis</p>
-                <p class="text-2xl font-bold text-purple-800">${subscriptions.filter(s => s.teste_gratis).length}</p>
+                <p class="text-2xl font-bold text-purple-800">${this.allSubscriptions.filter(s => s.teste_gratis).length}</p>
               </div>
               <i class="fas fa-gift text-3xl text-purple-600"></i>
             </div>
           </div>
         </div>
         
+        <!-- Filters -->
+        <div class="bg-gray-50 rounded-lg p-4 mb-4">
+          <div class="flex items-center gap-4 flex-wrap">
+            <div class="flex-1 min-w-[200px]">
+              <label class="block text-xs font-semibold text-gray-700 mb-1">
+                <i class="fas fa-search mr-1"></i> Buscar
+              </label>
+              <input type="text" 
+                     id="subscriptionSearch" 
+                     placeholder="Email ou detalhes..."
+                     value="${filters.search || ''}"
+                     onkeyup="adminUI.handleSubscriptionSearch(event)"
+                     class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            
+            <div class="min-w-[180px]">
+              <label class="block text-xs font-semibold text-gray-700 mb-1">
+                <i class="fas fa-filter mr-1"></i> Origem
+              </label>
+              <select id="subscriptionOriginFilter" 
+                      onchange="adminUI.handleOriginFilter(event)"
+                      class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="all" ${!filters.origem || filters.origem === 'all' ? 'selected' : ''}>Todas as origens</option>
+                ${origins.map(origem => `
+                  <option value="${origem}" ${filters.origem === origem ? 'selected' : ''}>${origem}</option>
+                `).join('')}
+              </select>
+            </div>
+            
+            <div class="min-w-[150px]">
+              <label class="block text-xs font-semibold text-gray-700 mb-1">
+                <i class="fas fa-toggle-on mr-1"></i> Status
+              </label>
+              <select id="subscriptionStatusFilter" 
+                      onchange="adminUI.handleStatusFilter(event)"
+                      class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="" ${!filters.status ? 'selected' : ''}>Todos</option>
+                <option value="active" ${filters.status === 'active' ? 'selected' : ''}>Ativas</option>
+                <option value="expired" ${filters.status === 'expired' ? 'selected' : ''}>Expiradas</option>
+                <option value="free_trial" ${filters.status === 'free_trial' ? 'selected' : ''}>Teste Grátis</option>
+              </select>
+            </div>
+            
+            <div class="flex items-end">
+              <button onclick="adminUI.clearSubscriptionFilters()" 
+                      class="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg text-sm font-semibold transition-colors">
+                <i class="fas fa-times mr-1"></i> Limpar
+              </button>
+            </div>
+          </div>
+        </div>
+        
         <div class="mb-4 text-sm text-gray-600">
           <i class="fas fa-info-circle mr-1"></i>
-          Exibindo todas as assinaturas/membros importados
+          Exibindo <strong>${subscriptions.length}</strong> de <strong>${this.allSubscriptions.length}</strong> assinaturas
+          ${filters.status || filters.origem || filters.search ? 
+            '<span class="ml-2 text-blue-600 font-semibold">(filtrado)</span>' : ''}
         </div>
         
         <div class="overflow-x-auto">
@@ -1853,11 +1940,51 @@ const adminUI = {
     try {
       await axios.delete(`/api/admin/member-subscriptions/${id}`)
       alert('✅ Assinatura deletada com sucesso!')
-      await this.loadSubscriptionsTable()
+      
+      // Preserve current filters
+      const filters = this.getCurrentSubscriptionFilters()
+      await this.loadSubscriptionsTable(filters)
     } catch (error) {
       console.error('Error deleting subscription:', error)
       alert('❌ Erro ao deletar assinatura: ' + (error.response?.data?.error || error.message))
     }
+  },
+  
+  // Filter helper functions
+  getCurrentSubscriptionFilters() {
+    return {
+      search: document.getElementById('subscriptionSearch')?.value || '',
+      origem: document.getElementById('subscriptionOriginFilter')?.value || 'all',
+      status: document.getElementById('subscriptionStatusFilter')?.value || ''
+    }
+  },
+  
+  filterSubscriptions(filters) {
+    this.loadSubscriptionsTable(filters)
+  },
+  
+  handleSubscriptionSearch(event) {
+    if (event.key === 'Enter' || event.type === 'keyup') {
+      const filters = this.getCurrentSubscriptionFilters()
+      this.loadSubscriptionsTable(filters)
+    }
+  },
+  
+  handleOriginFilter(event) {
+    const filters = this.getCurrentSubscriptionFilters()
+    this.loadSubscriptionsTable(filters)
+  },
+  
+  handleStatusFilter(event) {
+    const filters = this.getCurrentSubscriptionFilters()
+    this.loadSubscriptionsTable(filters)
+  },
+  
+  clearSubscriptionFilters() {
+    document.getElementById('subscriptionSearch').value = ''
+    document.getElementById('subscriptionOriginFilter').value = 'all'
+    document.getElementById('subscriptionStatusFilter').value = ''
+    this.loadSubscriptionsTable({})
   },
   
   // OLD FUNCTIONS - Keep for compatibility but update later
