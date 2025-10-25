@@ -274,6 +274,11 @@ const adminUI = {
                   class="flex-1 py-4 px-6 font-semibold text-gray-400 border-b-2 border-transparent hover:text-blue-600 transition-colors whitespace-nowrap">
             <i class="fas fa-users mr-2"></i> Assinaturas
           </button>
+          <button onclick="adminUI.switchTab('users')" 
+                  id="tabUsers"
+                  class="flex-1 py-4 px-6 font-semibold text-gray-400 border-b-2 border-transparent hover:text-blue-600 transition-colors whitespace-nowrap">
+            <i class="fas fa-user-friends mr-2"></i> Usuários
+          </button>
           <button onclick="adminUI.switchTab('import')" 
                   id="tabImport"
                   class="flex-1 py-4 px-6 font-semibold text-gray-400 border-b-2 border-transparent hover:text-blue-600 transition-colors whitespace-nowrap">
@@ -294,7 +299,7 @@ const adminUI = {
     this.currentView = tab
     
     // Update tab styles
-    const tabs = ['courses', 'modules', 'lessons', 'plans', 'subscriptions', 'import']
+    const tabs = ['courses', 'modules', 'lessons', 'plans', 'subscriptions', 'users', 'import']
     tabs.forEach(t => {
       const tabEl = document.getElementById(`tab${t.charAt(0).toUpperCase() + t.slice(1)}`)
       if (t === tab) {
@@ -312,6 +317,7 @@ const adminUI = {
     if (tab === 'lessons') this.renderLessonsTab()
     if (tab === 'plans') this.renderPlansTab()
     if (tab === 'subscriptions') this.renderSubscriptionsTab()
+    if (tab === 'users') this.renderUsersTab()
     if (tab === 'import') this.renderImportTab()
   },
   
@@ -1921,6 +1927,142 @@ const adminUI = {
     }
   },
   
+  // ==================== USERS TAB ====================
+  
+  async renderUsersTab() {
+    const content = document.getElementById('adminContent')
+    
+    content.innerHTML = `
+      <div class="bg-white rounded-lg shadow-md p-6">
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="text-2xl font-bold text-gray-800">
+            <i class="fas fa-user-friends mr-2"></i>
+            Gerenciar Usuários
+          </h2>
+          <button onclick="csvImport.showUserImportModal()" 
+                  class="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors shadow-md hover:shadow-lg">
+            <i class="fas fa-file-upload mr-2"></i>
+            Importar CSV
+          </button>
+        </div>
+        
+        <div id="usersTableContainer">
+          <p class="text-center text-gray-500 py-8">
+            <i class="fas fa-spinner fa-spin mr-2"></i>
+            Carregando usuários...
+          </p>
+        </div>
+      </div>
+    `
+    
+    await this.loadUsersTable()
+  },
+  
+  async loadUsersTable() {
+    try {
+      const response = await axios.get('/api/admin/users')
+      const users = response.data.users || []
+      
+      const container = document.getElementById('usersTableContainer')
+      
+      if (users.length === 0) {
+        container.innerHTML = `
+          <p class="text-center text-gray-500 py-8">
+            Nenhum usuário cadastrado. Importe um arquivo CSV para começar.
+          </p>
+        `
+        return
+      }
+      
+      container.innerHTML = `
+        <div class="mb-4 text-sm text-gray-600">
+          <i class="fas fa-info-circle mr-1"></i>
+          Total de usuários: <strong>${users.length}</strong>
+        </div>
+        
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CPF</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expiração</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              ${users.map(user => `
+                <tr class="hover:bg-gray-50">
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="flex items-center">
+                      ${user.foto ? `
+                        <img src="${user.foto}" alt="${user.nome || 'User'}" class="h-8 w-8 rounded-full object-cover mr-3">
+                      ` : `
+                        <div class="h-8 w-8 rounded-full bg-gray-300 flex items-center justify-center mr-3">
+                          <i class="fas fa-user text-gray-600 text-sm"></i>
+                        </div>
+                      `}
+                      <div>
+                        <div class="text-sm font-medium text-gray-900">${user.nome || user.first_name || 'Sem nome'}</div>
+                        ${user.telefone ? `<div class="text-xs text-gray-500">${user.telefone}</div>` : ''}
+                      </div>
+                    </div>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${user.email}</td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${user.cpf || '-'}</td>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${user.ativo ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                      ${user.ativo ? 'Ativo' : 'Inativo'}
+                    </span>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    ${user.dt_expiracao ? new Date(user.dt_expiracao).toLocaleDateString('pt-BR') : '-'}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <button onclick="adminUI.editUser(${user.id})" class="text-blue-600 hover:text-blue-900 mr-3">
+                      <i class="fas fa-edit"></i>
+                    </button>
+                    <button onclick="adminUI.deleteUser(${user.id})" class="text-red-600 hover:text-red-900">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `
+    } catch (error) {
+      console.error('Error loading users:', error)
+      const container = document.getElementById('usersTableContainer')
+      container.innerHTML = `
+        <p class="text-center text-red-500 py-8">
+          <i class="fas fa-exclamation-circle mr-2"></i>
+          Erro ao carregar usuários
+        </p>
+      `
+    }
+  },
+  
+  async editUser(userId) {
+    alert('Funcionalidade de edição será implementada em breve')
+  },
+  
+  async deleteUser(userId) {
+    if (!confirm('Tem certeza que deseja excluir este usuário?')) return
+    
+    try {
+      await axios.delete(`/api/admin/users/${userId}`)
+      alert('✅ Usuário excluído com sucesso!')
+      this.loadUsersTable()
+    } catch (error) {
+      console.error('Error deleting user:', error)
+      alert('❌ Erro ao excluir usuário')
+    }
+  },
+  
   // ==================== IMPORT TAB ====================
   
   renderImportTab() {
@@ -2409,5 +2551,322 @@ aula,,,,,,,Aula 1: Aviso Prévio,Como calcular aviso prévio,youtube,dQw4w9WgXcQ
     this.csvData = null
     document.getElementById('csvPreviewArea').classList.add('hidden')
     document.getElementById('csvFileInput').value = ''
+  }
+}
+
+// ==================== CSV USER IMPORT ====================
+
+const csvImport = {
+  usersData: null,
+  
+  showUserImportModal() {
+    const modal = document.createElement('div')
+    modal.id = 'userImportModal'
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4'
+    modal.innerHTML = `
+      <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div class="bg-gradient-to-r from-green-600 to-green-700 p-6 text-white">
+          <div class="flex items-center justify-between">
+            <h2 class="text-2xl font-bold">
+              <i class="fas fa-file-upload mr-2"></i>
+              Importar Usuários via CSV
+            </h2>
+            <button onclick="csvImport.closeModal()" class="text-white hover:text-gray-200">
+              <i class="fas fa-times text-2xl"></i>
+            </button>
+          </div>
+        </div>
+        
+        <div class="p-6">
+          <!-- Upload Section -->
+          <div class="mb-6">
+            <label class="block text-sm font-semibold text-gray-700 mb-2">
+              Selecione o arquivo CSV
+            </label>
+            <input type="file" 
+                   id="userCsvFileInput" 
+                   accept=".csv"
+                   onchange="csvImport.handleFileSelect(event)"
+                   class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100 cursor-pointer">
+            <p class="mt-2 text-xs text-gray-500">
+              <i class="fas fa-info-circle mr-1"></i>
+              Formato: CSV com delimitador ponto e vírgula (;)
+            </p>
+          </div>
+          
+          <!-- Preview Area -->
+          <div id="userCsvPreviewArea" class="hidden">
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+              <h3 class="font-semibold text-blue-900 mb-2">
+                <i class="fas fa-eye mr-2"></i>
+                Preview da Importação
+              </h3>
+              <div id="userCsvStats" class="text-sm text-blue-800"></div>
+            </div>
+            
+            <div class="mb-4">
+              <div id="userCsvPreviewContent" class="bg-gray-50 rounded-lg p-4 max-h-60 overflow-y-auto text-sm"></div>
+            </div>
+            
+            <div class="flex gap-3">
+              <button onclick="csvImport.importUsers()" 
+                      class="flex-1 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors">
+                <i class="fas fa-check mr-2"></i>
+                Confirmar Importação
+              </button>
+              <button onclick="csvImport.cancel()" 
+                      class="px-6 py-3 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg font-semibold transition-colors">
+                <i class="fas fa-times mr-2"></i>
+                Cancelar
+              </button>
+            </div>
+          </div>
+          
+          <!-- Progress Area -->
+          <div id="userImportProgress" class="hidden">
+            <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+              <h3 class="font-semibold text-green-900 mb-2">
+                <i class="fas fa-spinner fa-spin mr-2"></i>
+                Importando Usuários...
+              </h3>
+              <div id="userImportLog" class="text-sm text-green-800 max-h-96 overflow-y-auto font-mono"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `
+    
+    document.body.appendChild(modal)
+  },
+  
+  closeModal() {
+    const modal = document.getElementById('userImportModal')
+    if (modal) modal.remove()
+    this.usersData = null
+  },
+  
+  handleFileSelect(event) {
+    const file = event.target.files[0]
+    if (!file) return
+    
+    if (!file.name.endsWith('.csv')) {
+      alert('❌ Por favor, selecione um arquivo CSV')
+      return
+    }
+    
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      try {
+        const csvText = e.target.result
+        this.parseUserCSV(csvText)
+      } catch (error) {
+        console.error('Error reading CSV:', error)
+        alert('❌ Erro ao ler arquivo CSV: ' + error.message)
+      }
+    }
+    reader.readAsText(file, 'UTF-8')
+  },
+  
+  parseUserCSV(csvText) {
+    // Remove \r and split by lines
+    const lines = csvText.replace(/\r/g, '').split('\n').filter(line => line.trim())
+    
+    if (lines.length < 2) {
+      alert('❌ Arquivo CSV vazio ou inválido')
+      return
+    }
+    
+    // Parse header
+    const header = lines[0].split(';').map(h => h.trim())
+    
+    // Parse data
+    const data = []
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i]
+      const values = line.split(';').map(v => v.trim())
+      
+      if (values.length !== header.length) {
+        console.warn(`Linha ${i + 1} ignorada: número de colunas não coincide`)
+        continue
+      }
+      
+      const row = {}
+      header.forEach((col, idx) => {
+        row[col] = values[idx]
+      })
+      
+      // Skip empty emails
+      if (!row.email || row.email === '') {
+        continue
+      }
+      
+      data.push(row)
+    }
+    
+    this.usersData = data
+    this.showUserPreview(data)
+  },
+  
+  showUserPreview(data) {
+    const previewArea = document.getElementById('userCsvPreviewArea')
+    const statsDiv = document.getElementById('userCsvStats')
+    const previewContent = document.getElementById('userCsvPreviewContent')
+    
+    statsDiv.innerHTML = `
+      <p><strong>${data.length}</strong> usuários serão importados</p>
+    `
+    
+    previewContent.innerHTML = `
+      <div class="space-y-2">
+        ${data.slice(0, 10).map((user, idx) => `
+          <div class="flex items-center gap-3 p-2 bg-white rounded border">
+            <span class="text-gray-500 font-mono text-xs">${idx + 1}</span>
+            <div class="flex-1">
+              <div class="font-semibold">${user.nome || user.first_name || 'Sem nome'}</div>
+              <div class="text-xs text-gray-600">${user.email}</div>
+            </div>
+            <span class="text-xs ${user.ativo === 'sim' ? 'text-green-600' : 'text-red-600'}">
+              ${user.ativo === 'sim' ? 'Ativo' : 'Inativo'}
+            </span>
+          </div>
+        `).join('')}
+        ${data.length > 10 ? `<p class="text-gray-500 text-center text-sm mt-3">... e mais ${data.length - 10} usuários</p>` : ''}
+      </div>
+    `
+    
+    previewArea.classList.remove('hidden')
+  },
+  
+  async importUsers() {
+    if (!this.usersData) {
+      alert('❌ Nenhum dado para importar')
+      return
+    }
+    
+    const previewArea = document.getElementById('userCsvPreviewArea')
+    const progressArea = document.getElementById('userImportProgress')
+    const importLog = document.getElementById('userImportLog')
+    
+    previewArea.classList.add('hidden')
+    progressArea.classList.remove('hidden')
+    importLog.innerHTML = ''
+    
+    const log = (message, type = 'info') => {
+      const colors = {
+        info: 'text-blue-600',
+        success: 'text-green-600',
+        error: 'text-red-600'
+      }
+      importLog.innerHTML += `<div class="${colors[type]}">• ${message}</div>`
+      importLog.scrollTop = importLog.scrollHeight
+    }
+    
+    try {
+      let created = 0
+      let skipped = 0
+      let errors = 0
+      
+      for (const row of this.usersData) {
+        if (!row.email) {
+          errors++
+          continue
+        }
+        
+        log(`Verificando: ${row.email}`, 'info')
+        
+        // Check if user exists
+        try {
+          const existingUser = await adminManager.findUserByEmail(row.email)
+          
+          if (existingUser) {
+            skipped++
+            log(`⊙ Usuário já existe: ${row.email}`, 'info')
+            continue
+          }
+        } catch (error) {
+          // User doesn't exist, continue to create
+        }
+        
+        // Parse date
+        let dt_expiracao = null
+        if (row.dt_expiracao && row.dt_expiracao.trim()) {
+          try {
+            const parts = row.dt_expiracao.split(' ')[0].split('/')
+            if (parts.length === 3) {
+              dt_expiracao = `${parts[2]}-${parts[1]}-${parts[0]}T00:00:00Z`
+            }
+          } catch (e) {
+            console.error('Error parsing date:', e)
+          }
+        }
+        
+        // Create user
+        const userData = {
+          email: row.email,
+          nome: row.nome || null,
+          first_name: row.first_name || null,
+          last_name: row.last_name || null,
+          cpf: row.cpf || null,
+          telefone: row.telefone || null,
+          whatsapp: row.whatsapp || null,
+          foto: row.foto || null,
+          end_cep: row.end_cep || null,
+          end_logradouro: row.end_logradouro || null,
+          end_numero: row.end_numero || null,
+          end_cidade: row.end_cidade || null,
+          end_estado: row.end_estado || null,
+          ativo: row.ativo === 'sim',
+          teste_gratis: row.teste_gratis === 'sim',
+          dt_expiracao: dt_expiracao
+        }
+        
+        try {
+          await axios.post('/api/admin/users', userData)
+          created++
+          log(`✓ Usuário criado: ${row.email}`, 'success')
+        } catch (error) {
+          errors++
+          log(`✗ Erro ao criar ${row.email}: ${error.response?.data?.error || error.message}`, 'error')
+        }
+        
+        // Delay to avoid overwhelming server
+        await new Promise(resolve => setTimeout(resolve, 50))
+      }
+      
+      log('', 'info')
+      log('========================================', 'info')
+      log(`✅ Importação concluída!`, 'success')
+      log('', 'info')
+      log(`📦 CRIADOS: ${created} usuários`, 'success')
+      log(`⊙ PULADOS: ${skipped} usuários`, 'info')
+      log(`✗ ERROS: ${errors} usuários`, errors > 0 ? 'error' : 'info')
+      
+      setTimeout(() => {
+        this.closeModal()
+        adminUI.loadUsersTable()
+        alert(`✅ Importação concluída!\n\n${created} criados\n${skipped} pulados\n${errors} erros`)
+      }, 2000)
+      
+    } catch (error) {
+      console.error('Import error:', error)
+      log(`❌ Erro na importação: ${error.message}`, 'error')
+      alert('❌ Erro durante a importação. Verifique o log para detalhes.')
+    }
+  },
+  
+  cancel() {
+    this.usersData = null
+    document.getElementById('userCsvPreviewArea').classList.add('hidden')
+    document.getElementById('userCsvFileInput').value = ''
+  }
+}
+
+// Add findUserByEmail to adminManager
+adminManager.findUserByEmail = async function(email) {
+  try {
+    const response = await axios.get(`/api/admin/users/find?email=${encodeURIComponent(email)}`)
+    return response.data.user
+  } catch (error) {
+    return null
   }
 }

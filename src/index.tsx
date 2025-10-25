@@ -1038,6 +1038,144 @@ app.get('/api/admin/lessons/find', requireAdmin, async (c) => {
 })
 
 // ============================================
+// API ROUTES - USERS MANAGEMENT
+// ============================================
+
+// Get all users (admin only)
+app.get('/api/admin/users', requireAdmin, async (c) => {
+  try {
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    const users = await supabase.query('users', {
+      select: '*',
+      order: 'created_at.desc'
+    })
+    
+    return c.json({ users })
+  } catch (error: any) {
+    console.error('Get users error:', error)
+    return c.json({ error: error.message || 'Failed to fetch users' }, 500)
+  }
+})
+
+// Find user by email (for duplicate checking)
+app.get('/api/admin/users/find', requireAdmin, async (c) => {
+  try {
+    const email = c.req.query('email')
+    
+    if (!email) {
+      return c.json({ error: 'Email is required' }, 400)
+    }
+    
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    const users = await supabase.query('users', {
+      select: '*',
+      filters: { email: email },
+      limit: 1
+    })
+    
+    if (users && users.length > 0) {
+      return c.json({ user: users[0] })
+    }
+    
+    return c.json({ user: null })
+  } catch (error: any) {
+    console.error('Find user error:', error)
+    return c.json({ error: error.message || 'Failed to find user' }, 500)
+  }
+})
+
+// Create user (admin only)
+app.post('/api/admin/users', requireAdmin, async (c) => {
+  try {
+    const userData = await c.req.json()
+    
+    if (!userData.email) {
+      return c.json({ error: 'Email is required' }, 400)
+    }
+    
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    const result = await supabase.insert('users', {
+      email: userData.email,
+      nome: userData.nome || null,
+      first_name: userData.first_name || null,
+      last_name: userData.last_name || null,
+      cpf: userData.cpf || null,
+      telefone: userData.telefone || null,
+      whatsapp: userData.whatsapp || null,
+      foto: userData.foto || null,
+      end_cep: userData.end_cep || null,
+      end_logradouro: userData.end_logradouro || null,
+      end_numero: userData.end_numero || null,
+      end_cidade: userData.end_cidade || null,
+      end_estado: userData.end_estado || null,
+      ativo: userData.ativo !== undefined ? userData.ativo : true,
+      teste_gratis: userData.teste_gratis || false,
+      dt_expiracao: userData.dt_expiracao || null
+    })
+    
+    return c.json({ 
+      success: true, 
+      user_id: result[0].id
+    })
+  } catch (error: any) {
+    console.error('Create user error:', error)
+    return c.json({ error: error.message || 'Failed to create user' }, 500)
+  }
+})
+
+// Update user (admin only)
+app.put('/api/admin/users/:id', requireAdmin, async (c) => {
+  try {
+    const userId = c.req.param('id')
+    const userData = await c.req.json()
+    
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    await supabase.update('users', { id: userId }, {
+      nome: userData.nome,
+      first_name: userData.first_name,
+      last_name: userData.last_name,
+      cpf: userData.cpf,
+      telefone: userData.telefone,
+      whatsapp: userData.whatsapp,
+      foto: userData.foto,
+      end_cep: userData.end_cep,
+      end_logradouro: userData.end_logradouro,
+      end_numero: userData.end_numero,
+      end_cidade: userData.end_cidade,
+      end_estado: userData.end_estado,
+      ativo: userData.ativo,
+      teste_gratis: userData.teste_gratis,
+      dt_expiracao: userData.dt_expiracao,
+      updated_at: new Date().toISOString()
+    })
+    
+    return c.json({ success: true })
+  } catch (error: any) {
+    console.error('Update user error:', error)
+    return c.json({ error: error.message || 'Failed to update user' }, 500)
+  }
+})
+
+// Delete user (admin only)
+app.delete('/api/admin/users/:id', requireAdmin, async (c) => {
+  try {
+    const userId = c.req.param('id')
+    
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    await supabase.delete('users', { id: userId })
+    
+    return c.json({ success: true })
+  } catch (error: any) {
+    console.error('Delete user error:', error)
+    return c.json({ error: error.message || 'Failed to delete user' }, 500)
+  }
+})
+
+// ============================================
 // API ROUTES - COURSES
 // ============================================
 
