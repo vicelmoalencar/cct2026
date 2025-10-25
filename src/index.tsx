@@ -790,6 +790,35 @@ app.delete('/api/admin/courses/:id', requireAdmin, async (c) => {
   }
 })
 
+// Find course by title (admin only - for duplicate checking)
+app.get('/api/admin/courses/find', requireAdmin, async (c) => {
+  try {
+    const title = c.req.query('title')
+    
+    if (!title) {
+      return c.json({ error: 'Title is required' }, 400)
+    }
+    
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    // Query with exact title match
+    const courses = await supabase.query('courses', {
+      select: '*',
+      filters: { title: title },
+      limit: 1
+    })
+    
+    if (courses && courses.length > 0) {
+      return c.json({ course: courses[0] })
+    }
+    
+    return c.json({ course: null })
+  } catch (error: any) {
+    console.error('Find course error:', error)
+    return c.json({ error: error.message || 'Failed to find course' }, 500)
+  }
+})
+
 // Create module (admin only)
 app.post('/api/admin/modules', requireAdmin, async (c) => {
   try {
@@ -843,6 +872,39 @@ app.delete('/api/admin/modules/:id', requireAdmin, async (c) => {
     return c.json({ success: true })
   } catch (error) {
     return c.json({ error: 'Failed to delete module' }, 500)
+  }
+})
+
+// Find module by title (admin only - for duplicate checking)
+app.get('/api/admin/modules/find', requireAdmin, async (c) => {
+  try {
+    const courseId = c.req.query('course_id')
+    const title = c.req.query('title')
+    
+    if (!courseId || !title) {
+      return c.json({ error: 'course_id and title are required' }, 400)
+    }
+    
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    // Query with exact title match in this course
+    const modules = await supabase.query('modules', {
+      select: '*',
+      filters: { 
+        course_id: courseId,
+        title: title 
+      },
+      limit: 1
+    })
+    
+    if (modules && modules.length > 0) {
+      return c.json({ module: modules[0] })
+    }
+    
+    return c.json({ module: null })
+  } catch (error: any) {
+    console.error('Find module error:', error)
+    return c.json({ error: error.message || 'Failed to find module' }, 500)
   }
 })
 
@@ -939,6 +1001,39 @@ app.delete('/api/admin/lessons/:id', requireAdmin, async (c) => {
     return c.json({ success: true })
   } catch (error) {
     return c.json({ error: 'Failed to delete lesson' }, 500)
+  }
+})
+
+// Find lesson by title (admin only - for duplicate checking)
+app.get('/api/admin/lessons/find', requireAdmin, async (c) => {
+  try {
+    const moduleId = c.req.query('module_id')
+    const title = c.req.query('title')
+    
+    if (!moduleId || !title) {
+      return c.json({ error: 'module_id and title are required' }, 400)
+    }
+    
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    // Query with exact title match in this module
+    const lessons = await supabase.query('lessons', {
+      select: '*',
+      filters: { 
+        module_id: moduleId,
+        title: title 
+      },
+      limit: 1
+    })
+    
+    if (lessons && lessons.length > 0) {
+      return c.json({ lesson: lessons[0] })
+    }
+    
+    return c.json({ lesson: null })
+  } catch (error: any) {
+    console.error('Find lesson error:', error)
+    return c.json({ error: error.message || 'Failed to find lesson' }, 500)
   }
 })
 

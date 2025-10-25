@@ -98,6 +98,34 @@ const adminManager = {
     return response.data
   },
   
+  // Find existing items (for duplicate checking)
+  async findCourseByTitle(title) {
+    try {
+      const response = await axios.get(`/api/admin/courses/find?title=${encodeURIComponent(title)}`)
+      return response.data.course
+    } catch (error) {
+      return null
+    }
+  },
+  
+  async findModuleByTitle(courseId, title) {
+    try {
+      const response = await axios.get(`/api/admin/modules/find?course_id=${courseId}&title=${encodeURIComponent(title)}`)
+      return response.data.module
+    } catch (error) {
+      return null
+    }
+  },
+  
+  async findLessonByTitle(moduleId, title) {
+    try {
+      const response = await axios.get(`/api/admin/lessons/find?module_id=${moduleId}&title=${encodeURIComponent(title)}`)
+      return response.data.lesson
+    } catch (error) {
+      return null
+    }
+  },
+  
   // Subscriptions Management
   async getSubscriptions() {
     const response = await axios.get('/api/admin/subscriptions')
@@ -2237,25 +2265,37 @@ aula,,,,,,,Aula 1: Aviso Prévio,Como calcular aviso prévio,youtube,dQw4w9WgXcQ
       let currentCourseId = null
       let currentModuleId = null
       let coursesCreated = 0
+      let coursesSkipped = 0
       let modulesCreated = 0
+      let modulesSkipped = 0
       let lessonsCreated = 0
+      let lessonsSkipped = 0
       
       for (const row of this.csvData) {
         if (row.tipo === 'curso') {
-          log(`Criando curso: ${row.curso_titulo}`, 'info')
+          log(`Verificando curso: ${row.curso_titulo}`, 'info')
           
-          const courseData = {
-            title: row.curso_titulo,
-            description: row.curso_descricao || '',
-            instructor: row.curso_instrutor || 'Instrutor',
-            duration_hours: parseInt(row.curso_duracao_horas) || 0
+          // Check if course already exists
+          const existingCourse = await adminManager.findCourseByTitle(row.curso_titulo)
+          
+          if (existingCourse) {
+            currentCourseId = existingCourse.id
+            coursesSkipped++
+            log(`⊙ Curso já existe (ID: ${currentCourseId}): ${row.curso_titulo}`, 'info')
+          } else {
+            const courseData = {
+              title: row.curso_titulo,
+              description: row.curso_descricao || '',
+              instructor: row.curso_instrutor || 'Instrutor',
+              duration_hours: parseInt(row.curso_duracao_horas) || 0
+            }
+            
+            const result = await adminManager.createCourse(courseData)
+            currentCourseId = result.course_id
+            coursesCreated++
+            
+            log(`✓ Curso criado (ID: ${currentCourseId}): ${row.curso_titulo}`, 'success')
           }
-          
-          const result = await adminManager.createCourse(courseData)
-          currentCourseId = result.course_id
-          coursesCreated++
-          
-          log(`✓ Curso criado: ${row.curso_titulo}`, 'success')
           
         } else if (row.tipo === 'modulo') {
           if (!currentCourseId) {
@@ -2263,20 +2303,29 @@ aula,,,,,,,Aula 1: Aviso Prévio,Como calcular aviso prévio,youtube,dQw4w9WgXcQ
             continue
           }
           
-          log(`Criando módulo: ${row.modulo_titulo}`, 'info')
+          log(`Verificando módulo: ${row.modulo_titulo}`, 'info')
           
-          const moduleData = {
-            course_id: currentCourseId,
-            title: row.modulo_titulo,
-            description: row.modulo_descricao || '',
-            order_index: modulesCreated
+          // Check if module already exists in this course
+          const existingModule = await adminManager.findModuleByTitle(currentCourseId, row.modulo_titulo)
+          
+          if (existingModule) {
+            currentModuleId = existingModule.id
+            modulesSkipped++
+            log(`⊙ Módulo já existe (ID: ${currentModuleId}): ${row.modulo_titulo}`, 'info')
+          } else {
+            const moduleData = {
+              course_id: currentCourseId,
+              title: row.modulo_titulo,
+              description: row.modulo_descricao || '',
+              order_index: modulesCreated
+            }
+            
+            const result = await adminManager.createModule(moduleData)
+            currentModuleId = result.module_id
+            modulesCreated++
+            
+            log(`✓ Módulo criado (ID: ${currentModuleId}): ${row.modulo_titulo}`, 'success')
           }
-          
-          const result = await adminManager.createModule(moduleData)
-          currentModuleId = result.module_id
-          modulesCreated++
-          
-          log(`✓ Módulo criado: ${row.modulo_titulo}`, 'success')
           
         } else if (row.tipo === 'aula') {
           if (!currentModuleId) {
@@ -2284,23 +2333,31 @@ aula,,,,,,,Aula 1: Aviso Prévio,Como calcular aviso prévio,youtube,dQw4w9WgXcQ
             continue
           }
           
-          log(`Criando aula: ${row.aula_titulo}`, 'info')
+          log(`Verificando aula: ${row.aula_titulo}`, 'info')
           
-          const lessonData = {
-            module_id: currentModuleId,
-            title: row.aula_titulo,
-            description: row.aula_descricao || '',
-            video_provider: row.aula_video_provider || 'youtube',
-            video_id: row.aula_video_id || '',
-            duration_minutes: parseInt(row.aula_duracao_minutos) || 0,
-            order_index: parseInt(row.aula_ordem) || lessonsCreated,
-            free_trial: row.aula_teste_gratis === 'sim'
+          // Check if lesson already exists in this module
+          const existingLesson = await adminManager.findLessonByTitle(currentModuleId, row.aula_titulo)
+          
+          if (existingLesson) {
+            lessonsSkipped++
+            log(`⊙ Aula já existe (ID: ${existingLesson.id}): ${row.aula_titulo}`, 'info')
+          } else {
+            const lessonData = {
+              module_id: currentModuleId,
+              title: row.aula_titulo,
+              description: row.aula_descricao || '',
+              video_provider: row.aula_video_provider || 'youtube',
+              video_id: row.aula_video_id || '',
+              duration_minutes: parseInt(row.aula_duracao_minutos) || 0,
+              order_index: parseInt(row.aula_ordem) || lessonsCreated,
+              free_trial: row.aula_teste_gratis === 'sim'
+            }
+            
+            await adminManager.createLesson(lessonData)
+            lessonsCreated++
+            
+            log(`✓ Aula criada: ${row.aula_titulo}`, 'success')
           }
-          
-          await adminManager.createLesson(lessonData)
-          lessonsCreated++
-          
-          log(`✓ Aula criada: ${row.aula_titulo}`, 'success')
         }
         
         // Small delay to avoid overwhelming the server
@@ -2310,14 +2367,21 @@ aula,,,,,,,Aula 1: Aviso Prévio,Como calcular aviso prévio,youtube,dQw4w9WgXcQ
       log('', 'info')
       log('========================================', 'info')
       log(`✅ Importação concluída com sucesso!`, 'success')
-      log(`Cursos criados: ${coursesCreated}`, 'success')
-      log(`Módulos criados: ${modulesCreated}`, 'success')
-      log(`Aulas criadas: ${lessonsCreated}`, 'success')
+      log('', 'info')
+      log(`📦 CRIADOS:`, 'success')
+      log(`  • ${coursesCreated} cursos`, 'success')
+      log(`  • ${modulesCreated} módulos`, 'success')
+      log(`  • ${lessonsCreated} aulas`, 'success')
+      log('', 'info')
+      log(`⊙ PULADOS (já existiam):`, 'info')
+      log(`  • ${coursesSkipped} cursos`, 'info')
+      log(`  • ${modulesSkipped} módulos`, 'info')
+      log(`  • ${lessonsSkipped} aulas`, 'info')
       
       setTimeout(async () => {
         await this.loadData()
         this.switchTab('courses')
-        alert(`✅ Importação concluída!\n\n${coursesCreated} cursos\n${modulesCreated} módulos\n${lessonsCreated} aulas`)
+        alert(`✅ Importação concluída!\n\n📦 CRIADOS:\n${coursesCreated} cursos\n${modulesCreated} módulos\n${lessonsCreated} aulas\n\n⊙ PULADOS:\n${coursesSkipped} cursos\n${modulesSkipped} módulos\n${lessonsSkipped} aulas`)
       }, 2000)
       
     } catch (error) {
