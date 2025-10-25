@@ -1311,13 +1311,31 @@ function generateCertificateHTML(data: {
   issueDate: string;
   verificationCode: string;
   verificationUrl: string;
+  modules?: string[];  // Array de módulos concluídos
 }) {
+  // Gerar HTML dos módulos se existirem
+  const modulesHTML = data.modules && data.modules.length > 0 
+    ? `
+    <div class="modules-section">
+      <div class="modules-title">Módulos Concluídos:</div>
+      <div class="modules-grid">
+        ${data.modules.map((module, index) => `
+          <div class="module-item">
+            <i class="fas fa-check-circle"></i> ${module}
+          </div>
+        `).join('')}
+      </div>
+    </div>
+    `
+    : '';
+  
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Certificado - CCT 2026</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         @page {
             size: A4 landscape;
@@ -1338,7 +1356,7 @@ function generateCertificateHTML(data: {
             display: flex;
             justify-content: center;
             align-items: center;
-            padding: 20mm;
+            padding: 15mm;
         }
         
         .certificate-container {
@@ -1369,25 +1387,58 @@ function generateCertificateHTML(data: {
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            padding: 30px 50px;
+            padding: 20px 40px;
         }
         
         .header {
-            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
             border-bottom: 3px solid #3498db;
-            padding-bottom: 15px;
+            padding-bottom: 10px;
         }
         
-        .logo {
-            font-size: 32px;
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .logo-image {
+            width: 80px;
+            height: 80px;
+        }
+        
+        .company-info {
+            text-align: left;
+        }
+        
+        .company-name {
+            font-size: 16px;
             font-weight: bold;
             color: #2c3e50;
-            letter-spacing: 3px;
-            margin-bottom: 5px;
+            line-height: 1.3;
+            margin-bottom: 3px;
+        }
+        
+        .company-cnpj {
+            font-size: 11px;
+            color: #7f8c8d;
+        }
+        
+        .header-right {
+            text-align: right;
+        }
+        
+        .cct-logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: #2c3e50;
+            letter-spacing: 2px;
         }
         
         .subtitle {
-            font-size: 14px;
+            font-size: 12px;
             color: #7f8c8d;
             font-style: italic;
         }
@@ -1398,47 +1449,80 @@ function generateCertificateHTML(data: {
             display: flex;
             flex-direction: column;
             justify-content: center;
-            padding: 20px 0;
+            padding: 15px 0;
         }
         
         .certificate-title {
-            font-size: 48px;
+            font-size: 42px;
             color: #2c3e50;
             font-weight: bold;
             text-transform: uppercase;
-            letter-spacing: 5px;
-            margin-bottom: 20px;
-        }
-        
-        .certificate-text {
-            font-size: 18px;
-            color: #34495e;
-            line-height: 1.8;
+            letter-spacing: 4px;
             margin-bottom: 15px;
         }
         
+        .certificate-text {
+            font-size: 16px;
+            color: #34495e;
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+        
         .student-name {
-            font-size: 32px;
+            font-size: 28px;
             color: #3498db;
             font-weight: bold;
-            margin: 20px 0;
+            margin: 15px 0;
             border-bottom: 2px solid #3498db;
             display: inline-block;
-            padding: 10px 40px;
+            padding: 8px 30px;
         }
         
         .course-name {
-            font-size: 24px;
+            font-size: 22px;
             color: #2c3e50;
             font-weight: bold;
-            margin: 20px 0;
+            margin: 15px 0;
+        }
+        
+        .modules-section {
+            margin: 15px auto;
+            max-width: 90%;
+        }
+        
+        .modules-title {
+            font-size: 14px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        
+        .modules-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 8px;
+            text-align: left;
+        }
+        
+        .module-item {
+            font-size: 12px;
+            color: #34495e;
+            padding: 5px 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            border-left: 3px solid #3498db;
+        }
+        
+        .module-item i {
+            color: #27ae60;
+            margin-right: 5px;
         }
         
         .details {
             display: flex;
             justify-content: space-around;
-            margin-top: 20px;
-            font-size: 14px;
+            margin-top: 15px;
+            font-size: 13px;
             color: #7f8c8d;
         }
         
@@ -1455,7 +1539,7 @@ function generateCertificateHTML(data: {
         
         .footer {
             display: flex;
-            justify-content: space-between;
+            justify-content: space-around;
             align-items: flex-end;
             border-top: 3px solid #3498db;
             padding-top: 15px;
@@ -1464,35 +1548,35 @@ function generateCertificateHTML(data: {
         .signature-line {
             text-align: center;
             flex: 1;
-            margin: 0 20px;
+            margin: 0 15px;
         }
         
         .signature-line::before {
             content: '';
             display: block;
-            width: 200px;
+            width: 180px;
             height: 1px;
             background: #2c3e50;
             margin: 0 auto 5px;
         }
         
         .signature-name {
-            font-size: 14px;
+            font-size: 13px;
             font-weight: bold;
             color: #2c3e50;
         }
         
         .signature-title {
-            font-size: 12px;
+            font-size: 11px;
             color: #7f8c8d;
             font-style: italic;
         }
         
         .verification-code {
             position: absolute;
-            bottom: 20px;
-            right: 30px;
-            font-size: 11px;
+            bottom: 15px;
+            right: 25px;
+            font-size: 10px;
             color: #95a5a6;
             text-align: right;
         }
@@ -1504,7 +1588,7 @@ function generateCertificateHTML(data: {
         }
         
         .verification-url {
-            font-size: 10px;
+            font-size: 9px;
             color: #3498db;
         }
         
@@ -1513,8 +1597,8 @@ function generateCertificateHTML(data: {
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%) rotate(-45deg);
-            font-size: 120px;
-            color: rgba(52, 152, 219, 0.05);
+            font-size: 100px;
+            color: rgba(52, 152, 219, 0.03);
             font-weight: bold;
             z-index: 0;
             pointer-events: none;
@@ -1534,12 +1618,33 @@ function generateCertificateHTML(data: {
 <body>
     <div class="certificate-container">
         <div class="certificate-border"></div>
-        <div class="watermark">CCT 2026</div>
+        <div class="watermark">ENSINO PLUS</div>
         
         <div class="certificate-content">
             <div class="header">
-                <div class="logo">CCT 2026</div>
-                <div class="subtitle">Centro de Capacitação Técnica</div>
+                <div class="logo-section">
+                    <svg class="logo-image" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#3498db;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#2c3e50;stop-opacity:1" />
+                            </linearGradient>
+                        </defs>
+                        <circle cx="50" cy="50" r="45" fill="url(#grad1)"/>
+                        <path d="M 30 35 L 50 25 L 70 35 L 70 50 L 50 60 L 30 50 Z" fill="#fff" opacity="0.9"/>
+                        <circle cx="50" cy="50" r="8" fill="#fff"/>
+                        <text x="50" y="80" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" fill="#fff">EP</text>
+                    </svg>
+                    <div class="company-info">
+                        <div class="company-name">CENTRO DE ENSINO E<br>APRENDIZAGEM PLUS LTDA</div>
+                        <div class="company-cnpj">CNPJ: 35.537.045/0001-84</div>
+                    </div>
+                </div>
+                
+                <div class="header-right">
+                    <div class="cct-logo">CCT 2026</div>
+                    <div class="subtitle">Centro de Capacitação Técnica</div>
+                </div>
             </div>
             
             <div class="main-content">
@@ -1556,6 +1661,8 @@ function generateCertificateHTML(data: {
                 </div>
                 
                 <div class="course-name">${data.courseName}</div>
+                
+                ${modulesHTML}
                 
                 <div class="details">
                     <div class="detail-item">
@@ -1574,6 +1681,10 @@ function generateCertificateHTML(data: {
             </div>
             
             <div class="footer">
+                <div class="signature-line">
+                    <div class="signature-name">NÁRGILA DE SOUZA SANTOS</div>
+                    <div class="signature-title">Diretora</div>
+                </div>
                 <div class="signature-line">
                     <div class="signature-name">Sistema CCT 2026</div>
                     <div class="signature-title">Certificação Digital</div>
@@ -1654,6 +1765,36 @@ app.get('/api/certificates/:id/html', requireAuth, async (c) => {
     const baseUrl = new URL(c.req.url).origin
     const verificationUrl = `${baseUrl}/verificar/${cert.verification_code}`
     
+    // Buscar módulos do curso se course_id existir
+    let modules: string[] = []
+    
+    // Primeiro tentar usar course_modules se existir (JSON armazenado)
+    if (cert.course_modules) {
+      try {
+        const modulesData = JSON.parse(cert.course_modules)
+        modules = modulesData.map((m: any) => m.title || m)
+      } catch (e) {
+        console.log('Error parsing course_modules:', e)
+      }
+    }
+    
+    // Se não houver módulos armazenados e houver course_id, buscar do banco
+    if (modules.length === 0 && cert.course_id) {
+      try {
+        const courseModules = await supabase.query('modules', {
+          select: 'title, order_index',
+          filters: { course_id: cert.course_id },
+          order: 'order_index.asc'
+        })
+        
+        if (courseModules && courseModules.length > 0) {
+          modules = courseModules.map((m: any) => m.title)
+        }
+      } catch (e) {
+        console.log('Error fetching modules:', e)
+      }
+    }
+    
     const html = generateCertificateHTML({
       studentName: cert.user_name,
       courseName: cert.course_title,
@@ -1661,7 +1802,8 @@ app.get('/api/certificates/:id/html', requireAuth, async (c) => {
       completionDate,
       issueDate,
       verificationCode: cert.verification_code,
-      verificationUrl
+      verificationUrl,
+      modules: modules.length > 0 ? modules : undefined
     })
     
     return c.html(html)
@@ -1728,6 +1870,52 @@ app.get('/verificar/:code', async (c) => {
     const completionDate = new Date(cert.completion_date).toLocaleDateString('pt-BR')
     const issueDate = new Date(cert.issued_at).toLocaleDateString('pt-BR')
     
+    // Buscar módulos do curso
+    let modules: string[] = []
+    
+    if (cert.course_modules) {
+      try {
+        const modulesData = JSON.parse(cert.course_modules)
+        modules = modulesData.map((m: any) => m.title || m)
+      } catch (e) {
+        console.log('Error parsing course_modules:', e)
+      }
+    }
+    
+    if (modules.length === 0 && cert.course_id) {
+      try {
+        const courseModules = await supabase.query('modules', {
+          select: 'title, order_index',
+          filters: { course_id: cert.course_id },
+          order: 'order_index.asc'
+        })
+        
+        if (courseModules && courseModules.length > 0) {
+          modules = courseModules.map((m: any) => m.title)
+        }
+      } catch (e) {
+        console.log('Error fetching modules:', e)
+      }
+    }
+    
+    const modulesHTML = modules.length > 0 
+      ? `
+      <div class="bg-gray-50 p-4 rounded-lg mb-6">
+        <h3 class="text-sm font-bold text-gray-700 mb-3">
+          <i class="fas fa-list-check mr-2 text-blue-600"></i>Módulos Concluídos:
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+          ${modules.map((module, index) => `
+            <div class="flex items-start text-sm text-gray-700">
+              <i class="fas fa-check-circle text-green-500 mr-2 mt-1"></i>
+              <span>${module}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+      `
+      : '';
+    
     return c.html(`
       <!DOCTYPE html>
       <html lang="pt-BR">
@@ -1773,6 +1961,8 @@ app.get('/verificar/:code', async (c) => {
               </div>
             </div>
             
+            ${modulesHTML}
+            
             <div class="bg-gray-50 p-4 rounded-lg mb-6">
               <div class="flex items-center justify-between">
                 <div>
@@ -1791,8 +1981,12 @@ app.get('/verificar/:code', async (c) => {
                 <i class="fas fa-eye mr-1"></i>
                 Este certificado foi verificado ${cert.verification_count || 1} vez(es)
               </p>
-              <p>
+              <p class="mb-1">
                 Certificado emitido por <strong>CCT 2026 - Centro de Capacitação Técnica</strong>
+              </p>
+              <p class="text-xs">
+                <strong>CENTRO DE ENSINO E APRENDIZAGEM PLUS LTDA</strong><br>
+                CNPJ: 35.537.045/0001-84
               </p>
             </div>
             
