@@ -8,10 +8,22 @@ Sistema completo para importação e gerenciamento do histórico de assinaturas 
 
 ## 📊 Estrutura do Banco de Dados
 
-### Tabela: `subscriptions`
+### ⚠️ IMPORTANTE: Duas Tabelas Diferentes
+
+O sistema possui **DUAS tabelas de assinaturas**:
+
+1. **`subscriptions`** (Migration 0005) - Sistema de planos atual
+   - Campos: `user_email`, `plan_id`, `status`, `start_date`, `end_date`
+   - Uso: Assinaturas ativas do sistema de planos (Mensal, Trimestral, Anual)
+
+2. **`member_subscriptions`** (Migration 0010) - Histórico de membros antigos
+   - Campos: `email_membro`, `origem`, `detalhe`, `data_expiracao`
+   - Uso: Histórico importado do sistema antigo (Bubble.io)
+
+### Tabela: `member_subscriptions` (NOVA)
 
 ```sql
-CREATE TABLE subscriptions (
+CREATE TABLE member_subscriptions (
   id SERIAL PRIMARY KEY,
   email_membro VARCHAR(255) NOT NULL,
   data_expiracao TIMESTAMP,
@@ -39,11 +51,11 @@ CREATE TABLE subscriptions (
 | `updated_at` | TIMESTAMP | Data da última atualização |
 
 **Índices:**
-- `idx_subscriptions_email` - Email do membro
-- `idx_subscriptions_expiracao` - Data de expiração
-- `idx_subscriptions_origem` - Origem da assinatura
-- `idx_subscriptions_ativo` - Status ativo
-- `idx_subscriptions_email_ativo` - Composto (email + ativo)
+- `idx_member_subscriptions_email` - Email do membro
+- `idx_member_subscriptions_expiracao` - Data de expiração
+- `idx_member_subscriptions_origem` - Origem da assinatura
+- `idx_member_subscriptions_ativo` - Status ativo
+- `idx_member_subscriptions_email_ativo` - Composto (email + ativo)
 
 ---
 
@@ -54,13 +66,27 @@ CREATE TABLE subscriptions (
 Execute no **Supabase SQL Editor**:
 
 ```sql
--- Copie e cole o conteúdo de: migrations/0009_subscriptions_table.sql
+-- Copie e cole o conteúdo de: migrations/0010_member_subscriptions.sql
 ```
 
 Ou execute o comando SQL mínimo:
 
 ```sql
-ALTER TABLE subscriptions DISABLE ROW LEVEL SECURITY;
+-- Criar tabela de histórico de membros
+CREATE TABLE IF NOT EXISTS member_subscriptions (
+  id SERIAL PRIMARY KEY,
+  email_membro VARCHAR(255) NOT NULL,
+  data_expiracao TIMESTAMP,
+  detalhe TEXT,
+  origem VARCHAR(100),
+  teste_gratis BOOLEAN DEFAULT false,
+  ativo BOOLEAN DEFAULT true,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_member_subscriptions_email ON member_subscriptions(email_membro);
+ALTER TABLE member_subscriptions DISABLE ROW LEVEL SECURITY;
 ```
 
 ### 2. Rebuild no Easypanel
@@ -99,8 +125,8 @@ teste@exemplo.com;"Dec 31, 2023 11:59 pm";"Alunos Telegram";Telegram;sim
 
 ## 📋 APIs Backend
 
-### GET `/api/admin/subscriptions`
-Lista todas as assinaturas (apenas admin)
+### GET `/api/admin/member-subscriptions`
+Lista todas as assinaturas de membros (apenas admin)
 
 **Response:**
 ```json
@@ -120,8 +146,8 @@ Lista todas as assinaturas (apenas admin)
 }
 ```
 
-### GET `/api/admin/subscriptions/find?email=EMAIL`
-Busca assinaturas por email (para verificar duplicatas)
+### GET `/api/admin/member-subscriptions/find?email=EMAIL`
+Busca assinaturas de membros por email (para verificar duplicatas)
 
 **Response:**
 ```json
@@ -132,8 +158,8 @@ Busca assinaturas por email (para verificar duplicatas)
 }
 ```
 
-### POST `/api/admin/subscriptions`
-Cria nova assinatura (apenas admin)
+### POST `/api/admin/member-subscriptions`
+Cria nova assinatura de membro (apenas admin)
 
 **Request:**
 ```json
@@ -147,11 +173,11 @@ Cria nova assinatura (apenas admin)
 }
 ```
 
-### PUT `/api/admin/subscriptions/:id`
-Atualiza assinatura existente (apenas admin)
+### PUT `/api/admin/member-subscriptions/:id`
+Atualiza assinatura de membro existente (apenas admin)
 
-### DELETE `/api/admin/subscriptions/:id`
-Deleta assinatura (apenas admin)
+### DELETE `/api/admin/member-subscriptions/:id`
+Deleta assinatura de membro (apenas admin)
 
 ---
 
@@ -185,7 +211,7 @@ Colunas:
 O sistema **verifica duplicatas por email** antes de criar assinaturas:
 
 ```javascript
-const existing = await adminManager.findSubscriptionByEmail(email)
+const existing = await adminManager.findMemberSubscriptionByEmail(email)
 if (existing && existing.length > 0) {
   skipped++
   continue // Pula duplicata
@@ -275,8 +301,12 @@ const isActive = sub.ativo && !isExpired
 ### Problema: Erro 500 ao importar
 **Solução:** Verifique se RLS está desabilitado:
 ```sql
-ALTER TABLE subscriptions DISABLE ROW LEVEL SECURITY;
+ALTER TABLE member_subscriptions DISABLE ROW LEVEL SECURITY;
 ```
+
+### Problema: Erro "column email_membro does not exist"
+**Causa:** Você aplicou migration na tabela errada (subscriptions em vez de member_subscriptions)
+**Solução:** Aplicar migration correta (0010) que cria tabela `member_subscriptions`
 
 ### Problema: Datas não são importadas
 **Solução:** Verifique o formato no CSV (deve ser como "Aug 10, 2023 12:00 am")
@@ -293,9 +323,11 @@ ALTER TABLE subscriptions DISABLE ROW LEVEL SECURITY;
 
 | Arquivo | Descrição |
 |---------|-----------|
-| `migrations/0009_subscriptions_table.sql` | Migration da tabela |
-| `src/index.tsx` | APIs backend (linhas 1163-1293) |
-| `public/static/admin.js` | Interface admin (linhas 1668-3297) |
+| `migrations/0010_member_subscriptions.sql` | ✅ Migration da tabela (USAR ESTA) |
+| `migrations/0009_subscriptions_table.sql` | ❌ Obsoleta (não usar) |
+| `SQL_RECRIAR_SUBSCRIPTIONS.sql` | Script para dropar/recriar se necessário |
+| `src/index.tsx` | APIs backend |
+| `public/static/admin.js` | Interface admin |
 | `membros.csv` | CSV de exemplo com ~4.288 membros |
 
 ---
@@ -312,12 +344,16 @@ ALTER TABLE subscriptions DISABLE ROW LEVEL SECURITY;
 
 ## 🎯 Integração Futura
 
-**Próximo objetivo: Sincronizar tabela `subscriptions` com Supabase Auth**
+**Próximo objetivo: Sincronizar tabela `member_subscriptions` com Supabase Auth**
 
 Opções:
 - **A)** Verificar assinatura ativa ao fazer login
 - **B)** Criar contas Auth automaticamente para membros ativos
-- **C)** Trigger que sincroniza Auth ↔ subscriptions
+- **C)** Trigger que sincroniza Auth ↔ member_subscriptions
+
+**Diferença entre tabelas:**
+- `subscriptions` → Sistema de planos atual (não mexer)
+- `member_subscriptions` → Histórico de membros antigos (importar CSV aqui)
 
 ---
 
