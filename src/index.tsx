@@ -1234,10 +1234,15 @@ app.post('/api/admin/certificates', requireAdmin, async (c) => {
     
     const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
     
+    const now = new Date().toISOString()
+    
     const result = await supabase.insert('certificates', {
       user_email: certData.user_email,
-      user_name: certData.user_name || null,
+      user_name: certData.user_name || 'Aluno',
+      course_id: certData.course_id || null,
       course_title: certData.course_title,
+      issued_at: certData.issued_at || now,
+      completion_date: certData.completion_date || now,
       carga_horaria: certData.carga_horaria || null,
       certificate_code: certData.certificate_code || null,
       generated_at: certData.generated_at || null
@@ -1264,6 +1269,7 @@ app.put('/api/admin/certificates/:id', requireAdmin, async (c) => {
     await supabase.update('certificates', { id: certId }, {
       user_email: certData.user_email,
       user_name: certData.user_name,
+      course_id: certData.course_id,
       course_title: certData.course_title,
       carga_horaria: certData.carga_horaria,
       certificate_code: certData.certificate_code,
