@@ -1,0 +1,789 @@
+tipo,curso_titulo,curso_descricao,curso_instrutor,curso_duracao_horas,modulo_titulo,modulo_descricao,aula_titulo,aula_descricao,aula_video_provider,aula_video_id,aula_duracao_minutos,aula_ordem,aula_teste_gratis
+curso,PJECALCPLUS,Treinamento Completo de Cálculos Trabalhistas usando Pje-Calc,Vicelmo Alencar,60,,,,,,,,,
+modulo,,,,,INTRODUÇÃO À LIQUIDAÇÃO DE SENTENÇA E AO PJE-CALC,,,,,,,,
+aula,,,,,,,INTRODUÇÃO AO CURSO PJECALC PLUS,,vimeo,684333777,2,1,sim
+aula,,,,,,,PRINCÍPIOS DE LIQUIDAÇÃO DE SENTENÇA,,vimeo,426190937,,2,sim
+aula,,,,,,,PRINCIPAIS VERBAS TRABALHISTAS,,vimeo,426201997,,3,nao
+aula,,,,,,,ASPECTOS GERAIS DO PJECALC,,vimeo,472636200,,4,nao
+aula,,,,,,,INSTALAÇÃO DO PJECALC,,vimeo,426322291,"12,5",5,nao
+aula,,,,,,,CONHECENDO MENUS E ÍCONES DO PJECALC,,vimeo,426328537,7,6,nao
+aula,,,,,,,IMPORTAÇÃO E EXPORTAÇÃO DE CÁLCULOS,,vimeo,426331912,10,7,nao
+aula,,,,,,,ATUALIZAÇÃO DE TABELAS E ÍNDICES,,vimeo,426328068,6,8,nao
+aula,,,,,,,ENVIANDO CÁLCULO PARA O PJE,,vimeo,507677541,11,9,nao
+aula,,,,,,,TRANSPOSIÇÃO DE CÁLCULOS DO PJE-CALC PARA O PJE,,vimeo,555422844,10,10,nao
+aula,,,,,,,CRITÉRIOS MATEMÁTICOS,,vimeo,426333258,14,11,nao
+aula,,,,,,,JUNÇÃO DE CÁLCULOS,,vimeo,426329354,12,12,nao
+aula,,,,,,,CONCEITOS DE BASE DE CÁLCULOS,,vimeo,426330420,13,13,nao
+aula,,,,,,,HISTÓRICO SALARIAL,,vimeo,426322888,29,14,nao
+aula,,,,,,,CADASTRO DE VERBAS,,vimeo,426323274,13,15,nao
+aula,,,,,,,ESTRUTURA DOS CÁLCULOS,,vimeo,426327142,15,16,nao
+aula,,,,,,,CONFIGURAÇÕES DE BASES DE CÁLCULOS,,vimeo,426527877,36,17,nao
+aula,,,,,,,RESUMO PRÁTICO DO MÓDULO,,vimeo,426323578,16,18,nao
+modulo,,,,,VERBAS RESCISÓRIAS - TEORIA E PRÁTICA,,,,,,,,
+aula,,,,,,,VERBAS RESCISÓRIAS - AULA 1,,vimeo,426544541,12,1,sim
+aula,,,,,,,VERBAS RESCISÓRIAS - AULA 2,,vimeo,426544597,9,2,nao
+aula,,,,,,,VERBAS RESCISÓRIAS - AULA 3,,vimeo,426544638,9,3,nao
+aula,,,,,,,AVISO PRÉVIO,,vimeo,426544713,16,4,nao
+aula,,,,,,,REFLEXOS DE AVISO PRÉVIO,,vimeo,426544773,20,5,nao
+aula,,,,,,,DÉCIMO TERCEIRO SALÁRIO,,vimeo,426544886,10,6,nao
+aula,,,,,,,FÉRIAS,,vimeo,426544930,10,7,nao
+aula,,,,,,,ABONO PECUNIÁRIO DE FÉRIAS,,vimeo,426544986,16,8,nao
+aula,,,,,,,VERBAS RESCISÓRIAS PARA INICIANTES,,vimeo,426545061,34,9,nao
+aula,,,,,,,INDENIZAÇÃO DO PERÍODO DE ESTABILIDADE,,vimeo,426545188,7,10,nao
+aula,,,,,,,REPOUSO SEMANAL REMUNERADO,,vimeo,426545233,,11,nao
+aula,,,,,,,DIFERENÇA SALARIAL,,vimeo,426545329,26,12,nao
+aula,,,,,,,CASO REAL - EMPREGADO DOMÉSTICO - PRESCRIÇÃO,,vimeo,426545396,23,13,nao
+aula,,,,,,,CASO REAL - EMPREGADO DOMÉSTICO - VALE TRANSPORTE,,vimeo,426545459,6,14,nao
+aula,,,,,,,CASO REAL - EMPREGADO DOMÉSTICO - FGTS,,vimeo,426545500,7,15,nao
+aula,,,,,,,CASO REAL - EMPREGADO DOMÉSTICO - HORAS EXTRAS,,vimeo,426545549,4,16,nao
+aula,,,,,,,CASO REAL - EMPREGADO DOMÉSTICO - INTERVALOS,,vimeo,426545609,11,17,nao
+aula,,,,,,,CASO REAL - EMPREGADO DOMÉSTICO - HONORÁRIOS,,vimeo,426545665,4,18,nao
+aula,,,,,,,CASO REAL - EMPREGADO DOMÉSTICO - RESUMO DO CÁLCULO,,vimeo,426545722,9,19,nao
+aula,,,,,,,LIMITAÇÃO DE CÁLCULOS À INICIAL - AULA 01,,vimeo,426545809,10,20,nao
+aula,,,,,,,LIMITAÇÃO DE CÁLCULOS À INICIAL - AULA 02,,vimeo,503521905,31,21,nao
+aula,,,,,,,LIQUIDAÇÃO DE SENTENÇA - VERBAS RESCISÓRIAS,,vimeo,426546046,58,22,nao
+aula,,,,,,,VERBAS APÓS O AJUIZAMENTO E SUBSIDIARIEDADE,,vimeo,472716427,10,23,nao
+aula,,,,,,,ESTABILIDADE GESTANTE,,vimeo,637662590,11,24,nao
+aula,,,,,,,RESUMO PRÁTICO DO MÓDULO II,,vimeo,426545902,25,25,nao
+aula,,,,,,,ERRATA,,vimeo,426546008,1,26,nao
+modulo,,,,,JORNADA DE TRABALHO - TEORIA E PRÁTICA,,,,,,,,
+aula,,,,,,,INTRODUÇÃO,,vimeo,468239945,2,1,sim
+aula,,,,,,,CASO REAL - CONFIGURAÇÃO INICIAL,,vimeo,428469854,18,2,sim
+aula,,,,,,,CASO REAL - VERBAS RESCISÓRIAS,,vimeo,428470424,26,3,nao
+aula,,,,,,,CASO REAL - MULTAS RESCISÓRIAS,,vimeo,428958710,22,4,nao
+aula,,,,,,,CASO REAL - ADICIONAL NOTURNO,,vimeo,428958888,9,5,nao
+aula,,,,,,,CASO REAL - HORAS EXTRAS,,vimeo,428959000,17,6,nao
+aula,,,,,,,HORAS EXTRAS NOTURNAS,,vimeo,428959160,26,7,nao
+aula,,,,,,,CASO REAL - INTERVALOS E DOMINGOS EM DOBRO,,vimeo,428959344,14,8,nao
+aula,,,,,,,INTERVALO INTERJORNADA,,vimeo,628478875,13,9,nao
+aula,,,,,,,REFLEXOS DE HORAS EXTRAS,,vimeo,428959495,14,10,nao
+aula,,,,,,,REFLEXOS DE HORAS EXTRAS EM FÉRIAS (PULO DO GATO),,vimeo,628422190,22,11,sim
+aula,,,,,,,CARTÃO DE PONTO - FORMA DE APURAÇÃO,,vimeo,428959640,21,12,nao
+aula,,,,,,,CARTÃO DE PONTO - SÚMULA 85 DO TST,,vimeo,428959792,21,13,nao
+aula,,,,,,,SÚMULA 85 E OS CRITÉRIOS DA CONTAGEM DE HORAS EXTRAS,,vimeo,428959944,23,14,nao
+aula,,,,,,,CARTÃO DE PONTO - INTERVALOS,,vimeo,428960102,6,15,nao
+aula,,,,,,,CARTÃO DE PONTO - HORÁRIO NOTURNO,,vimeo,428960193,6,16,nao
+aula,,,,,,,JORNADA 12 X 36,,vimeo,428960308,9,17,nao
+aula,,,,,,,HORAS EXTRAS DE COMISSIONISTA,,vimeo,428960425,18,18,nao
+aula,,,,,,,LIQUIDAÇÃO DE SENTENÇA - HORAS EXTRAS DE COMISSIONISTA - AULA 1,,vimeo,428960549,10,19,nao
+aula,,,,,,,LIQUIDAÇÃO DE SENTENÇA - HORAS EXTRAS DE COMISSIONISTA - AULA 2,,vimeo,428960713,33,20,nao
+aula,,,,,,,LIQUIDAÇÃO DE SENTENÇA - HORAS EXTRAS DE COMISSIONISTA - AULA 3,,vimeo,428960962,15,21,nao
+aula,,,,,,,HORAS EXTRAS E APLICAÇÃO PARCIAL DA OJ 394,,vimeo,468188719,41,22,nao
+aula,,,,,,,NOVA REDAÇÃO DA OJ394,,vimeo,815357090,18,23,nao
+aula,,,,,,,RESUMO PRÁTICO DO  MÓDULO JORNADA DE TRABALHO,,vimeo,428961097,22,24,nao
+modulo,,,,,ATUALIZAÇÃO DE CÁLCULOS E FASE DE EXECUÇÃO,,,,,,,,
+aula,,,,,,,ATUALIZAÇÃO DE CÁLCULOS,,vimeo,428962686,27,1,sim
+aula,,,,,,,FUNDAMENTOS DE ATUALIZAÇÃO,,vimeo,428962787,23,2,nao
+aula,,,,,,,ATUALIZAÇÃO DE CÁLCULOS,,vimeo,638649292,31,3,nao
+aula,,,,,,,ATUALIZAÇÃO PELO CRITÉRIO DO STF,,vimeo,569598309,25,4,nao
+aula,,,,,,,CORREÇÃO MONETÁRIA - NOVO ENTENDIMENTO DO STF,,vimeo,428963522,15,5,nao
+aula,,,,,,,JUROS DE MORA,,vimeo,428962907,13,6,nao
+aula,,,,,,,JUROS PREJUDICIAIS,,vimeo,556808050,23,7,nao
+aula,,,,,,,JUROS DE MORA E DEDUÇÃO DO INSS,,vimeo,740566804,5,8,nao
+aula,,,,,,,CUSTAS PROCESSUAIS,,vimeo,428962980,8,9,nao
+aula,,,,,,,INDENIZAÇÃO POR DANOS MORAIS,,vimeo,428963045,9,10,nao
+aula,,,,,,,VERBAS PREVIDENCIÁRIAS,,vimeo,473443921,14,11,nao
+aula,,,,,,,IMPOSTO DE RENDA,,vimeo,428963162,16,12,nao
+aula,,,,,,,DEDUÇÃO DE VALORES PAGOS NA RESCISÃO - AULA 1,,vimeo,428963260,10,13,nao
+aula,,,,,,,DEDUÇÃO DE VALORES PAGOS NA RESCISÃO - AULA 2,,vimeo,428963331,5,14,nao
+aula,,,,,,,DEDUÇÃO DE DEPÓSITO RECURSAL,,vimeo,428963424,14,15,nao
+aula,,,,,,,CORREÇÃO MONETÁRIA - COMBINAÇÃO DE ÍNDICES,,vimeo,428963522,15,16,nao
+aula,,,,,,,CÁLCULO DE ACORDO DESCUMPRIDO,,vimeo,428963646,14,17,nao
+aula,,,,,,,RESUMO PRÁTICO DO MÓDULO,,vimeo,428963748,22,18,nao
+modulo,,,,,DÚVIDAS DOS ALUNOS SOBRE VERBAS RESCISÓRIAS,,,,,,,,
+aula,,,,,,,GRATIFICAÇÃO POR TEMPO DE SERVIÇO,,vimeo,465065501,4,1,sim
+aula,,,,,,,FGTS E CONFIGURAÇÃO DE VERBAS,,vimeo,465065118,13,2,nao
+aula,,,,,,,AUTOMAÇÃO DE DIGITAÇÃO PJECALC,,vimeo,465064675,15,3,nao
+aula,,,,,,,REFLEXOS DE DIFERENÇA SALARIAL EM RSR,,vimeo,465065818,7,4,nao
+aula,,,,,,,INDENIZAÇÃO ESTABILITÁRIA,,vimeo,465065663,9,5,nao
+aula,,,,,,,ADICIONAL DE INSALUBRIDADE E COTA PARTE DO RECLAMANTE PARA O INSS,,vimeo,465063981,19,6,nao
+aula,,,,,,,PARÂMETROS - ADMISSÃO,,vimeo,640533364,1,7,nao
+aula,,,,,,,PJECALC NÃO CALCULA FÉRIAS,,vimeo,805655904,3,8,nao
+modulo,,,,,DÚVIDAS DOS ALUNOS SOBRE JORNADA DE TRABALHO,,,,,,,,
+aula,,,,,,,EMPREGADO HORISTA,,vimeo,465067874,13,1,sim
+aula,,,,,,,REFLEXOS DE HORAS EXTRAS EM 13º 06.06.2020,,vimeo,465069053,7,2,sim
+aula,,,,,,,JORNADA 24 X 48,,vimeo,465068851,6,3,nao
+aula,,,,,,,BANCO DE HORAS 06.06.2020,,vimeo,465069503,7,4,nao
+aula,,,,,,,HORAS EXTRAS EM SEPARADO,,vimeo,465068857,1,5,nao
+aula,,,,,,,HORAS EXTRAS AOS SÁBADOS EM SEPARADO,,vimeo,465068656,8,6,nao
+aula,,,,,,,INTERVALO DE COMISSIONISTA,,vimeo,465069735,5,7,nao
+aula,,,,,,,CADASTRAR REFLEXOS MANUALMENTE,,vimeo,465067476,4,8,nao
+aula,,,,,,,CONFIGURAÇÃO DE ESCALA 2 X 2,,vimeo,465067685,6,9,nao
+aula,,,,,,,FUNCIONAMENTO DOS REFLEXOS DE FÉRIAS E 13º SALÁRIO,,vimeo,465068314,12,10,nao
+aula,,,,,,,DEVOLUÇÃO DE VALORES INDEVIDOS E INTERVALO INSALUBRIDADE,,vimeo,465069277,9,11,nao
+aula,,,,,,,HORAS TRIMESTRAIS,,vimeo,507765864,5,12,nao
+aula,,,,,,,JORNADA 12 X 36 DOBRADA NOS FINAIS DE SEMANA,,vimeo,564811657,16,13,nao
+aula,,,,,,,INDENIZAÇÃO POR REINTEGRAÇÃO,,vimeo,597444270,4,14,nao
+aula,,,,,,,HORAS EXTRAS DE BANCÁRIO,,vimeo,597458199,6,15,nao
+aula,,,,,,,FÉRIAS GOZADAS FORA DO PRAZO,,vimeo,630465685,12,16,nao
+aula,,,,,,,JORNADA 12x36 - HE ALÉM DA 8ª - CARTÃO DE PONTO,,vimeo,699003850,8,17,nao
+aula,,,,,,,INTERVALO INTERJORNADAS COM TRABALHO AOS DOMINGOS,,vimeo,790236428,6,18,nao
+modulo,,,,,DÚVIDAS DOS ALUNOS SOBRE ATUALIZAÇÃO DE CÁLCULOS,,,,,,,,
+aula,,,,,,,DEDUÇÃO DE VALORES - PARTE 1,,vimeo,465072511,10,1,sim
+aula,,,,,,,DEDUÇÃO DE VALORES - PARTE 2,,vimeo,465072692,7,2,nao
+aula,,,,,,,JUNÇÃO DE ÍNDICES DE CORREÇÃO (TR + iPCA-E),,vimeo,465072809,10,3,nao
+aula,,,,,,,CÁLCULOS EXTERNOS COM DEDUÇÃO DE VALORES INCONTROVERSOS,,vimeo,465071905,17,4,sim
+aula,,,,,,,PRIORIZAR JUROS DE MORA,,vimeo,651735189,8,5,nao
+modulo,,,,,DÚVIDAS DOS ALUNOS SOBRE LIQUIDAÇÃO DE SENTENÇA,,,,,,,,
+aula,,,,,,,Atualização: LIQUIDAÇÃO DE SENTENÇA - OJ 394,,vimeo,468185729,46,1,nao
+aula,,,,,,,Cálculo de pagamentos feitos por fora no Pjecalc,,vimeo,464495539,22,2,nao
+modulo,,,,,DÚVIDAS DOS ALUNOS SOBRE ASPECTOS GERAIS,,,,,,,,
+aula,,,,,,,Como inserir arquivo PJC no PJE,,vimeo,487212501,6,1,sim
+aula,,,,,,,INSS sobre férias indenizadas e gozadas,,vimeo,487213034,6,2,nao
+aula,,,,,,,Pjecalc e o critério mais favorável das horas extras,,youtube,ZGeLKmPRdC8,10,3,nao
+aula,,,,,,,Adicional e Insalubridade sobre horas extras pagas,,vimeo,533619173,9,4,nao
+aula,,,,,,,Reflexos de VPI sobre adicionais,,vimeo,534096759,7,5,nao
+aula,,,,,,,Interjornadas / Cartão de Ponto / Juros Decrescentes,,vimeo,565856432,18,6,nao
+aula,,,,,,,Aula Extra: Esclarecendo diversas dúvidas,,vimeo,601367341,54,7,nao
+modulo,,,,,TEMAS AVANÇADOS - 2022,,,,,,,,
+aula,,,,,,,Versão 2.9.1 - Qual selic usar?,,youtube,L2f8ozXldZY,16,1,sim
+aula,,,,,,,Atualização de cálculos fazenda pública EC 113,,vimeo,678946538,26,2,sim
+aula,,,,,,,Como lançar jornada que passa para o dia seguinte,,vimeo,697123184,9,3,nao
+aula,,,,,,,Base de cálculo da multa do FGTS,,vimeo,697164254,10,4,nao
+aula,,,,,,,Atualização de danos morais pela ADC 58,,vimeo,698359861,21,5,nao
+aula,,,,,,,Juros de mora - Danos morais - ADC 58,,vimeo,743580761,7,6,nao
+aula,,,,,,,Simulação de cálculo completa - maio de 2022,,vimeo,707102465,132,7,nao
+aula,,,,,,,Horas extras noturnas,,youtube,8mypWATVCzc,10,8,sim
+aula,,,,,,,Impugnação de cálculos,,vimeo,730440202,24,9,nao
+aula,,,,,,,Respondendo dúvidas dos chamados,,vimeo,733766805,20,10,nao
+aula,,,,,,,Configuração da indenização do FGTS,,vimeo,734862795,8,11,nao
+aula,,,,,,,Horas extras de professores,,vimeo,739504420,9,12,nao
+aula,,,,,,,Novo Pje para advogados - versão 2.8,,vimeo,747252790,,13,sim
+aula,,,,,,,Impugnação de cálculos checklist,,vimeo,761831183,40,14,nao
+aula,,,,,,,Proporcionalizar e integralizar - diferença salarial,,youtube,-c_dnSpoM78,16,15,nao
+curso,VIDEO CAST,Vídeos rápidos sobre cálculos trabalhistas.,Vicelmo Alencar,,,,,,,,,,
+modulo,,,,,FEVEREIRO 2022,,,,,,,,
+aula,,,,,,,TRABALHO AOS DOMINGOS,,vimeo,682467748,2,1,sim
+aula,,,,,,,ANATOCISMO,,vimeo,682467958,,2,sim
+aula,,,,,,,SÁBADO DO BANCÁRIO,,vimeo,682467194,,3,nao
+aula,,,,,,,REPOUSO SEMANAL REMUNERADO,,vimeo,682466984,,4,nao
+aula,,,,,,,PRESCRIÇÃO,,vimeo,682466211,,5,nao
+aula,,,,,,,INDENIZAÇÃO DO FGTS,,vimeo,682467480,,6,nao
+aula,,,,,,,JUROS REGRESSIVOS,,vimeo,682467859,,7,nao
+aula,,,,,,,JORNADA DO SÁBADO,,vimeo,682466350,,8,nao
+aula,,,,,,,JORNADA DE TRABALHO,,vimeo,682466488,,9,nao
+aula,,,,,,,INTERVALO INTRAJORNADA,,vimeo,682467621,,10,nao
+aula,,,,,,,EMPREGADO HORISTA,,vimeo,682466607,,11,nao
+aula,,,,,,,EMPREGADO COMISSIONISTA,,vimeo,682466856,,12,nao
+aula,,,,,,,DEDUÇÃO DE DEPÓSITO RECURSAL,,vimeo,682467093,,13,nao
+aula,,,,,,,CONTRIBUIÇÃO PREVIDENCIÁRIA SOBRE ACORDO,,vimeo,682466762,,14,nao
+aula,,,,,,,BIS IN IDEM,,vimeo,682468064,,15,nao
+modulo,,,,,MARÇO 2022,,,,,,,,
+aula,,,,,,,BASE DE CÁLCULO NO PJECALC,,vimeo,682468193,,1,nao
+aula,,,,,,,ATUALIZAÇÃO DE DÉBITOS DO RECLAMANTE,,vimeo,682467385,,2,nao
+aula,,,,,,,BASE DE CÁLCULO DE VERBAS RESCISÓRIAS,,vimeo,682468342,,3,nao
+aula,,,,,,,APLICAÇÃO DA SELIC,,vimeo,682468446,,4,nao
+aula,,,,,,,SÚMULA 368 DO TST,,vimeo,682522773,,5,nao
+aula,,,,,,,IMPUGNAÇÃO DE SENTENÇA LÍQUIDA,,vimeo,682948110,,6,nao
+aula,,,,,,,JURISPRUDÊNCIA DE ADICIONAL NOTURNO,,vimeo,685433658,,7,nao
+aula,,,,,,,DIVISOR DA JORNADA 12X36,,vimeo,694193087,3,8,nao
+modulo,,,,,EXECUÇÃO TRABALHISTA,,,,,,,,
+aula,,,,,,,AULA 1,,vimeo,697137681,2,1,nao
+aula,,,,,,,Aula 2,,vimeo,697148874,7,2,nao
+aula,,,,,,,Aula 3,,vimeo,697149015,7,3,nao
+aula,,,,,,,Aula 4,,vimeo,697149134,,4,nao
+aula,,,,,,,Aula 5,,vimeo,697149287,,5,nao
+aula,,,,,,,Aula 6,,vimeo,698987165,8,6,nao
+aula,,,,,,,Aula 7,,vimeo,699004621,,7,nao
+aula,,,,,,,Aula 8,,vimeo,,,8,nao
+aula,,,,,,,WIKI NACIONAL - AULA 1,,vimeo,738933606,12,9,nao
+aula,,,,,,,WIKI NACIONAL - AULA 2,,vimeo,738933666,23,10,nao
+aula,,,,,,,WIKI NACIONAL - AULA 3,,vimeo,738933739,,11,nao
+curso,,Este curso funciona dentro do sistema Pje-Calc.,Vicelmo Alencar,,,,,,,,,,
+modulo,,,,,APRESENTAÇÃO E ATUALIZAÇÃO,,,,,,,,
+aula,,,,,,,VERSÃO 1.0,,vimeo,648832676,,1,sim
+modulo,,,,,MÓDULO 01 - PARÂMETROS DO CÁLCULO,,,,,,,,
+aula,,,,,,,Estado e município,,vimeo,640533326,,1,sim
+aula,,,,,,,Admissão,,vimeo,640533364,,2,sim
+aula,,,,,,,Demissão,,vimeo,640533395,,3,nao
+aula,,,,,,,Ajuizamento,,vimeo,640533424,,4,nao
+aula,,,,,,,Limitar cálculo,,vimeo,640533457,,5,nao
+aula,,,,,,,Prescrição quinquenal,,vimeo,640533564,,6,nao
+aula,,,,,,,Prescrição do FGTS,,vimeo,640533540,,7,nao
+aula,,,,,,,Maior remuneração,,vimeo,640533631,,8,nao
+aula,,,,,,,Última remuneração,,vimeo,640533624,,9,nao
+aula,,,,,,,Projetar aviso prévio indenizado,,vimeo,640533597,,10,nao
+aula,,,,,,,Limitar avos ao período do cálculo,,vimeo,640533514,,11,nao
+aula,,,,,,,Zerar valor negativo,,vimeo,640545735,,12,nao
+aula,,,,,,,Carga horária,,vimeo,640533489,,13,nao
+aula,,,,,,,Sábado como dia útil,,vimeo,640546125,,14,nao
+aula,,,,,,,Regime de Trabalho,,vimeo,646151849,,15,nao
+modulo,,,,,MÓDULO 02 - FALTAS,,,,,,,,
+aula,,,,,,,Falta justificada e reiniciar período,,vimeo,641624434,,1,nao
+modulo,,,,,MÓDULO 03 - HISTÓRICO SALARIAL,,,,,,,,
+aula,,,,,,,Parcela fixa e variável,,vimeo,641671255,,1,nao
+aula,,,,,,,Incidência,,vimeo,641666885,,2,nao
+modulo,,,,,MÓDULO 04 - VERBAS,,,,,,,,
+aula,,,,,,,13º salário,,vimeo,640664433,,1,nao
+aula,,,,,,,Abono pecuniário,,vimeo,640664468,,2,nao
+aula,,,,,,,Acordo,,vimeo,640664497,,3,nao
+aula,,,,,,,Adicional de horas extras,,vimeo,640664520,,4,nao
+aula,,,,,,,Adicional de insalubridade,,vimeo,640664553,,5,nao
+aula,,,,,,,Adicional de periculosidade,,vimeo,640664577,,6,nao
+aula,,,,,,,Adicional de sobreaviso,,vimeo,640664628,,7,nao
+aula,,,,,,,Adicional de transferência,,vimeo,640664663,,8,nao
+aula,,,,,,,Adicional noturno,,vimeo,640664708,,9,nao
+aula,,,,,,,Aviso prévio,,vimeo,640664742,,10,nao
+aula,,,,,,,Férias + 1/3,,vimeo,641093724,,11,nao
+aula,,,,,,,Gorjetas,,vimeo,641096125,,12,nao
+aula,,,,,,,Gratificação de função,,vimeo,641097836,,13,nao
+aula,,,,,,,Hora in intinere,,vimeo,641104796,,14,nao
+aula,,,,,,,Horas extras,,vimeo,641103405,,15,nao
+aula,,,,,,,Intervalo interjornada,,vimeo,641109243,,16,nao
+aula,,,,,,,Intervalo intrajornada,,vimeo,641112986,,17,nao
+aula,,,,,,,Multa convencional,,vimeo,641113875,,18,nao
+aula,,,,,,,Multa do art. 467 da CLT,,vimeo,641117273,,19,nao
+aula,,,,,,,Multa do art. 477 da CLT,,vimeo,641115403,,20,nao
+aula,,,,,,,PLR,,vimeo,641118197,,21,nao
+aula,,,,,,,RSR,,vimeo,641124262,,22,nao
+aula,,,,,,,Saldo de salário,,vimeo,641125601,,23,nao
+aula,,,,,,,Salário maternidade,,vimeo,641119227,,24,nao
+aula,,,,,,,Salário retido,,vimeo,641126654,,25,nao
+aula,,,,,,,Ticket alimentação,,vimeo,641127915,,26,nao
+aula,,,,,,,Vale transporte,,vimeo,641129754,,27,nao
+aula,,,,,,,Valor pago,,vimeo,641130939,,28,nao
+aula,,,,,,,FGTS,,vimeo,647531405,,29,nao
+modulo,,,,,MÓDULO 05 - CARTÃO DE PONTO,,,,,,,,
+aula,,,,,,,Art. 384 da CLT,,vimeo,646171423,,1,nao
+aula,,,,,,,Art. 72 da CLT,,vimeo,646172469,,2,nao
+aula,,,,,,,Tolerância,,vimeo,646167601,,3,nao
+aula,,,,,,,Súmula 85,,vimeo,646160764,,4,nao
+aula,,,,,,,Súmula 118,,vimeo,646184834,,5,nao
+aula,,,,,,,Apurar apenas o excesso,,vimeo,646187693,,6,nao
+aula,,,,,,,"Apurar feriados, sábados e domingos",,vimeo,646170278,,7,nao
+aula,,,,,,,Considerar válido o fracionamento,,vimeo,646178810,,8,nao
+aula,,,,,,,Extras aos feriados em separados,,vimeo,646165146,,9,nao
+aula,,,,,,,Formas de apuração,,vimeo,646158767,,10,nao
+aula,,,,,,,Jornada padrão,,vimeo,646168816,,11,nao
+aula,,,,,,,Hora noturna,,vimeo,646210644,,12,nao
+aula,,,,,,,Horas extras noturnas,,vimeo,648054925,,13,nao
+aula,,,,,,,Horas extras sos domingos em separado,,vimeo,646166623,,14,nao
+aula,,,,,,,Horas extras em separado,,vimeo,646162383,,15,nao
+aula,,,,,,,Horas insalubres,,vimeo,646173776,,16,nao
+aula,,,,,,,Horas interjornadas,,vimeo,646176299,,17,nao
+aula,,,,,,,Intrajornada integral,,vimeo,646182991,,18,nao
+aula,,,,,,,Horas intrajornadas,,vimeo,646178064,,19,nao
+aula,,,,,,,Preenchimento de jornada,,vimeo,648056877,,20,nao
+modulo,,,,,MÓDULO 06 - PARÂMETROS DAS VERBAS,,,,,,,,
+aula,,,,,,,Gerar verba reflexa,,vimeo,647512035,,1,nao
+aula,,,,,,,Gerar verba principal,,vimeo,647513048,,2,nao
+aula,,,,,,,Incidências,,vimeo,647499102,,3,nao
+aula,,,,,,,Integralizar,,vimeo,647520050,,4,nao
+aula,,,,,,,Juros - Súmula 439,,vimeo,647509286,,5,nao
+aula,,,,,,,Parcela fixa e variável,,vimeo,647495501,,6,nao
+aula,,,,,,,Proporcionalizar,,vimeo,647518625,,7,nao
+aula,,,,,,,Quantidade,,vimeo,647523420,,8,nao
+aula,,,,,,,Tipo principal e reflexa,,vimeo,647510989,,9,nao
+aula,,,,,,,Valor calculado e informado,,vimeo,647497281,,10,nao
+aula,,,,,,,Características,,vimeo,647500722,,11,nao
+aula,,,,,,,Compor principal,,vimeo,647514478,,12,nao
+aula,,,,,,,Zerar valor negativo,,vimeo,647515613,,13,nao
+aula,,,,,,,Base de cálculo,,vimeo,647516942,,14,nao
+aula,,,,,,,Valor pago verba,,vimeo,647524719,,15,nao
+aula,,,,,,,Divisor,,vimeo,647521891,,16,nao
+aula,,,,,,,Comportamento,,vimeo,647885094,,17,nao
+modulo,,,,,MÓDULO 07 - ATUALIZAÇÃO DOS CÁLCULOS,,,,,,,,
+aula,,,,,,,Correção monetária,,vimeo,647526521,,1,nao
+aula,,,,,,,Juros de mora,,vimeo,647528771,,2,nao
+aula,,,,,,,Pagamento,,vimeo,648032632,,3,nao
+modulo,,,,,MATERIAL DO CURSO,,,,,,,,
+aula,,,,,,,DOWNLOAD,,vimeo,,,1,nao
+curso,SIMULAÇÃO AVANÇADA,Curso com 7 aulas simulando um CÁLCULO COMPLEXO.,Vicelmo Alencar,,,,,,,,,,
+modulo,,,,,SIMULAÇÃO AVANÇADA NO PJECALC PLUS,,,,,,,,
+aula,,,,,,,Aula 1 - Introdução,,vimeo,639990479,,1,sim
+aula,,,,,,,Aula 2 - Verbas Rescisórias,,vimeo,640008499,,2,nao
+aula,,,,,,,Aula 3 - FGTS e Gratificações,,vimeo,640019751,,3,nao
+aula,,,,,,,Aula 4 - Lançamento de Cartão de Ponto,,vimeo,640087387,,4,nao
+aula,,,,,,,Aula 5 - Cadastro de Horas Extras,,vimeo,640097770,,5,nao
+aula,,,,,,,Aula 6 - Horas Noturnas,,vimeo,640104930,,6,nao
+aula,,,,,,,Aula 7 - Danos Morais / Honorários / Vale Transporte / Atualização,,vimeo,640111954,,7,nao
+curso,Pje-Calc em 2 horas,Curso de Pje-Calc apresentando fundamentos do sistema Pje-Calc.,Vicelmo Alencar,,,,,,,,,,
+modulo,,,,,Curso de Pje-Calc em 2 horas,,,,,,,,
+aula,,,,,,,Pje-Calc em 2 horas,,vimeo,580474923,127,1,sim
+curso,MINICURSO TRT24,Ministrado para os servidores do TR24 em FEV/2021.,Vicelmo Alencar,,,,,,,,,,
+modulo,,,,,PJE CALC E CÁLCULOS TRABALHISTAS,,,,,,,,
+aula,,,,,,,Aula 01 - Instalação do Pje Calc,,vimeo,514468486,12,1,sim
+aula,,,,,,,Aula 02 - Telas e Menus (Parte 01),,vimeo,514474422,21,2,sim
+aula,,,,,,,Aula 03 - Telas e Menus (Parte 02),,vimeo,514611056,21,3,nao
+aula,,,,,,,Aula 04 - Telas e Menus (Parte 03),,vimeo,514615223,24,4,nao
+aula,,,,,,,Aula 05 - Telas e Menus (Parte 04),,vimeo,514620305,26,5,nao
+aula,,,,,,,Aula 06 - Telas e Menus (Parte 05),,vimeo,514625082,24,6,nao
+aula,,,,,,,Aula 07 - Telas e Menus (Parte 06),,vimeo,514627306,10,7,nao
+aula,,,,,,,Aula 08 - Simulação de Cálculo,,vimeo,514633690,34,8,nao
+aula,,,,,,,Aula 09 - Liquidação de Sentença: Diferença Salarial,,vimeo,517550632,16,9,nao
+aula,,,,,,,Aula 10 - Liquidação de Sentença: Verbas Rescisórias,,vimeo,517550824,25,10,nao
+aula,,,,,,,Aula 11 - Liquidação de Sentença: Horas Extras (Parte 01),,vimeo,517551049,31,11,nao
+aula,,,,,,,Aula 12 - Liquidação de Sentença: Horas Extras (Parte 02),,vimeo,517551251,26,12,nao
+aula,,,,,,,Aula 13 - Liquidação de Sentença: Horas Extras (Parte 03),,vimeo,517551462,9,13,nao
+aula,,,,,,,Aula 14 - Atualização de Cálculos (Parte 01),,vimeo,517554787,25,14,nao
+aula,,,,,,,Aula 15 - Atualização de Cálculos (Parte 02),,vimeo,517585412,33,15,nao
+curso,MINICURSO TRT21,Ministrado na Escola Judicial do TRT 21 em FEV/20,Vicelmo Alencar,,,,,,,,,,
+modulo,,,,,Módulo Único,,,,,,,,
+aula,,,,,,,Aula 01 - EJ - Curso Rápido de Pje-Calc com Atualizações,,vimeo,455473846,87,1,sim
+aula,,,,,,,Aula 02 - EJ - Curso Rápido de Pje-Calc com Atualizações,,vimeo,455473465,26,2,nao
+aula,,,,,,,Aula 03 - EJ - Curso Rápido de Pje-Calc com Atualizações,,vimeo,455473336,17,3,nao
+curso,IMERSAO NOV/2021,Gravação – Imersão em Cálculos Trabalhistas com Pjecalc,Vicelmo Alencar,20,,,,,,,,,
+modulo,,,,,Teoria geral de cálculos trabalhistas,,,,,,,,
+aula,,,,,,,Aula 1 - Teoria geral de cálculos trabalhistas,,vimeo,642234537,,1,sim
+modulo,,,,,Iniciando no Pje-Calc,,,,,,,,
+aula,,,,,,,Aula 2 - Iniciando no Pje-Calc,,vimeo,642551248,,1,nao
+modulo,,,,,Verbas rescisórias e diferença salarial,,,,,,,,
+aula,,,,,,,Aula 3 - Verbas rescisórias e diferença salarial,,vimeo,642973901,,1,nao
+modulo,,,,,Jornada de trabalho,,,,,,,,
+aula,,,,,,,Aula 4 - Jornada de trabalho,,vimeo,643033445,,1,nao
+curso,PERÍCIA CONTÁBIL,Aprenda a trabalhar na na área de Perícia Contábil.,Vicelmo Alencar,8,,,,,,,,,
+modulo,,,,,MÓDULO I - ASPECTOS INICIAIS,,,,,,,,
+aula,,,,,,,AULA 01 - Filosofia Contábil,,vimeo,531866054,30,1,sim
+aula,,,,,,,AULA 02 - Princípios,,vimeo,531873860,41,2,sim
+aula,,,,,,,AULA 03 - Legislação Aplicável,,vimeo,531872850,14,3,nao
+aula,,,,,,,AULA 04 - Funções Contábeis,,vimeo,531872322,15,4,nao
+modulo,,,,,MÓDULO II - ASPECTOS PROCESSUAIS,,,,,,,,
+aula,,,,,,,AULA 01 - O Perito,,vimeo,531871555,21,1,sim
+aula,,,,,,,AULA 02 - Requisitos,,vimeo,531870736,21,2,nao
+aula,,,,,,,AULA 03 - Aspectos Legais,,vimeo,531870157,22,3,nao
+aula,,,,,,,AULA 04 - O Assistente Técnico,,vimeo,531869424,25,4,nao
+aula,,,,,,,AULA 05 - Aspectos Processuais,,vimeo,531868824,29,5,nao
+aula,,,,,,,AULA 06 - Escusa,,vimeo,531868178,21,6,nao
+aula,,,,,,,AULA 07 - Impedimento e Suspeição,,vimeo,531867797,16,7,nao
+aula,,,,,,,AULA 08 - Responsabilidade do Perito,,vimeo,531937450,15,8,nao
+modulo,,,,,MÓDULO III - ASPECTOS PRÁTICOS,,,,,,,,
+aula,,,,,,,AULA 01 - Fase de Planejamento,,vimeo,531937702,15,1,nao
+aula,,,,,,,AULA 02 - Honorários Periciais,,vimeo,531938224,7,2,nao
+aula,,,,,,,AULA 03 - Elaborando o Laudo Pericial,,vimeo,531937995,19,3,nao
+curso,Cálculo VPI da CEF,Calcule a verba vantagens pessoais e os seus reflexos no Pje-Calc.,Vicelmo Alencar,,,,,,,,,,
+modulo,,,,,MÓDULO ÚNICO,,,,,,,,
+aula,,,,,,,Aula 01,,vimeo,479605727,18,1,sim
+aula,,,,,,,Aula 02,,vimeo,479655626,42,2,nao
+aula,,,,,,,Aula 03,,vimeo,479662942,35,3,nao
+aula,,,,,,,Aula 04,,vimeo,479664552,8,4,nao
+aula,,,,,,,Aula 05,,vimeo,479670077,22,5,nao
+curso,Liquidação de Sentença,Curso de Liquidação de Sentença com Pje-Calc.,Vicelmo Alencar,,,,,,,,,,
+modulo,,,,,LIQUIDAÇÃO DE SENTENÇA PARA INICIANTES,,,,,,,,
+aula,,,,,,,AULA 1 - INSTALAÇÃO DO PJECALC,,vimeo,484620483,11,1,sim
+aula,,,,,,,AULA 2 - CONFIGURAÇÕES INICIAIS,,vimeo,484622153,15,2,nao
+aula,,,,,,,AULA 3 - VERBAS RESCISÓRIAS,,vimeo,484627024,43,3,nao
+aula,,,,,,,AULA 4 - MULTAS RESCISÓRIAS,,vimeo,484627728,18,4,nao
+aula,,,,,,,AULA 5 - FGTS,,vimeo,484631503,23,5,nao
+aula,,,,,,,AULA 6 - ADICIONAL DE INSALUBRIDADE,,vimeo,484634587,12,6,nao
+aula,,,,,,,AULA 7 - JORNADA DE TRABALHO E CONFIGURAÇÕES FINAIS,,vimeo,484641259,36,7,nao
+aula,,,,,,,AULA 8 - COMENTÁRIOS À LIQUIDAÇÃO DE SENTENÇA,,vimeo,484642608,9,8,nao
+curso,Novo CCT 4.0,Funcionalidades do novo CCT 4.0,Vicelmo Alencar,30,,,,,,,,,
+modulo,,,,,APRESENTAÇÃO,,,,,,,,
+aula,,,,,,,APRESENTAÇÃO,,vimeo,853536892,,1,sim
+aula,,,,,,,POR ONDE COMEÇAR,,vimeo,853646773,,2,sim
+aula,,,,,,,FUNÇÕES DA TELA DE AULAS,,vimeo,853646579,,3,sim
+aula,,,,,,,INTELIGÊNCIA ARTIFICIAL DO CCT,,vimeo,871283339,5,4,sim
+curso,Verba por verba,de cálculos trabalhistas no Pje-Calc,Vicelmo Alencar,20,,,,,,,,,
+modulo,,,,,VERBAS RESCISÓRIAS E ADICIONAIS,,,,,,,,
+aula,,,,,,,INTRODUÇÃO,,vimeo,446913093,12,1,sim
+aula,,,,,,,AULA 1 - INSTALAÇÃO,,vimeo,446917258,15,2,sim
+aula,,,,,,,AULA 2 - PANORAMA DE VERBAS NO PJECALC,,vimeo,446919890,9,3,nao
+aula,,,,,,,AULA 3 - AVISO PRÉVIO,,vimeo,446923866,12,4,nao
+aula,,,,,,,AULA 4  - DÉCIMO TERCEIRO SALÁRIO,,vimeo,446928237,12,5,nao
+aula,,,,,,,AULA 5 - FÉRIAS,,vimeo,446945318,8,6,nao
+aula,,,,,,,AULA 6 - MULTA DO ART 477 E 467,,vimeo,446988035,12,7,nao
+aula,,,,,,,AULA 7 - SALDO DE SALÁRIO E FGTS E MULTA,,vimeo,448382772,19,8,nao
+aula,,,,,,,AULA 8 - ADICIONAIS,,vimeo,448382903,15,9,nao
+aula,,,,,,,AULA 9 - DIFERENÇA SALARIAL,,vimeo,447213021,16,10,nao
+aula,,,,,,,AULA 10 - REFLEXOS DE DIFERENÇA SALARIAL EM HE PAGAS,,vimeo,447222578,11,11,nao
+modulo,,,,,VERBAS INDENIZATÓRIAS,,,,,,,,
+aula,,,,,,,AULA 11- SEGURO DESEMPREGO E SALÁRIO FAMÍLIA,,vimeo,447226863,6,1,nao
+aula,,,,,,,AULA 12 - INDENIZAÇÃO POR DANO MORAL,,vimeo,447925959,8,2,nao
+aula,,,,,,,AULA 13 - VALE TRANSPORTE,,vimeo,448383134,8,3,nao
+aula,,,,,,,AULA 14 - DEDUÇÃO DE VALORES PAGOS,,vimeo,447939283,10,4,nao
+modulo,,,,,JORNADA DE TRABALHO,,,,,,,,
+aula,,,,,,,AULA 15 - HORAS EXTRAS 50 E 100 POR CENTO,,vimeo,448251470,15,1,nao
+aula,,,,,,,AULA 16 - REPOUSO SEMANAL REMUNERADO,,vimeo,448251804,7,2,nao
+aula,,,,,,,AULA 17 - CARTÃO DE PONTO,,vimeo,448253905,17,3,nao
+aula,,,,,,,AULA 18 - HORAS EXTRAS COM CARTÃO DE PONTO,,vimeo,448256421,6,4,nao
+aula,,,,,,,AULA 19 - ADICIONAL NOTURNO,,vimeo,448285146,9,5,nao
+aula,,,,,,,AULA 20 - HORAS EXTRAS NOTURNAS,,vimeo,448291306,7,6,nao
+aula,,,,,,,AULA 21 - HORAS EXTRAS DE COMISSIONISTA,,vimeo,448329678,9,7,nao
+aula,,,,,,,AULA 22 - DOMIGOS EM DOBRO,,vimeo,448332329,9,8,nao
+modulo,,,,,VERBAS FISCAIS,,,,,,,,
+aula,,,,,,,AULA 23 CONTRIBUIÇÃO PREVIDENCIÁRIA,,vimeo,448340084,10,1,nao
+aula,,,,,,,AULA 24 - IMPOSTO DE RENDA,,vimeo,448341892,4,2,nao
+aula,,,,,,,AULA 25 - HONORÁRIOS,,vimeo,448344011,4,3,nao
+aula,,,,,,,AULA 26 - MULTAS E INDENIZAÇÕES,,vimeo,448344079,4,4,nao
+aula,,,,,,,AULA 27 - CUSTAS PROCESSUAIS,,vimeo,448350798,3,5,nao
+aula,,,,,,,AULA 28 - JUROS E CORREÇÃO MONETÁRIA,,vimeo,448350837,11,6,nao
+aula,,,,,,,AULA 29 - RESUMO DO CÁLCULO,,vimeo,448352545,8,7,nao
+aula,,,,,,,AULA 30 - ENCERRAMENTO,,vimeo,448384007,2,8,nao
+curso,PJECALCPLUS 2.0 - 2023,PJECALCPLUS 2023,Vicelmo Alencar,60,,,,,,,,,
+modulo,,,,,MÓDULO - Pjecalc cidadão,,,,,,,,
+aula,,,,,,,O que é o Pjecalc,,vimeo,783270914,3,1,sim
+aula,,,,,,,Instalação do Pjecalc,,vimeo,783270321,10,2,sim
+aula,,,,,,,Backup de cálculos,,vimeo,783270046,5,3,nao
+aula,,,,,,,Atualização de tabelas,,vimeo,783269737,5,4,nao
+aula,,,,,,,Relatório do cálculo em pdf,,vimeo,783268633,8,5,nao
+aula,,,,,,,Arquivo Pjc,,vimeo,783268152,8,6,nao
+aula,,,,,,,"Exportação, importação, duplicação e exclusão de cálculo",,vimeo,783267730,5,7,nao
+aula,,,,,,,Personalização do PDF,,vimeo,783271425,6,8,nao
+aula,,,,,,,Junção de cálculos,,vimeo,783271125,6,9,nao
+modulo,,,,,MÓDULO - Processo do Trabalho,,,,,,,,
+aula,,,,,,,Princípios de liquidação de sentença,,vimeo,783734973,14,1,nao
+aula,,,,,,,Impugnação de cálculos,,vimeo,783735739,33,2,nao
+aula,,,,,,,Limitação de cálculos à inicial,,vimeo,783738513,8,3,nao
+aula,,,,,,,Honorários sucumbenciais,,vimeo,785938222,20,4,nao
+aula,,,,,,,Liquidando petição inicial,,youtube,6MNkCMz_Bh4,41,5,sim
+modulo,,,,,MÓDULO - Funções do Pjecalc,,,,,,,,
+aula,,,,,,,Compor principal,,vimeo,826546144,10,1,nao
+aula,,,,,,,Proporcionalizar e integralizar,,vimeo,826547631,10,2,nao
+aula,,,,,,,Zerar valor negativo,,vimeo,835070490,6,3,nao
+aula,,,,,,,Fórmula das verbas,,vimeo,835073198,11,4,nao
+aula,,,,,,,Função Regerar,,vimeo,835075298,8,5,nao
+aula,,,,,,,Previdência privada,,vimeo,841190783,13,6,nao
+aula,,,,,,,Liquidação e erros,,vimeo,841215860,12,7,nao
+aula,,,,,,,Cores no pjecalc,,vimeo,841216502,3,8,nao
+aula,,,,,,,Personalizar relatório,,vimeo,841216716,13,9,nao
+aula,,,,,,,DIGITAÇÃO DE CARTÃO DE PONTO,,vimeo,843510278,17,10,nao
+modulo,,,,,MÓDULO - Composição do cálculo trabalhista,,,,,,,,
+aula,,,,,,,VERBAS INDENIZATÓRIAS,,vimeo,786321146,9,1,nao
+aula,,,,,,,VERBAS SALARIAIS,,vimeo,786323410,6,2,nao
+aula,,,,,,,CONHECENDO O TRCT,,vimeo,786327749,6,3,nao
+modulo,,,,,MÓDULO - Base de cálculo,,,,,,,,
+aula,,,,,,,Histórico salarial,,vimeo,843514250,19,1,nao
+aula,,,,,,,Verbas variáveis,,vimeo,843515898,8,2,nao
+aula,,,,,,,Base de cálculo das verbas rescisórias,,vimeo,847173939,24,3,nao
+aula,,,,,,,Base de cálculo das horas extras,,vimeo,847179186,10,4,nao
+aula,,,,,,,Base de cálculo do adicional de insalubridade,,vimeo,847181937,4,5,nao
+aula,,,,,,,Base de cálculo de adicional de periculosidade,,vimeo,847182158,7,6,nao
+modulo,,,,,MÓDULO - Dúvidas verbas rescisórias,,,,,,,,
+aula,,,,,,,Atualização de verbas rescisórias pagas,,vimeo,834359101,8,1,nao
+aula,,,,,,,FGTS sobre verbas pagas,,vimeo,855515187,5,2,nao
+aula,,,,,,,DIFERENÇA SALARIAL REFLEXOS EM CASCATA,,vimeo,861426891,9,3,nao
+modulo,,,,,MÓDULO - Parâmetros do cálculo,,,,,,,,
+aula,,,,,,,Limitação de períodos,,vimeo,795830423,11,1,nao
+aula,,,,,,,Base de cálulos,,vimeo,795847481,25,2,nao
+aula,,,,,,,Aviso prévio indenizado,,vimeo,826537458,23,3,nao
+aula,,,,,,,Prescrição,,vimeo,826542646,19,4,nao
+modulo,,,,,MÓDULO - Verbas fiscais,,,,,,,,
+aula,,,,,,,INSS - Como reduzir a contribuição do reclamante,,vimeo,847186119,17,1,nao
+modulo,,,,,MÓDULO - Dúvidas jornada de trabalho,,,,,,,,
+aula,,,,,,,Folgas indenizadas,,vimeo,842431782,12,1,nao
+modulo,,,,,MÓDULO - Verbas rescisórias,,,,,,,,
+aula,,,,,,,Aviso prévio,,vimeo,849706671,25,1,nao
+aula,,,,,,,13º salário,,vimeo,849714030,25,2,nao
+aula,,,,,,,Férias + 1/3,,vimeo,849717687,21,3,nao
+aula,,,,,,,Saldo de salário,,vimeo,849721426,9,4,nao
+aula,,,,,,,Repouso semanal remunerado,,vimeo,852072212,12,5,nao
+aula,,,,,,,Liquidação de sentença - aula 1 - diferença salarial,,vimeo,852141707,13,6,nao
+aula,,,,,,,Liquidação de sentença - aula 2 - Reflexos em verbas rescisórias,,vimeo,852141157,17,7,nao
+aula,,,,,,,Liquidação de sentença - aula 3 -relfexos em horas extras e sobreaviso pagos,,vimeo,852140848,11,8,nao
+aula,,,,,,,"Liquidação de sentença - aula 4 - custas, honorários e contribuição previdenciária",,vimeo,852140533,10,9,nao
+aula,,,,,,,Liquidação de sentença - aula 5 - relatório do cálculo,,vimeo,852140159,9,10,nao
+aula,,,,,,,Simulação de verbas rescisórias - Aula 1,,vimeo,855145975,30,11,nao
+aula,,,,,,,Simulação de verbas rescisórias - aula 2,,vimeo,854969717,15,12,nao
+modulo,,,,,MÓDULO - Multas e indenizações,,,,,,,,
+aula,,,,,,,Multas e indenizações,,vimeo,856575443,14,1,nao
+aula,,,,,,,Multa do art. 477 da CLT,,vimeo,856581977,5,2,nao
+aula,,,,,,,Multa do art. 467 da CLT,,vimeo,856590734,12,3,nao
+aula,,,,,,,Multa por descumprimento de acordo,,vimeo,856584379,16,4,nao
+aula,,,,,,,Indenização da gestante,,vimeo,858354084,10,5,nao
+aula,,,,,,,Indenização por danos morais,,vimeo,858804585,21,6,nao
+aula,,,,,,,Vale Transporte,,vimeo,858818937,8,7,nao
+modulo,,,,,MÓDULO - Desafio de verbas rescisórias e multas,,,,,,,,
+aula,,,,,,,Desafio de verbas rescisórias,,vimeo,858823400,8,1,nao
+aula,,,,,,,Gabarito do desafio de verbas rescisórias,,vimeo,837204629,31,2,nao
+modulo,,,,,MÓDULO - Jornada de Trabalho,,,,,,,,
+aula,,,,,,,Conceitos de horas extras,,vimeo,861437426,13,1,nao
+aula,,,,,,,Cartão de ponto - conceitos,,vimeo,861444745,12,2,nao
+aula,,,,,,,Cartão de ponto - formas de apuração,,vimeo,861450931,14,3,nao
+modulo,,,,,MÓDULO - Dúvidas atualização de cálculo,,,,,,,,
+aula,,,,,,,Como calcular apenas juros decrescentes,,vimeo,864635762,7,1,nao
+modulo,,,,,MÓDULO - Desafio de jornada de trabalho,,,,,,,,
+aula,,,,,,,Desafio - Aula 1,,vimeo,867635682,5,1,nao
+aula,,,,,,,Gabarito do desafio - Aula 2,,vimeo,867542197,61,2,nao
+curso,Pje-Calc 2023 - TRT16,Curso ministrado para os servidores do TRT16 em 2023,Vicelmo Alencar,,,,,,,,,,
+modulo,,,,,Módulo 1 - Parte geral,,,,,,,,
+aula,,,,,,,Aula 1 - Instalação do Pje-Calc,,vimeo,803232986,23,1,sim
+aula,,,,,,,Aula 2 - Parâmetros do cálculo,,vimeo,803248010,27,2,sim
+aula,,,,,,,Aula 3 - Histórico Salarial,,vimeo,803249366,9,3,nao
+aula,,,,,,,Aula 4 - verbas rescisórias,,vimeo,803249601,42,4,nao
+aula,,,,,,,Aula 5 - Atualização monetária e relatório final,,vimeo,803266010,29,5,nao
+modulo,,,,,Módulo 2 - Parte específica,,,,,,,,
+aula,,,,,,,Aula 6 - Diferença salarial e adicional de periculosidade,,vimeo,803267216,30,1,nao
+aula,,,,,,,Aula 7 - Horas extras,,vimeo,803270951,34,2,nao
+aula,,,,,,,Aula 8 - Contribuição previdenciária,,vimeo,803275614,4,3,nao
+aula,,,,,,,"Aula 9 - Correção, juros e multa",,vimeo,803277502,13,4,nao
+aula,,,,,,,Aula 10 - Liquidação de sentença,,vimeo,803281938,66,5,nao
+aula,,,,,,,Aula 11 - Verbas rescisórias com limitação de período de dedução de FGTS,,vimeo,803284588,24,6,nao
+aula,,,,,,,Aula 12 - Atualização de danos morais,,vimeo,803286197,9,7,nao
+aula,,,,,,,Aula 13 - Atualização de cálculos - Fazenda pública,,vimeo,804812854,14,8,nao
+modulo,,,,,Módulo 3 - Jornada de trabalho,,,,,,,,
+aula,,,,,,,Aula 14 - Cartão de ponto,,vimeo,804813076,51,1,nao
+aula,,,,,,,Aula 15 - Horas extras noturnas,,vimeo,804813575,37,2,nao
+aula,,,,,,,Aula 16 - Atualização e dedução de cálculos,,vimeo,804813973,,3,nao
+aula,,,,,,,Aula 17 - Cálculo de acordo descumprido,,vimeo,804814305,,4,nao
+curso,PjeCalc Plus,Treinamento Completo de Cálculos Trabalhistas usando Pje-Calc,Vicelmo Alencar,60,,,,,,,,,
+modulo,,,,,INTRODUÇÃO À LIQUIDAÇÃO DE SENTENÇA E AO PJE-CALC,,,,,,,,
+modulo,,,,,VERBAS RESCISÓRIAS - TEORIA E PRÁTICA,,,,,,,,
+modulo,,,,,JORNADA DE TRABALHO - TEORIA E PRÁTICA,,,,,,,,
+modulo,,,,,ATUALIZAÇÃO DE CÁLCULOS E FASE DE EXECUÇÃO,,,,,,,,
+curso,O melhor do Youtube,Os melhores vídeos do Youtube separados por tema,Vicelmo Alencar,,,,,,,,,,
+modulo,,,,,Versões do Pje-Calc,,,,,,,,
+aula,,,,,,,Versão 2 2 0,,youtube,Km_fQdMhzmw,7,1,sim
+aula,,,,,,,Versão 2 3,,youtube,nO0s1XxVKWM,14,2,sim
+aula,,,,,,,versão 2.5.1,,youtube,zLAcTJ_Q_kc,8,3,sim
+aula,,,,,,,Versão 2.5.3,,youtube,k2aasiYHHys,3,4,sim
+aula,,,,,,,Versão 2.5.4,,youtube,BH75V4HggBQ,18,5,sim
+aula,,,,,,,Versão 2.5.6,,vimeo,5tjjwHK2xp8,25,6,sim
+aula,,,,,,,Versão 2.6,,youtube,jzhB4fluOuU,27,7,sim
+aula,,,,,,,Versão 2.6.2,,youtube,zCOoKPs7GH0,61,8,sim
+aula,,,,,,,versão 2.6.3,,youtube,GHZeJ2Fdsgo,16,9,sim
+aula,,,,,,,versão 2.7.0,,youtube,z3RD2QB4KK8,24,10,sim
+aula,,,,,,,Versão 2 7 1,,youtube,MS2ZDNrl6hw,20,11,sim
+aula,,,,,,,versão 2.8,,vimeo,8gcmQkFC3ck,27,12,sim
+aula,,,,,,,Pje-Calc 2.8.0: do zero ao primeiro cálculo pronto,,youtube,6BzfYWsWs8s,28,13,sim
+aula,,,,,,,Versão 2.9,,vimeo,FKRmejL2_FU,28,14,sim
+aula,,,,,,,Versão 2.10,,youtube,3MtXg4qb0pM,19,15,sim
+aula,,,,,,,VERSÃO 2.10.2,,youtube,X41hEc72ff4,16,16,sim
+aula,,,,,,,VERSÃO 2.11.1,,youtube,GhoJF0rr0hU,13,17,sim
+aula,,,,,,,Sugestões de melhorias para serem incluídas na próxima versão do Sistema Pje-calc,,youtube,cWJnMLm3pew,22,18,sim
+aula,,,,,,,O Pjecalc precisa mudar - Confira as melhorias,,youtube,wMelqBq2sWU,15,19,sim
+aula,,,,,,,Versão 12.0,,youtube,kmMvZgybDaA,30,20,nao
+aula,,,,,,,Versão 2.13,,youtube,fjRy1ElU36Q,16,21,nao
+aula,,,,,,,Versão 2.13.1,,youtube,1vnbVB_imWQ,17,22,sim
+aula,,,,,,,Nova versão 2.13.2 do Pje-calc - veja o que mudou,,youtube,7qJ90gjEpZs,,23,sim
+modulo,,,,,Verbas rescisórias,,,,,,,,
+aula,,,,,,,Calculando FGTS,,youtube,ApY_wp-lH7E,14,1,sim
+aula,,,,,,,Calculando verbas rescisórias,,youtube,0eqv1CD569Q,32,2,sim
+aula,,,,,,,Base de cálculo da Multa do FGTS,,youtube,rzE82kKmtaw,11,3,sim
+aula,,,,,,,"OJ 394, TST",,youtube,aE7c_YmXAPA,4,4,sim
+aula,,,,,,,FIQUE ATENTO - AVISO PRÉVIO,,youtube,M_MOSJlc9nA,7,5,sim
+aula,,,,,,,Aviso prévio proporcional,,youtube,xmBh0ADRT9M,16,6,sim
+aula,,,,,,,Base de cálculo da multa do art.  477,,youtube,wrCMhK0CBHw,9,7,sim
+aula,,,,,,,Reflexos do aviso prévio nas verbas rescisórias,,youtube,scpThjM-RUU,14,8,sim
+aula,,,,,,,Nova redação da OJ 394,,youtube,kn2i_SZAMYM,18,9,sim
+aula,,,,,,,Como calcular prescrição das férias no Pjecalc,,youtube,DTI9RxqxDRw,13,10,sim
+aula,,,,,,,Férias em dobro ou dobra de férias,,youtube,FMp5MOeDkH4,5,11,sim
+modulo,,,,,Liquidação de sentença,,,,,,,,
+aula,,,,,,,Liquidação de senteça,,youtube,Z4lYdpuSIrE,29,1,sim
+aula,,,,,,,Liquidação de sentença   comissionista,,youtube,J9a7ZCygR88,51,2,sim
+aula,,,,,,,Live - Liquidação de sentença,,youtube,I26pcIoGjzE,65,3,sim
+aula,,,,,,,Live - Liquidação de sentença,,youtube,I26pcIoGjzE,65,4,sim
+aula,,,,,,,Live Liquidação de sentença no Pjecalc,,youtube,-6-GtcX-GsU,140,5,sim
+aula,,,,,,,Liquidação de sentença para iniciantes 2024,,youtube,QzfSM9txc-I,,6,sim
+modulo,,,,,Atualização de cálculos,,,,,,,,
+aula,,,,,,,Juros e dedução,,youtube,DLj6xSjV2FQ,11,1,sim
+aula,,,,,,,Tabela mensal de diária da JT,,youtube,Up6sdPYloCg,8,2,sim
+aula,,,,,,,Atualização com dedução de valores,,youtube,6eGay74Zjpw,27,3,sim
+aula,,,,,,,Como Calcular horas extras no pje calc com escala 4x4,,vimeo,bcI2rboeYiE,12,4,sim
+aula,,,,,,,Agora é pra valer: Selic e IPCA-e são índices oficiais,,youtube,cnRjUZrHiuc,10,5,sim
+aula,,,,,,,É possível aplicar  IPCA-e + Juros de mora na Justiça do Trabalho,,youtube,wpkoJAm5dBA,6,6,sim
+aula,,,,,,,Devo usar Selic como juros ou como correção?,,youtube,bXMH3mZ3E4Q,11,7,sim
+aula,,,,,,,Atualização de cálculos,,youtube,KNbF-551ENw,30,8,sim
+aula,,,,,,,Como calcular juros regressivos,,youtube,zkUJKnYCpN4,9,9,sim
+aula,,,,,,,SELIC + 1% nos processos trabalhistas?,,youtube,ol-ux7QliSw,13,10,sim
+aula,,,,,,,Aumente o valor do seu cliente no Pjecalc,,youtube,nfriZT2GsEc,11,11,sim
+aula,,,,,,,Como fazer dedução em cálculos com imposto de renda,,youtube,R29Nc40EKmo,11,12,sim
+aula,,,,,,,Importação e atualização de cálculos,,youtube,6L1-wylH-g8,50,13,sim
+modulo,,,,,Jornada de Trabalho,,,,,,,,
+aula,,,,,,,Reflexos de horas extras,,youtube,-9U9tyTaFCc,15,1,sim
+aula,,,,,,,Cartão de ponto,,youtube,ZSZBlylCnYY,8,2,sim
+aula,,,,,,,Cartão de ponto,,youtube,J5Uo3b90ME8,32,3,sim
+aula,,,,,,,Horas extras com cartão de ponto,,youtube,P1SXQPcbx50,8,4,sim
+aula,,,,,,,dúvidas de cartão de ponto,,youtube,7jwYggP1Mn8,26,5,sim
+aula,,,,,,,Cartão de Ponto Jornada nos Feriados,,youtube,xhx0Qs6VG_8,14,6,sim
+aula,,,,,,,Criterio mais favorável das horas extras,,youtube,ZGeLKmPRdC8,10,7,sim
+aula,,,,,,,Como calcular horas extras noturnas,,youtube,J0k7IANqSgA,14,8,sim
+aula,,,,,,,Horas extras noturnas no Pje-Calc,,youtube,8mypWATVCzc,10,9,sim
+aula,,,,,,,Escala de trabalho,,youtube,tqcNOq87YRM,5,10,sim
+aula,,,,,,,Como transformar hora-relógio para o sistema centesimal,,youtube,tpR_WcKLpQ8,3,11,sim
+aula,,,,,,,Intervalo intrajornada - Sum. 118,,youtube,sR3Q2prhbmI,10,12,nao
+aula,,,,,,,Dúvidas de cartão de ponto,,youtube,7jwYggP1Mn8,26,13,sim
+aula,,,,,,,Aprenda a calcular horas extras no Pje Calc na versão 2.6.0,,youtube,e7DUT1mlDEM,65,14,sim
+aula,,,,,,,Live conversa com alunos Pjecalcplus,,youtube,GbZR8tnlLBU,68,15,sim
+aula,,,,,,,Repouso semanal remunerado do bancário,,youtube,kmMvZgybDaA,10,16,nao
+aula,,,,,,,Nova redação da OJ 394,,youtube,hzLS9MkITOY,15,17,sim
+aula,,,,,,,Escala 12 x 36 gera 15 minutos de extras por dia,,youtube,Sl23W-nQXuo,10,18,nao
+modulo,,,,,Indenizações,,,,,,,,
+aula,,,,,,,Como calcular pensão no PjeCalc,,youtube,uYNyMUvTDbE,10,1,nao
+aula,,,,,,,Como calcular astreintes no Pjecalc,,youtube,Qko-DPauWPQ,20,2,sim
+aula,,,,,,,Vale transporte,,youtube,Lh99Bh6jMYc,3,3,sim
+aula,,,,,,,Danos Morais,,youtube,QrdYEQPSqJc,7,4,sim
+modulo,,,,,Adicionais,,,,,,,,
+aula,,,,,,,Adicional de insalubridade,,youtube,LIDS03DQHLI,14,1,sim
+aula,,,,,,,ADICIONAL DE INSALUBRIDADE - RESPONDENDO DÚVIDAS,,youtube,aOARuWn0sw0,20,2,sim
+aula,,,,,,,Como calcular adicionais legais no pjecalc,,youtube,OjdWHwsiDOQ,80,3,sim
+modulo,,,,,Configurações Pje-Calc,,,,,,,,
+aula,,,,,,,Parâmetros dos cálculos,,youtube,,13,1,sim
+aula,,,,,,,parâmetros das verbas,,youtube,eebXzOISTBU,23,2,sim
+aula,,,,,,,Função Regerar,,youtube,Ne1yx773eWs,8,3,sim
+aula,,,,,,,Proporcionalizar e Integralizar,,youtube,FBJqJwssWhE,14,4,sim
+aula,,,,,,,Cadastre reflexos manualmente no pje-calc,,youtube,isxC6qkP0nc,3,5,sim
+aula,,,,,,,Personalize seu Pjecalc,,youtube,o6hgeCIhxjE,7,6,sim
+aula,,,,,,,Tratando erros no Pjecalc,,youtube,uRdw28zeM4g,16,7,sim
+aula,,,,,,,Como usar as funções Integralizar e proporcionalizar,,youtube,-c_dnSpoM78,17,8,sim
+aula,,,,,,,Como limitar períodos de cálculos no Pjecalc,,youtube,perIYR-ajGI,11,9,sim
+aula,,,,,,,Como calcular apenas os reflexos no Pjecalc,,youtube,C4aDET4v-QE,9,10,sim
+aula,,,,,,,Transforme o Pjecalc,,youtube,b-1LV4tSFBw,10,11,sim
+aula,,,,,,,Função compor principal,,youtube,E75OAiaBy6w,10,12,sim
+aula,,,,,,,Como aumentar o valor do cálculo em pelo menos 15%,,youtube,R2EBmuCzKSM,18,13,nao
+modulo,,,,,Questões processuais,,,,,,,,
+aula,,,,,,,Base de cálculo,,youtube,qHrXuEMG3aE,11,1,sim
+aula,,,,,,,Limitação de cálculo,,youtube,4a3PQUNfomw,8,2,sim
+aula,,,,,,,Prescrição do FGTS,,youtube,ijfJlvEn6is,15,3,sim
+aula,,,,,,,Calculando uma inicial,,youtube,uVMZTfFACII,7,4,sim
+aula,,,,,,,Reflexos da Reforma Trabalhista na liquidação de cálculos,,youtube,ZxaKbyl1FaY,28,5,sim
+aula,,,,,,,Estrutura da Inicial,,youtube,wtCEWD8-whk,6,6,sim
+aula,,,,,,,Base de cálculo de verbas trabalhistas,,youtube,wy7o4t8ceWo,20,7,sim
+aula,,,,,,,Liquidação de inicial no Pjecalc 2.8.0,,vimeo,6MNkCMz_Bh4,41,8,sim
+aula,,,,,,,Impugnação de cálculos trabalhistas,,youtube,zGABMN74SrE,40,9,sim
+aula,,,,,,,Prescrição e o quinto dia útil,,youtube,8feaDbvyBGw,9,10,nao
+modulo,,,,,Dúvidas,,,,,,,,
+aula,,,,,,,Respondendo perguntas,,youtube,XcsA7OYKzcY,13,1,sim
+aula,,,,,,,Respondendo perguntas dos inscritos,,youtube,XFJD3riI8DM,19,2,sim
+aula,,,,,,,PjeCalc Plus - Respondendo perguntas e tirando duvidas,,youtube,CLYaS-hYLgc,3,3,sim
+aula,,,,,,,Respondendo comentários,,youtube,MTZwjJb5KvA,12,4,sim
+aula,,,,,,,Respondendo dúvidas dos inscritos,,youtube,847Z4-l7CL8,14,5,sim
+aula,,,,,,,Live Pje Calc - Respondendo perguntas,,youtube,wSK-NzvB4x8,58,6,sim
+aula,,,,,,,Respondendo perguntas sobre pjecalc,,youtube,efEiICBvfBI,102,7,sim
+aula,,,,,,,Live - Respondendo dúvidas,,youtube,qlDy8OpJANM,87,8,sim
+modulo,,,,,Honorários,,,,,,,,
+aula,,,,,,,honorários sucumbenciais - base de cálculo,,youtube,89KfjtpmNhQ,7,1,sim
+aula,,,,,,,Quanto cobrar por um cálculo,,youtube,q2mGCQAjiwY,10,2,nao
+modulo,,,,,Instalação,,,,,,,,
+aula,,,,,,,como instalar o Pjecalc,,youtube,q1O0x7lSVpY,11,1,sim
+aula,,,,,,,Instalando o pje-calc do zero e fazendo o primeiro cálculo.,,youtube,QybAKBDbW0Y,67,2,sim
+modulo,,,,,Curso de súmulas,,,,,,,,
+aula,,,,,,,AULA 1 - CURSO DE SÚMULAS DO TST APLICADAS AOS CÁLCULOS TRABALHISTAS,,youtube,iHD2WPOxvFE,7,1,sim
+aula,,,,,,,AULA 2 - CURSO DE SÚMULAS DO TST APLICADAS AOS CÁLCULOS TRABALHISTAS,,youtube,A3YDlpzFrLw,38,2,sim
+aula,,,,,,,AULA 3 - CURSO DE SÚMULAS DO TST APLICADAS AOS CÁLCULOS TRABALHISTAS,,youtube,qLeqYbe8WRY,12,3,sim
+aula,,,,,,,AULA 4 - CURSO DE SÚMULAS DO TST APLICADAS AOS CÁLCULOS TRABALHISTAS,,youtube,8PqgfvS9JSg,36,4,sim
+aula,,,,,,,AULA 5 - CURSO DE SÚMULAS DO TST APLICADAS AOS CÁLCULOS TRABALHISTAS,,youtube,BLu7njS5BbE,7,5,sim
+aula,,,,,,,AULA 6 - CURSO DE SÚMULAS DO TST APLICADAS AOS CÁLCULOS TRABALHISTAS,,youtube,UF-1nvdTIvU,16,6,sim
+aula,,,,,,,AULA 7 - CURSO DE SÚMULAS DO TST APLICADAS AOS CÁLCULOS TRABALHISTAS,,youtube,SkvizI7Wjtk,32,7,sim
+aula,,,,,,,AULA 8 - CURSO DE SÚMULAS DO TST APLICADAS AOS CÁLCULOS TRABALHISTAS,,youtube,waRhfWqhI3Q,5,8,sim
+aula,,,,,,,AULA 9 - CURSO DE SÚMULAS DO TST APLICADAS AOS CÁLCULOS TRABALHISTAS,,youtube,7jh85DX0ZRI,15,9,sim
+aula,,,,,,,AULA 10 - CURSO DE SÚMULAS DO TST APLICADAS AOS CÁLCULOS TRABALHISTAS,,youtube,MLIbJc-daqI,22,10,sim
+aula,,,,,,,AULA 11 - CURSO DE SÚMULAS DO TST APLICADAS AOS CÁLCULOS TRABALHISTAS,,youtube,jeuS6ine9Y4,15,11,sim
+modulo,,,,,Temas avançados,,,,,,,,
+aula,,,,,,,Live sobre temas avançados,,youtube,28lloOZ8rbY,120,1,sim
+modulo,,,,,Diferenças salariais,,,,,,,,
+aula,,,,,,,Reflexos de verbas pagas por fora,,youtube,jEvGaYuCoko,9,1,sim
+modulo,,,,,Verbas fiscais,,,,,,,,
+aula,,,,,,,Entenda o cálculo de imposto de renda de uma vez por todas,,youtube,W2Vyvf301kc,22,1,sim
+curso,Pjecalc do zero - 2023,Curso para quem não sabe nada de cálculos trabalhistas,Vicelmo Alencar,9,,,,,,,,,
+modulo,,,,,VERBAS RESCISÓRIAS PARA INICIANTES,,,,,,,,
+aula,,,,,,,AULA 1 - VERBAS RESCISÓRIAS PARA INICIANTES,,vimeo,872358676,73,1,sim
+aula,,,,,,,AULA 2 - VERBAS RESCISÓRIAS PARA INICIANTES,,vimeo,872706969,65,2,sim
+modulo,,,,,JORNADA DE TRABALHO,,,,,,,,
+aula,,,,,,,AULA 1 - JORNADA DE TRABALHO PARA INICIANTES,,vimeo,876353739,85,1,nao
+aula,,,,,,,AULA 2 - JORNADA DE TRABALHO PARA INICIANTES,,vimeo,879572006,73,2,nao
+modulo,,,,,ATUALIZAÇÃO DE CÁLCULOS,,,,,,,,
+aula,,,,,,,ATUALIZAÇÃO DE CÁLCULOS PARA INICIANTES,,vimeo,879574889,90,1,nao
+curso,Curso Pje-Calc Iniciantes - 2024,Curso completo de Pje-Calc para iniciantes. Totalmente atualizado,Vicelmo Alencar,20,,,,,,,,,
+modulo,,,,,Módulo I - Sistema Pje-Calc,,,,,,,,
+aula,,,,,,,Introdução,,vimeo,908413501,2,1,sim
+aula,,,,,,,O que é o Pje-calc,,vimeo,908413477,4,2,sim
+aula,,,,,,,Como instalar o Pje-calc,,vimeo,908413454,4,3,nao
+aula,,,,,,,Principais menus,,vimeo,908413409,5,4,sim
+aula,,,,,,,Como criar o primeiro cálculo,,vimeo,908413392,3,5,nao
+aula,,,,,,,Como lançar verbas depois da demissão,,vimeo,908413353,3,6,nao
+aula,,,,,,,Campo maior remuneração,,vimeo,908413305,3,7,nao
+aula,,,,,,,Campo última remuneração,,vimeo,908413260,,8,nao
+aula,,,,,,,Campo prescrição,,vimeo,908413223,3,9,nao
+aula,,,,,,,Menu faltas,,vimeo,908413189,4,10,nao
+aula,,,,,,,Menu férias,,vimeo,908413156,6,11,nao
+aula,,,,,,,Histórco salarial,,vimeo,908413096,13,12,nao
+aula,,,,,,,Importar e exportar cálculo,,vimeo,908411463,3,13,nao
+aula,,,,,,,Relatório de cálculo,,vimeo,908411480,5,14,nao
+aula,,,,,,,Relatório consolidado,,vimeo,908411430,4,15,nao
+modulo,,,,,Módulo II - Verbas rescisórias,,,,,,,,
+aula,,,,,,,Aviso prévio,,vimeo,908413030,17,1,nao
+aula,,,,,,,Férias indenizadas,,vimeo,908412935,15,2,nao
+aula,,,,,,,13º salário,,vimeo,908412861,12,3,nao
+aula,,,,,,,Saldo de salário,,vimeo,908412813,8,4,nao
+aula,,,,,,,Salário retido,,vimeo,908412794,5,5,nao
+aula,,,,,,,FGTS sobre salários pagos,,vimeo,908412734,10,6,nao
+aula,,,,,,,Multa do FGTS,,vimeo,908412652,10,7,nao
+aula,,,,,,,Multa do art. 477 da CLT,,vimeo,908412055,2,8,nao
+aula,,,,,,,Multa do art. 467 da CLT,,vimeo,908411954,7,9,nao
+modulo,,,,,Mòdulo III - Jornada de Trabalho,,,,,,,,
+aula,,,,,,,Horas extras quantidade fíxa,,vimeo,908412296,10,1,sim
+aula,,,,,,,Reflexos de horas extras,,vimeo,908412211,7,2,nao
+aula,,,,,,,Horas extras com cartão de ponto,,vimeo,908411843,9,3,nao
+aula,,,,,,,Primeiras HE em separado,,vimeo,908411772,4,4,nao
+aula,,,,,,,Horas extras aos domingos,,vimeo,908411717,7,5,nao
+aula,,,,,,,Horas extras em regime de escala,,vimeo,908411681,4,6,nao
+aula,,,,,,,Intervalos intrajornadas,,vimeo,908411588,14,7,nao
+aula,,,,,,,Horas extras noturnas,,vimeo,908411519,12,8,nao
+aula,,,,,,,Como criar reflexos manuais,,vimeo,908412139,3,9,nao
+aula,,,,,,,Explicando melhor as horas extras noturnas,,vimeo,934256056,9,10,nao
+modulo,,,,,Módulo IV - Atualização de cálculos,,,,,,,,
+aula,,,,,,,Juros e correção monetária,,vimeo,908412536,6,1,nao
+aula,,,,,,,Como descontar valores do reclamante,,vimeo,908412099,5,2,nao
+aula,,,,,,,Atualização de cálculos,,vimeo,908411335,11,3,nao
+modulo,,,,,Módulo V - Outras verbas,,,,,,,,
+aula,,,,,,,Honorários,,vimeo,908412596,4,1,nao
+modulo,,,,,Mòdulo VI - Verbas mensais,,,,,,,,
+aula,,,,,,,Diferença salarial,,vimeo,908412467,11,1,nao
+aula,,,,,,,Reflexos em horas extras pagas,,vimeo,908412390,12,2,nao
+aula,,,,,,,Adicionais,,vimeo,908411229,6,3,nao
+modulo,,,,,Módulo VII - Simulações de cálculo trabalhista,,,,,,,,
+aula,,,,,,,Simulação 1 - FGTS,,vimeo,931473671,26,1,nao
+aula,,,,,,,Simulação 2 - Verbas rescisórias,,vimeo,931480961,32,2,nao
+aula,,,,,,,Simulação 3 - Diferença salarial,,vimeo,931489936,37,3,nao
+aula,,,,,,,Simulação 4 - Horas extras fixas e OJ  394,,vimeo,931548292,16,4,nao
+aula,,,,,,,Simulação 5 - Horas extras com cartão de ponto,,vimeo,932511494,25,5,nao
+modulo,,,,,Ajuda aos alunos,,,,,,,,
+aula,,,,,,,Reflexos de verbas pagas por fora,,vimeo,982254598,5,1,sim
+curso,Curso completo 2024 - TRT10,Curso completo Gravado em maio de 2024,Vicelmo Alencar,,,,,,,,,,
+modulo,,,,,INSTALAÇÃO E CONFIGURAÇÃO,,,,,,,,
+aula,,,,,,,Aula 1 - Introdução ao sistema,,vimeo,947745031,,1,sim
+aula,,,,,,,Aula 2 - Como criar o primeiro cálculo,,vimeo,947740732,12,2,nao
+aula,,,,,,,Aula 3 - Menus e telas do sistema,,vimeo,947740635,12,3,nao
+modulo,,,,,VERBAS RESCISÓRIAS E INDENIZATÓRIAS,,,,,,,,
+aula,,,,,,,Aula 4 - FGTS,,vimeo,947740528,26,1,nao
+aula,,,,,,,Aula 5 - verbas rescisórias,,vimeo,947740448,17,2,nao
+aula,,,,,,,Aula 6 - diferença salarial,,vimeo,947740318,23,3,nao
+aula,,,,,,,Aula 7 - verbas mensais,,vimeo,947740296,2,4,nao
+aula,,,,,,,Aula 8 - Multas e indenizações,,vimeo,947740269,5,5,nao
+aula,,,,,,,Aula 9 - Honorários,,vimeo,947740240,6,6,nao
+aula,,,,,,,Aula 10 - Juros e correção,,vimeo,947740176,11,7,nao
+aula,,,,,,,Aula 11 - Marcações padrão,,vimeo,947740131,6,8,nao
+aula,,,,,,,Aula 12 - Contribuições Funcef,,vimeo,947740107,3,9,nao
+aula,,,,,,,Aula 13 - Danos morais,,vimeo,947740034,9,10,nao
+aula,,,,,,,aula 14 - Diferença salarial em períodos de afastamento,,vimeo,947739999,5,11,nao
+modulo,,,,,JORNADA DE TRABALHO,,,,,,,,
+aula,,,,,,,Aula 15 - Horas extras fixas,,vimeo,947739872,18,1,nao
+aula,,,,,,,Aula 16 - cartão de ponto,,vimeo,947739557,51,2,nao
+aula,,,,,,,Aula 17 - Intervalo intrajornada,,vimeo,947739460,16,3,nao
+aula,,,,,,,Aula 18 - OJ 394,,vimeo,947739362,12,4,nao
+aula,,,,,,,Aula 19 - interjornada,,vimeo,947739233,9,5,nao
+aula,,,,,,,Aula 20 - Horário noturno,,vimeo,947739035,15,6,nao
+modulo,,,,,ATUALIZAÇÃO DE CÁLCULOS,,,,,,,,
+aula,,,,,,,Aula 21 - Atualização de cálculos,,vimeo,947738991,20,1,nao
+curso,Inteligência Artificial em Cálculos Trabalhistas,Como usar a inteligência artificial para aprimorar os cálculos trabalhistas.,Vicelmo Alencar,4,,,,,,,,,
+modulo,,,,,Módulo I - Conceitos e ferramentas,,,,,,,,
+aula,,,,,,,Aula 1 - Introdução,,vimeo,1019025461,,1,sim
+aula,,,,,,,Aula 2 - Chat GPT,,vimeo,1019027254,,2,nao
+aula,,,,,,,Aula 3 - Como criar prompt,,vimeo,1019026536,10,3,nao
+aula,,,,,,,Aula 4 - Aplicação da IA a planilhas,,vimeo,1019025892/,,4,nao
+aula,,,,,,,Aula 5 - Assistentes de IA,,vimeo,1019037957,,5,nao
+aula,,,,,,,Aula 6 - Ferramentas,,vimeo,1019024638,,6,nao
+aula,,,,,,,Aula 7 - NotebookLM,,vimeo,1019024319,,7,nao
+aula,,,,,,,Inteligência artificial ferramenta Notebook LM - Aula 2,,vimeo,1035953682,13,8,nao
+aula,,,,,,,Aula 8 - AI Studio,,vimeo,1019024112,,9,nao
+aula,,,,,,,Aula 9 - Como elaborar laudo pericial com inteligência artificial,,vimeo,1027827413,26,10,nao
+aula,,,,,,,Aula 10 - Liquidação de sentença com IA,,vimeo,1031958817,57,11,nao
+aula,,,,,,,Aula 11 - Análise de Impugnação de cálculos com IA,,vimeo,1040366025,23,12,nao
+aula,,,,,,,Aula 12 - Monica: ferramenta multiuso,,vimeo,1040527903,12,13,nao
+modulo,,,,,MCP,,,,,,,,
+aula,,,,,,,Crie cálculos com IA,,vimeo,1102559947,20,1,sim
+curso,Pjecalc Plus 2025 - Liquidação de sentença,Pjecalc Plus 2025 - Liquidação de sentença,Vicelmo Alencar,30,,,,,,,,,
+modulo,,,,,Liquidação de sentença,,,,,,,,
+aula,,,,,,,Introdução,,vimeo,1055928193,2,1,sim
+aula,,,,,,,Aula 1 - verbas rescisórias simples,,vimeo,1055928005,40,2,sim
+aula,,,,,,,Aula 2 - Adicional de insalubridade,,vimeo,1055946172,14,3,nao
+aula,,,,,,,Aula 3 - Diferença Salarial,,vimeo,1055958817,20,4,nao
+aula,,,,,,,Horas extras e OJ 394,,vimeo,1058169550,28,5,nao
+aula,,,,,,,Impugnação de cálculos trabalhistas,,vimeo,1105558282,36,6,nao
+modulo,,,,,Tira-dúvidas,,,,,,,,
+aula,,,,,,,Juros de mora sobre parcelas negativas: OJ 415,,vimeo,1062947544,7,1,nao
+modulo,,,,,Jornada de trabalho,,,,,,,,
+aula,,,,,,,Verbas rescisórias e horas extras,,vimeo,1066765751,25,1,nao
+aula,,,,,,,Horas extras noturnas,,vimeo,1087553240,21,2,nao
+curso,,,Vicelmo Alencar,,,,,,,,,,
+curso,,,Vicelmo Alencar,,,,,,,,,,
