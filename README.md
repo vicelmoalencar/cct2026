@@ -56,14 +56,19 @@
 | PUT | `/api/auth/profile` | Atualiza nome do usuário |
 | POST | `/api/auth/change-password` | Altera senha (requer senha atual) |
 
-#### Certificados
+#### Certificados (v2.0 - HTML/PDF com Verificação)
 | Método | Endpoint | Descrição |
 |--------|----------|-----------|
-| POST | `/api/admin/certificate-template` | Upload template de certificado (Admin) |
-| GET | `/api/certificate-template/:courseId` | Busca template do curso |
-| POST | `/api/certificates/generate` | Gera certificado para usuário |
-| GET | `/api/certificates` | Lista certificados do usuário |
-| GET | `/api/certificates/:id` | Detalhes de um certificado |
+| GET | `/certificates` | Página de certificados do usuário |
+| GET | `/api/my-certificates` | Lista certificados do usuário (JSON) |
+| GET | `/api/certificates/:id/html` | Gera certificado HTML |
+| GET | `/verificar/:code` | Verificação pública (HTML) |
+| GET | `/api/verify/:code` | Verificação pública (JSON) |
+| GET | `/api/admin/certificates` | Lista todos (Admin) |
+| GET | `/api/admin/certificates/find` | Busca duplicata (Admin) |
+| POST | `/api/admin/certificates` | Criar certificado (Admin) |
+| PUT | `/api/admin/certificates/:id` | Atualizar (Admin) |
+| DELETE | `/api/admin/certificates/:id` | Deletar (Admin) |
 
 #### Administração (Admin apenas)
 | Método | Endpoint | Descrição |
@@ -204,78 +209,164 @@ npx wrangler pages secret put SUPABASE_ANON_KEY
 - ✅ Senhas hash no Supabase (bcrypt)
 - ✅ Rate limiting do Supabase
 
-## 🎓 Sistema de Certificados
+## 🎓 Sistema de Certificados (NOVO - v2.0)
+
+### 🆕 Novidades da Versão 2.0
+
+- ✅ **Certificados em HTML** profissional (não mais imagem estática)
+- ✅ **Geração de PDF** via impressão do navegador
+- ✅ **Código de verificação único** para validação pública
+- ✅ **Página de verificação pública** - `/verificar/:codigo`
+- ✅ **Contador de verificações** - rastreamento de acessos
+- ✅ **Link de compartilhamento** fácil
+- ✅ **Certificados aparecem automaticamente** após login baseado no email
 
 ### Como Funciona
 
-**Para Alunos:**
-1. **Complete o curso**: Assista e marque todas as aulas como concluídas
-2. **Geração automática**: Ao atingir 100% de conclusão, o certificado é gerado automaticamente
-3. **Notificação visual**: Um popup animado aparece comemorando sua conquista
-4. **Acesse seus certificados**: Clique no botão "Certificados" (amarelo) no header
-5. **Visualize/Baixe**: Clique em qualquer certificado para visualizá-lo em alta qualidade
+#### **Para Alunos:**
 
-**Para Administradores:**
-1. **Configure o template**: No painel admin, ao criar/editar um curso
-2. **Upload direto**: Arraste e solte (ou clique para selecionar) a imagem do certificado
-3. **Armazenamento automático**: A imagem é armazenada automaticamente no Supabase Storage
-4. **URL pública gerada**: O sistema gera automaticamente a URL pública do certificado
-5. **Salve**: O template fica vinculado ao curso com URL do Supabase Storage
+1. **Faça login na plataforma**
+   - Use seu email cadastrado
 
-### Recursos do Sistema
+2. **Acesse seus certificados**
+   - Clique no botão **"Certificados"** (amarelo) no header
+   - Ou acesse: `/certificates`
 
-- ✅ **Geração automática** ao completar 100% do curso
-- ✅ **Notificação visual** animada ao gerar certificado
-- ✅ **Página dedicada** para visualizar todos os certificados
-- ✅ **Templates personalizáveis** por curso
-- ✅ **Upload direto no Supabase Storage** (não precisa de serviços externos!)
-- ✅ **Interface drag & drop** para upload de imagens
-- ✅ **Preview da imagem** antes de salvar
-- ✅ **Armazenamento seguro** no Supabase Storage
-- ✅ **URLs públicas** geradas automaticamente
-- ✅ **Dados do certificado**:
-  - Nome do aluno
-  - Título do curso
-  - Data de conclusão
-  - Data de emissão
-- ✅ **Design responsivo** para mobile e desktop
+3. **Visualize seus certificados disponíveis**
+   - Veja todos os cursos que você concluiu
+   - Cada certificado mostra:
+     - Nome do curso
+     - Carga horária
+     - Data de conclusão
+     - Código de verificação único
 
-### Armazenamento de Certificados
+4. **Visualize o certificado**
+   - Clique em **"Visualizar Certificado"**
+   - Abre em nova aba com design profissional
 
-**Supabase Storage** (🆕 Novo!):
-- Bucket: `certificate-templates` (público)
-- Estrutura: `/certificate-templates/{course_id}/{image_name}`
-- Tamanho máximo: 5MB por imagem
-- Formatos aceitos: JPG, PNG, WebP, etc.
-- **Vantagens**:
-  - ✅ Tudo integrado no Supabase
-  - ✅ Sem necessidade de serviços externos
-  - ✅ URLs públicas automáticas
-  - ✅ CDN global do Supabase
-  - ✅ Substituição automática de templates
+5. **Baixe como PDF**
+   - Clique em **"Baixar PDF"**
+   - Use `Ctrl+P` (Windows) ou `Cmd+P` (Mac)
+   - Selecione **"Salvar como PDF"**
+   - Layout: **Paisagem** (Landscape)
+   - Tamanho: **A4**
 
-**Configuração Necessária**:
-1. Criar bucket `certificate-templates` no Supabase Storage (veja `SUPABASE_STORAGE_SETUP.md`)
-2. Configurar como público para acesso sem autenticação
-3. Configurar políticas RLS para upload autenticado
+6. **Compartilhe o link de verificação**
+   - Clique em **"Compartilhar Link"**
+   - Copie o link público
+   - Qualquer pessoa pode verificar a autenticidade
 
-### Tabelas de Banco de Dados
+#### **Para Validação Pública:**
 
-**certificate_templates** (Templates de Certificados):
-- `id`: ID único
-- `course_id`: Referência ao curso
-- `template_url`: URL da imagem no Supabase Storage
-- `created_at`, `updated_at`: Timestamps
+Qualquer pessoa pode verificar a autenticidade de um certificado:
 
-**certificates** (Certificados Emitidos):
+1. **Acesse**: `https://seu-dominio.com/verificar/CCT-2025-XXXXX`
+2. **Veja os dados validados**:
+   - Nome do aluno
+   - Título do curso
+   - Carga horária
+   - Data de conclusão
+   - Data de emissão
+   - Quantas vezes foi verificado
+
+#### **Para Administradores:**
+
+1. **Acesse Admin Panel → Certificados**
+2. **Importe certificados via CSV**
+   - Clique em "Importar CSV de Certificados"
+   - Formato: `user_email; user_name; course_title; carga_horaria`
+   - Sistema previne duplicatas automaticamente
+3. **Visualize códigos de verificação**
+   - Nova coluna mostra código único
+   - Link para verificação pública
+   - Botão para visualizar certificado
+4. **Gerencie certificados**
+   - Filtros por curso e busca
+   - Estatísticas em tempo real
+   - Deletar certificados individualmente
+
+### Recursos do Sistema v2.0
+
+- ✅ **Template HTML profissional** embutido no código
+- ✅ **Design elegante** com bordas duplas e marca d'água
+- ✅ **Código único** formato `CCT-YYYY-XXXXXXXX`
+- ✅ **Verificação pública** sem necessidade de login
+- ✅ **Contador de acessos** para cada certificado
+- ✅ **API JSON** para integração (`/api/verify/:code`)
+- ✅ **Página dedicada** `/certificates` para usuários
+- ✅ **Importação CSV** em massa com prevenção de duplicatas
+- ✅ **Filtros avançados** no admin panel
+- ✅ **Responsivo** para desktop e mobile
+- ✅ **Impressão otimizada** para PDF
+- ✅ **Compartilhamento fácil** via Web Share API
+
+### Design do Certificado
+
+**Layout:**
+- Formato: A4 Landscape (297mm x 210mm)
+- Borda dupla: Externa (cinza escuro) + Interna (azul)
+- Marca d'água: "CCT 2026" diagonal em transparência
+- Fonte: Georgia (serifada, elegante)
+
+**Elementos:**
+- 📋 Header: Logo + "CCT 2026 - Centro de Capacitação Técnica"
+- 🎓 Título: "CERTIFICADO" em destaque
+- 👤 Nome do aluno em azul com linha inferior
+- 📚 Nome do curso em negrito
+- ⏱️ Carga horária, Data de conclusão, Data de emissão
+- ✍️ Linha de assinatura digital
+- 🔐 Código de verificação no rodapé direito
+- 🌐 URL de verificação pública
+
+### Estrutura de Dados
+
+**Tabela: certificates**
 - `id`: ID único
 - `user_email`: Email do usuário
 - `user_name`: Nome do usuário
-- `course_id`: Referência ao curso
+- `course_id`: Referência ao curso (pode ser NULL para importados)
 - `course_title`: Título do curso
 - `issued_at`: Data de emissão
 - `completion_date`: Data de conclusão
-- Constraint: Único por usuário+curso (não pode gerar duplicados)
+- `carga_horaria`: Carga horária em horas
+- `certificate_code`: Código antigo (legacy)
+- `verification_code`: **NOVO** - Código único de verificação
+- `pdf_url`: **NOVO** - URL do PDF (opcional)
+- `is_verified`: **NOVO** - Indica se certificado é válido
+- `verification_count`: **NOVO** - Número de verificações
+- `created_at`, `updated_at`: Timestamps
+
+### Endpoints da API
+
+#### Usuários Autenticados:
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| GET | `/certificates` | Página de certificados do usuário |
+| GET | `/api/my-certificates` | Lista certificados (JSON) |
+| GET | `/api/certificates/:id/html` | Gera HTML do certificado |
+
+#### Públicos (sem autenticação):
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| GET | `/verificar/:code` | Página de verificação HTML |
+| GET | `/api/verify/:code` | Verificação JSON |
+
+#### Admin:
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| GET | `/api/admin/certificates` | Lista todos certificados |
+| GET | `/api/admin/certificates/find` | Busca por email+curso |
+| POST | `/api/admin/certificates` | Criar certificado |
+| PUT | `/api/admin/certificates/:id` | Atualizar certificado |
+| DELETE | `/api/admin/certificates/:id` | Deletar certificado |
+
+### Documentação Completa
+
+Para instruções detalhadas de implantação, consulte:
+📖 **INSTRUCOES_CERTIFICADOS.md**
+
+Para criar contas de autenticação dos usuários certificados:
+📖 **CRIAR_USUARIOS_AUTH.md**
 
 ## 🗄️ Arquitetura de Dados
 
