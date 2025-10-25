@@ -750,8 +750,9 @@ app.post('/api/admin/courses', requireAdmin, async (c) => {
       success: true, 
       course_id: result[0].id
     })
-  } catch (error) {
-    return c.json({ error: 'Failed to create course' }, 500)
+  } catch (error: any) {
+    console.error('Create course error:', error)
+    return c.json({ error: error.message || 'Failed to create course' }, 500)
   }
 })
 
@@ -806,8 +807,9 @@ app.post('/api/admin/modules', requireAdmin, async (c) => {
       success: true, 
       module_id: result[0].id
     })
-  } catch (error) {
-    return c.json({ error: 'Failed to create module' }, 500)
+  } catch (error: any) {
+    console.error('Create module error:', error)
+    return c.json({ error: error.message || 'Failed to create module' }, 500)
   }
 })
 
@@ -881,8 +883,9 @@ app.post('/api/admin/lessons', requireAdmin, async (c) => {
       success: true, 
       lesson_id: result[0].id
     })
-  } catch (error) {
-    return c.json({ error: 'Failed to create lesson' }, 500)
+  } catch (error: any) {
+    console.error('Create lesson error:', error)
+    return c.json({ error: error.message || 'Failed to create lesson' }, 500)
   }
 })
 

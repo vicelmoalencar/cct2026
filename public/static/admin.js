@@ -2063,7 +2063,8 @@ aula,,,,,,,Aula 1: Aviso Prévio,Como calcular aviso prévio,youtube,dQw4w9WgXcQ
   },
   
   parseCSV(csvText) {
-    const lines = csvText.split('\n').filter(line => line.trim())
+    // Remove \r characters and split by \n
+    const lines = csvText.replace(/\r/g, '').split('\n').filter(line => line.trim())
     if (lines.length < 2) {
       alert('❌ Arquivo CSV vazio ou inválido')
       return
