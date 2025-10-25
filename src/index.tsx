@@ -1068,26 +1068,42 @@ app.get('/api/lessons/:id', async (c) => {
 app.post('/api/lessons/:id/comments', async (c) => {
   try {
     const lessonId = c.req.param('id')
-    const { user_name, user_email, comment_text } = await c.req.json()
+    const { comment_text } = await c.req.json()
     
-    if (!user_name || !user_email || !comment_text) {
-      return c.json({ error: 'Missing required fields' }, 400)
+    // Get authenticated user
+    const token = getCookie(c, 'sb-access-token')
+    if (!token) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+    
+    const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    if (!user) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+    
+    if (!comment_text || !comment_text.trim()) {
+      return c.json({ error: 'Comment text is required' }, 400)
     }
     
     const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    // Get user name from user metadata or email
+    const userName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuário'
+    
     const result = await supabase.insert('comments', {
       lesson_id: parseInt(lessonId),
-      user_name,
-      user_email,
-      comment_text
+      user_name: userName,
+      user_email: user.email,
+      comment_text: comment_text.trim()
     })
     
     return c.json({ 
       success: true, 
       comment_id: result[0].id
     })
-  } catch (error) {
-    return c.json({ error: 'Failed to add comment' }, 500)
+  } catch (error: any) {
+    console.error('Add comment error:', error)
+    return c.json({ error: error.message || 'Failed to add comment' }, 500)
   }
 })
 

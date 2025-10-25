@@ -692,15 +692,6 @@ const app = {
                       class="w-full p-2 md:p-3 border border-gray-300 rounded-lg mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm md:text-base"
                       rows="3"
                       placeholder="Digite seu comentário..."></textarea>
-            <div class="flex flex-col sm:flex-row gap-3 mb-3">
-              <input type="text" id="commentName" 
-                     class="flex-1 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm md:text-base"
-                     placeholder="Seu nome">
-              <input type="email" id="commentEmail" 
-                     class="flex-1 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm md:text-base"
-                     placeholder="Seu email"
-                     value="${this.currentUser}">
-            </div>
             <button onclick="app.addComment(${lessonId})"
                     class="w-full sm:w-auto px-4 md:px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors text-sm md:text-base">
               <i class="fas fa-paper-plane mr-2"></i>
@@ -834,26 +825,30 @@ const app = {
   // Add comment
   async addComment(lessonId) {
     const text = document.getElementById('commentText').value.trim()
-    const name = document.getElementById('commentName').value.trim()
-    const email = document.getElementById('commentEmail').value.trim()
     
-    if (!text || !name || !email) {
-      alert('Por favor, preencha todos os campos')
+    if (!text) {
+      alert('Por favor, escreva um comentário')
       return
     }
     
     try {
       await axios.post(`/api/lessons/${lessonId}/comments`, {
-        user_name: name,
-        user_email: email,
         comment_text: text
       })
+      
+      // Clear textarea
+      document.getElementById('commentText').value = ''
       
       // Reload lesson to show new comment
       this.loadLesson(lessonId)
     } catch (error) {
       console.error('Error adding comment:', error)
-      alert('Erro ao adicionar comentário')
+      if (error.response?.status === 401) {
+        alert('Você precisa estar logado para comentar')
+        window.location.href = '/'
+      } else {
+        alert('Erro ao adicionar comentário')
+      }
     }
   },
   
