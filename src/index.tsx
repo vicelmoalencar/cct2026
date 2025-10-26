@@ -399,9 +399,22 @@ app.get('/api/user/access-status', requireAuth, async (c) => {
       email_usuario: userEmail
     })
     
-    const accessType = accessTypeResult && accessTypeResult.length > 0 
-      ? accessTypeResult[0].user_tipo_acesso 
-      : 'SEM_ACESSO'
+    console.log('🔍 Access type result for', userEmail, ':', accessTypeResult)
+    
+    // Handle different return formats from RPC
+    let accessType = 'SEM_ACESSO'
+    if (typeof accessTypeResult === 'string') {
+      // Direct string return
+      accessType = accessTypeResult
+    } else if (Array.isArray(accessTypeResult) && accessTypeResult.length > 0) {
+      // Array return: [{user_tipo_acesso: "COMPLETO"}] or ["COMPLETO"]
+      accessType = accessTypeResult[0].user_tipo_acesso || accessTypeResult[0]
+    } else if (accessTypeResult && typeof accessTypeResult === 'object') {
+      // Object return: {user_tipo_acesso: "COMPLETO"}
+      accessType = accessTypeResult.user_tipo_acesso
+    }
+    
+    console.log('✅ Determined access type:', accessType)
     
     // Get active subscription details
     const activeSubscription = await supabase.query('member_subscriptions', {
