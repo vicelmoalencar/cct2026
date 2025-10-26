@@ -191,13 +191,10 @@ const adminUI = {
   async loadData() {
     try {
       const response = await axios.get('/api/courses')
-      this.courses = response.data.courses
+      this.courses = response.data.courses || []
       
-      // Load modules and lessons for each course
-      for (const course of this.courses) {
-        const detailResponse = await axios.get(`/api/courses/${course.id}`)
-        course.modules = detailResponse.data.modules || []
-      }
+      // Don't load modules here - only load when needed
+      // This significantly improves initial page load time
       
       // Load plans
       try {
