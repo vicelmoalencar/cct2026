@@ -382,6 +382,35 @@ app.post('/api/auth/change-password', async (c) => {
   }
 })
 
+// Get user subscriptions history
+app.get('/api/user/subscriptions', requireAuth, async (c) => {
+  try {
+    const user = c.get('user')
+    const userEmail = user.email
+    
+    if (!userEmail) {
+      return c.json({ error: 'Email do usuário não encontrado' }, 400)
+    }
+    
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    // Buscar todas as assinaturas do usuário
+    const subscriptions = await supabase.query('member_subscriptions', {
+      select: '*',
+      filters: { email_membro: userEmail },
+      order: 'data_expiracao.desc'
+    })
+    
+    return c.json({ 
+      subscriptions: subscriptions || [],
+      total: subscriptions?.length || 0
+    })
+  } catch (error: any) {
+    console.error('Error loading subscriptions:', error)
+    return c.json({ error: error.message || 'Erro ao carregar assinaturas' }, 500)
+  }
+})
+
 // Catch malformed URLs with spaces or duplicates
 app.get('/auth/callback*', async (c) => {
   const fullPath = c.req.path
@@ -3948,6 +3977,24 @@ app.get('/profile', (c) => {
                 </div>
             </div>
 
+            <!-- Subscription History -->
+            <div class="bg-white rounded-xl shadow-md overflow-hidden mb-6">
+                <div class="bg-gradient-to-r from-green-600 to-green-500 px-6 py-4">
+                    <h3 class="text-white font-bold text-lg">
+                        <i class="fas fa-history mr-2"></i>
+                        Histórico de Planos
+                    </h3>
+                </div>
+                <div class="p-6">
+                    <div id="subscriptionHistory">
+                        <div class="text-center py-8 text-gray-500">
+                            <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                            <p>Carregando histórico...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Change Password -->
             <div class="bg-white rounded-xl shadow-md overflow-hidden">
                 <div class="bg-gradient-to-r from-purple-600 to-purple-500 px-6 py-4">
@@ -4049,6 +4096,9 @@ app.get('/profile', (c) => {
                     document.getElementById('userName').textContent = user.user_metadata?.name || 'Usuário'
                     document.getElementById('userEmail').textContent = user.email || ''
                     document.getElementById('userInfo').classList.remove('hidden')
+                    
+                    // Load subscription history
+                    loadSubscriptionHistory(user.email)
                 } else {
                     window.location.href = '/'
                 }
@@ -4056,6 +4106,142 @@ app.get('/profile', (c) => {
                 console.error('Error loading profile:', error)
                 window.location.href = '/'
             }
+        }
+        
+        // Load subscription history
+        async function loadSubscriptionHistory(email) {
+            const container = document.getElementById('subscriptionHistory')
+            
+            try {
+                const response = await axios.get('/api/user/subscriptions')
+                const subscriptions = response.data.subscriptions || []
+                
+                if (subscriptions.length === 0) {
+                    container.innerHTML = \`
+                        <div class="text-center py-8 text-gray-500">
+                            <i class="fas fa-inbox text-4xl mb-3 text-gray-300"></i>
+                            <p class="text-lg font-semibold">Nenhum plano encontrado</p>
+                            <p class="text-sm">Você ainda não possui histórico de assinaturas</p>
+                        </div>
+                    \`
+                    return
+                }
+                
+                // Separar planos ativos e expirados
+                const now = new Date()
+                const activePlans = subscriptions.filter(s => new Date(s.data_expiracao) > now)
+                const expiredPlans = subscriptions.filter(s => new Date(s.data_expiracao) <= now)
+                
+                let html = ''
+                
+                // Mostrar planos ativos primeiro
+                if (activePlans.length > 0) {
+                    html += \`
+                        <div class="mb-6">
+                            <h4 class="text-sm font-bold text-green-700 mb-3 flex items-center gap-2">
+                                <i class="fas fa-check-circle"></i>
+                                Planos Ativos (\${activePlans.length})
+                            </h4>
+                            <div class="space-y-3">
+                                \${activePlans.map(sub => renderSubscription(sub, true)).join('')}
+                            </div>
+                        </div>
+                    \`
+                }
+                
+                // Mostrar planos expirados
+                if (expiredPlans.length > 0) {
+                    html += \`
+                        <div>
+                            <h4 class="text-sm font-bold text-gray-600 mb-3 flex items-center gap-2">
+                                <i class="fas fa-history"></i>
+                                Planos Anteriores (\${expiredPlans.length})
+                            </h4>
+                            <div class="space-y-3">
+                                \${expiredPlans.map(sub => renderSubscription(sub, false)).join('')}
+                            </div>
+                        </div>
+                    \`
+                }
+                
+                container.innerHTML = html
+                
+            } catch (error) {
+                console.error('Error loading subscription history:', error)
+                container.innerHTML = \`
+                    <div class="text-center py-8 text-red-500">
+                        <i class="fas fa-exclamation-triangle text-4xl mb-3"></i>
+                        <p class="text-lg font-semibold">Erro ao carregar histórico</p>
+                        <p class="text-sm">Tente novamente mais tarde</p>
+                    </div>
+                \`
+            }
+        }
+        
+        // Render single subscription
+        function renderSubscription(sub, isActive) {
+            const expirationDate = new Date(sub.data_expiracao)
+            const formattedDate = expirationDate.toLocaleDateString('pt-BR', {
+                day: '2-digit',
+                month: 'long',
+                year: 'numeric'
+            })
+            
+            const daysRemaining = Math.ceil((expirationDate - new Date()) / (1000 * 60 * 60 * 24))
+            
+            const typeIcon = sub.teste_gratis 
+                ? '<i class="fas fa-gift text-yellow-500"></i>'
+                : '<i class="fas fa-crown text-purple-500"></i>'
+            
+            const statusBadge = isActive
+                ? \`<span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                     <i class="fas fa-check-circle"></i> Ativo
+                   </span>\`
+                : \`<span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">
+                     <i class="fas fa-times-circle"></i> Expirado
+                   </span>\`
+            
+            const urgencyClass = isActive && daysRemaining <= 7 
+                ? 'border-l-4 border-red-500 bg-red-50' 
+                : isActive 
+                ? 'border-l-4 border-green-500 bg-green-50' 
+                : 'border-l-4 border-gray-300 bg-gray-50'
+            
+            return \`
+                <div class="p-4 rounded-lg border \${urgencyClass}">
+                    <div class="flex items-start justify-between gap-4">
+                        <div class="flex items-start gap-3 flex-1">
+                            <div class="text-2xl">
+                                \${typeIcon}
+                            </div>
+                            <div class="flex-1">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <h5 class="font-bold text-gray-800">\${sub.detalhe}</h5>
+                                    \${statusBadge}
+                                </div>
+                                <div class="text-sm text-gray-600 space-y-1">
+                                    <p>
+                                        <i class="fas fa-calendar-alt text-gray-400 mr-1"></i>
+                                        <strong>Expira em:</strong> \${formattedDate}
+                                    </p>
+                                    \${isActive ? \`
+                                        <p class="\${daysRemaining <= 7 ? 'text-red-600 font-semibold' : 'text-green-600'}">
+                                            <i class="fas fa-clock text-gray-400 mr-1"></i>
+                                            <strong>Tempo restante:</strong> \${daysRemaining} dia(s)
+                                        </p>
+                                    \` : ''}
+                                    \${sub.teste_gratis ? \`
+                                        <p class="text-yellow-700">
+                                            <i class="fas fa-info-circle mr-1"></i>
+                                            <strong>Tipo:</strong> Teste Grátis (5 dias)
+                                        </p>
+                                    \` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            \`
         }
         
         // Handle profile form submission
