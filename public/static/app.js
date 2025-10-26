@@ -827,33 +827,42 @@ const app = {
               </div>
               
               <div class="max-h-[600px] overflow-y-auto">
-                ${moduleLessons.map((l, index) => `
-                  <button onclick="app.loadLesson(${l.id})"
+                ${moduleLessons.map((l, index) => {
+                  const isFree = l.teste_gratis || l.free_trial || false
+                  const isPremium = !isFree
+                  
+                  return `
+                  <button onclick="accessManager.navigateToLesson(${l.id}, ${JSON.stringify(l).replace(/"/g, '&quot;')})"
+                          data-lesson-id="${l.id}"
+                          data-is-premium="${isPremium}"
                           class="w-full text-left p-4 border-b border-gray-100 transition-all ${
                             l.id === lessonId 
                               ? 'bg-blue-50 border-l-4 border-l-blue-600' 
                               : 'hover:bg-gray-50'
-                          }">
+                          } ${isPremium ? 'border-l-2 border-l-orange-200' : ''}">
                     <div class="flex items-start gap-3">
                       <div class="w-8 h-8 ${
-                        l.id === lessonId ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
+                        l.id === lessonId ? 'bg-blue-600 text-white' : isPremium ? 'bg-orange-100 text-orange-600' : 'bg-gray-200 text-gray-600'
                       } rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm">
                         ${index + 1}
                       </div>
                       <div class="flex-1 min-w-0">
-                        <p class="font-semibold text-gray-800 text-sm mb-1 line-clamp-2">${l.title}</p>
+                        <p class="font-semibold text-gray-800 text-sm mb-1 line-clamp-2">
+                          ${l.title}
+                          ${isPremium ? '<i class="fas fa-lock text-red-500 ml-1 text-xs"></i>' : ''}
+                        </p>
                         <div class="flex items-center gap-3 text-xs text-gray-500">
                           <span><i class="fas fa-clock mr-1"></i>${l.duration_minutes}min</span>
-                          ${l.free_trial ? 
-                            '<span class="text-blue-600 font-semibold"><i class="fas fa-gift mr-1"></i>Grátis</span>' : 
-                            '<span class="text-yellow-600 font-semibold"><i class="fas fa-crown mr-1"></i>Premium</span>'
+                          ${isFree ? 
+                            '<span class="text-green-600 font-semibold"><i class="fas fa-gift mr-1"></i>Grátis</span>' : 
+                            '<span class="text-orange-600 font-semibold"><i class="fas fa-crown mr-1"></i>Premium</span>'
                           }
                         </div>
                       </div>
-                      ${l.id === lessonId ? '<i class="fas fa-play text-blue-600"></i>' : ''}
+                      ${l.id === lessonId ? '<i class="fas fa-play text-blue-600"></i>' : isPremium ? '<i class="fas fa-lock text-orange-500 text-sm"></i>' : ''}
                     </div>
                   </button>
-                `).join('')}
+                `}).join('')}
               </div>
               
               <div class="p-4 bg-gray-50 border-t border-gray-200">
