@@ -868,7 +868,7 @@ const adminUI = {
                         <div class="flex-1 min-w-0">
                           <div class="flex items-center gap-2 mb-1">
                             <h6 class="font-semibold text-gray-800">${lesson.title}</h6>
-                            ${lesson.free_trial ? 
+                            ${(lesson.teste_gratis || lesson.free_trial) ? 
                               '<span class="text-xs bg-blue-500 text-white px-2 py-1 rounded font-semibold"><i class="fas fa-gift mr-1"></i>GRÁTIS</span>' : 
                               '<span class="text-xs bg-yellow-500 text-white px-2 py-1 rounded font-semibold"><i class="fas fa-crown mr-1"></i>PREMIUM</span>'
                             }
@@ -1117,7 +1117,7 @@ const adminUI = {
           <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <label class="flex items-center cursor-pointer">
               <input type="checkbox" id="lessonFreeTrial" 
-                     ${isEdit && lesson.free_trial ? 'checked' : ''}
+                     ${isEdit && (lesson.teste_gratis || lesson.free_trial) ? 'checked' : ''}
                      class="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
               <span class="ml-3">
                 <span class="text-sm font-semibold text-gray-800">

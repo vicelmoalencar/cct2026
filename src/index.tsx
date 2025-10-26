@@ -1043,7 +1043,7 @@ app.post('/api/admin/lessons', requireAdmin, async (c) => {
       video_id: video_id || null,
       duration_minutes: duration_minutes || 0,
       order_index: order_index || 0,
-      free_trial: free_trial || false,
+      teste_gratis: free_trial || false,  // Use teste_gratis column
       support_text: support_text || null,
       transcript: transcript || null,
       attachments: attachments || []
@@ -1086,7 +1086,7 @@ app.put('/api/admin/lessons/:id', requireAdmin, async (c) => {
       video_id: video_id || null,
       duration_minutes,
       order_index,
-      free_trial: free_trial !== undefined ? free_trial : false,
+      teste_gratis: free_trial !== undefined ? free_trial : false,  // Use teste_gratis column
       support_text: support_text || null,
       transcript: transcript || null,
       attachments: attachments || []
