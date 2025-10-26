@@ -3865,8 +3865,8 @@ app.get('/', (c) => {
         <script src="/static/auth.js"></script>
         <script src="/static/admin.js"></script>
         <script src="/static/access-control.js"></script>
-        <script src="/static/search.js"></script>
         <script src="/static/app.js"></script>
+        <script src="/static/search.js"></script>
     </body>
     </html>
   `)

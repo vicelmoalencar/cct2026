@@ -354,7 +354,13 @@ const searchManager = {
   },
   
   // Show search view
-  showSearchView() {
+  async showSearchView() {
+    // Initialize if not already done
+    if (this.allLessons.length === 0) {
+      console.log('🔍 Search not initialized yet, initializing now...')
+      await this.init()
+    }
+    
     // Hide other views
     document.getElementById('coursesView')?.classList.add('hidden')
     document.getElementById('lessonView')?.classList.add('hidden')
@@ -399,21 +405,28 @@ const searchManager = {
 }
 
 // Initialize search after all dependencies are loaded
-window.addEventListener('DOMContentLoaded', () => {
-  // Wait for app and accessManager to be ready
+// Use a simple polling mechanism that works even if DOM is already loaded
+(function initSearchManager() {
+  let attempts = 0
+  const maxAttempts = 50 // 5 seconds
+  
   const checkReady = setInterval(() => {
+    attempts++
+    
     if (typeof app !== 'undefined' && typeof accessManager !== 'undefined') {
       clearInterval(checkReady)
       console.log('🔍 Initializing search manager...')
-      searchManager.init()
+      searchManager.init().then(() => {
+        console.log('✅ Search manager initialized successfully')
+      }).catch(err => {
+        console.error('❌ Search manager initialization failed:', err)
+      })
+    } else if (attempts >= maxAttempts) {
+      clearInterval(checkReady)
+      console.warn('⚠️ Search manager initialization timed out. Dependencies not ready:', {
+        app: typeof app !== 'undefined',
+        accessManager: typeof accessManager !== 'undefined'
+      })
     }
   }, 100)
-  
-  // Timeout after 5 seconds
-  setTimeout(() => {
-    clearInterval(checkReady)
-    if (searchManager.allLessons.length === 0) {
-      console.warn('⚠️ Search manager initialization timed out')
-    }
-  }, 5000)
-})
+})()
