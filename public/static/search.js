@@ -236,6 +236,10 @@ const searchManager = {
     
     if (!resultsContainer) return
     
+    // Get user access type
+    const userAccessType = accessManager?.userAccessStatus?.accessType || 'SEM_ACESSO'
+    const hasFullAccess = userAccessType === 'COMPLETO'
+    
     // Update count
     if (resultsCount) {
       resultsCount.textContent = `${this.searchResults.length} aula${this.searchResults.length !== 1 ? 's' : ''} encontrada${this.searchResults.length !== 1 ? 's' : ''}`
@@ -256,17 +260,25 @@ const searchManager = {
     // Render results
     const resultsHTML = this.searchResults.map(lesson => {
       const isPremium = !lesson.isFree
+      const canAccess = lesson.isFree || hasFullAccess
+      const isBlocked = isPremium && !hasFullAccess
       
       return `
         <div class="bg-white rounded-xl shadow-md hover:shadow-lg transition-all p-6 cursor-pointer border-l-4 ${
           isPremium ? 'border-orange-500' : 'border-green-500'
-        }" onclick="searchManager.openLesson(${lesson.id})">
+        } ${isBlocked ? 'opacity-75 hover:opacity-90' : ''}" 
+             onclick="searchManager.openLesson(${lesson.id})"
+             data-lesson-id="${lesson.id}"
+             data-is-premium="${isPremium}"
+             data-is-blocked="${isBlocked}">
           <div class="flex items-start justify-between gap-4">
             <div class="flex-1">
               <!-- Title and Course -->
               <h3 class="text-lg font-bold text-gray-800 mb-2">
                 ${this.highlightText(lesson.title, this.currentFilters.query)}
-                ${isPremium ? '<i class="fas fa-lock text-orange-500 ml-2 text-sm"></i>' : '<i class="fas fa-gift text-green-500 ml-2 text-sm"></i>'}
+                ${isBlocked ? '<i class="fas fa-lock text-red-500 ml-2 text-sm"></i>' : 
+                  isPremium ? '<i class="fas fa-crown text-orange-500 ml-2 text-sm"></i>' : 
+                  '<i class="fas fa-gift text-green-500 ml-2 text-sm"></i>'}
               </h3>
               
               <!-- Course and Module -->
@@ -288,6 +300,16 @@ const searchManager = {
                 </p>
               ` : ''}
               
+              <!-- Blocked Message -->
+              ${isBlocked ? `
+                <div class="bg-red-50 border border-red-200 rounded-lg p-3 mb-3">
+                  <p class="text-xs text-red-700 flex items-center gap-2">
+                    <i class="fas fa-lock"></i>
+                    <span>Esta aula requer plano ${userAccessType === 'TESTE_GRATIS' ? 'pago' : 'ativo'}. Clique para fazer upgrade.</span>
+                  </p>
+                </div>
+              ` : ''}
+              
               <!-- Meta info -->
               <div class="flex items-center gap-4 text-sm">
                 <span class="flex items-center gap-1 text-gray-600">
@@ -295,11 +317,13 @@ const searchManager = {
                   ${lesson.duration_minutes} min
                 </span>
                 <span class="px-3 py-1 rounded-full text-xs font-semibold ${
-                  isPremium 
-                    ? 'bg-orange-100 text-orange-700' 
-                    : 'bg-green-100 text-green-700'
+                  isBlocked 
+                    ? 'bg-red-100 text-red-700' 
+                    : isPremium 
+                      ? 'bg-orange-100 text-orange-700' 
+                      : 'bg-green-100 text-green-700'
                 }">
-                  ${isPremium ? '👑 PREMIUM' : '🎁 GRÁTIS'}
+                  ${isBlocked ? '🔒 BLOQUEADO' : isPremium ? '👑 PREMIUM' : '🎁 GRÁTIS'}
                 </span>
               </div>
             </div>
@@ -374,12 +398,22 @@ const searchManager = {
   }
 }
 
-// Initialize search when DOM is ready
-if (typeof app !== 'undefined') {
-  // Add to app initialization
-  const originalInit = app.init.bind(app)
-  app.init = async function() {
-    await originalInit()
-    await searchManager.init()
-  }
-}
+// Initialize search after all dependencies are loaded
+window.addEventListener('DOMContentLoaded', () => {
+  // Wait for app and accessManager to be ready
+  const checkReady = setInterval(() => {
+    if (typeof app !== 'undefined' && typeof accessManager !== 'undefined') {
+      clearInterval(checkReady)
+      console.log('🔍 Initializing search manager...')
+      searchManager.init()
+    }
+  }, 100)
+  
+  // Timeout after 5 seconds
+  setTimeout(() => {
+    clearInterval(checkReady)
+    if (searchManager.allLessons.length === 0) {
+      console.warn('⚠️ Search manager initialization timed out')
+    }
+  }, 5000)
+})
