@@ -127,24 +127,22 @@ const accessManager = {
   // Add lock icons and click handlers to lessons
   async attachLessonClickHandlers() {
     // Wait for lessons to be loaded
-    setTimeout(async () => {
+    setTimeout(() => {
       const lessonItems = document.querySelectorAll('.lesson-item')
       
       for (const item of lessonItems) {
+        const isPremium = item.dataset.isPremium === 'true'
         const lessonId = item.dataset.lessonId
+        
         if (!lessonId) continue
         
-        const accessResult = await this.checkLessonAccess(lessonId)
-        
-        if (!accessResult.hasAccess) {
-          // Add lock icon
-          this.addLockIcon(item)
+        // If premium lesson and user doesn't have full access
+        if (isPremium && this.userAccessStatus?.accessType !== 'COMPLETO') {
+          // Add visual styling
+          item.style.opacity = '0.7'
+          item.classList.add('premium-locked')
           
           // Override click handler
-          item.style.cursor = 'not-allowed'
-          item.style.opacity = '0.6'
-          
-          // Remove original onclick
           const originalOnClick = item.getAttribute('onclick')
           item.removeAttribute('onclick')
           
@@ -156,7 +154,7 @@ const accessManager = {
           })
         }
       }
-    }, 1000)
+    }, 500)
   },
   
   // Add lock icon to lesson item

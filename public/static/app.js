@@ -382,19 +382,32 @@ const app = {
                 <div class="p-4 space-y-2">
                   ${(module.lessons || []).map((lesson, lessonIdx) => {
                     const isCompleted = progressMap[lesson.id]
+                    const isFree = lesson.teste_gratis || lesson.free_trial || false
+                    const isPremium = !isFree
+                    
                     return `
                       <div class="lesson-item p-3 rounded-lg border ${isCompleted ? 'completed border-green-300' : 'border-gray-200'} flex items-center justify-between cursor-pointer"
+                           data-lesson-id="${lesson.id}"
+                           data-is-premium="${isPremium}"
                            onclick="app.loadLesson(${lesson.id})">
                         <div class="flex items-center gap-3 flex-1">
                           <div class="w-8 h-8 ${isCompleted ? 'bg-green-500' : 'bg-gray-300'} text-white rounded-full flex items-center justify-center text-sm">
                             ${isCompleted ? '<i class="fas fa-check"></i>' : lessonIdx + 1}
                           </div>
                           <div class="flex-1">
-                            <p class="font-semibold text-gray-800">${lesson.title}</p>
-                            <p class="text-xs text-gray-500">${lesson.duration_minutes} minutos</p>
+                            <p class="font-semibold text-gray-800 lesson-title">
+                              ${lesson.title}
+                              ${isPremium ? '<i class="fas fa-lock text-red-500 ml-2"></i>' : '<i class="fas fa-gift text-green-500 ml-2"></i>'}
+                            </p>
+                            <p class="text-xs text-gray-500">
+                              ${lesson.duration_minutes} minutos
+                              ${isPremium ? ' • <span class="text-orange-600 font-semibold">👑 PREMIUM</span>' : ' • <span class="text-green-600 font-semibold">🎁 GRÁTIS</span>'}
+                            </p>
                           </div>
                         </div>
-                        <i class="fas fa-play-circle text-blue-600 text-xl"></i>
+                        ${isPremium 
+                          ? '<i class="fas fa-lock text-red-500 text-xl"></i>' 
+                          : '<i class="fas fa-play-circle text-blue-600 text-xl"></i>'}
                       </div>
                     `
                   }).join('')}

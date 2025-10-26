@@ -3575,6 +3575,17 @@ app.get('/', (c) => {
           .module-content { display: none; }
           .module-content.active { display: block; }
           
+          /* Premium Locked Lessons */
+          .premium-locked {
+            cursor: not-allowed !important;
+            background-color: #fef3f2 !important;
+            border-color: #fecaca !important;
+          }
+          .premium-locked:hover {
+            background-color: #fee2e2 !important;
+            transform: scale(1.02);
+          }
+          
           /* Line Clamp Utilities */
           .line-clamp-2 {
             display: -webkit-box;
