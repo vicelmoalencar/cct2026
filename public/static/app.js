@@ -59,6 +59,16 @@ const app = {
     adminUI.showAdminPanel()
   },
   
+  // Show search view (safe wrapper)
+  async showSearch() {
+    if (typeof searchManager !== 'undefined') {
+      await searchManager.showSearchView()
+    } else {
+      console.error('searchManager not loaded yet')
+      alert('Sistema de busca está carregando. Tente novamente em alguns segundos.')
+    }
+  },
+  
   // Logout
   async logout() {
     const result = await authManager.logout()
@@ -1065,6 +1075,8 @@ const app = {
     document.getElementById('coursesView').classList.remove('hidden')
     document.getElementById('courseView').classList.add('hidden')
     document.getElementById('lessonView').classList.add('hidden')
+    const searchView = document.getElementById('searchView')
+    if (searchView) searchView.classList.add('hidden')
     this.loadCourses()
   },
   

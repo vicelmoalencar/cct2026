@@ -3690,7 +3690,7 @@ app.get('/', (c) => {
                         </div>
                         
                         <!-- Search Button -->
-                        <button onclick="searchManager.showSearchView()" 
+                        <button onclick="app.showSearch()" 
                                 class="px-3 md:px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-xs md:text-sm font-semibold transition-colors">
                             <i class="fas fa-search"></i>
                             <span class="hidden sm:inline ml-2">Buscar</span>
@@ -3768,7 +3768,7 @@ app.get('/', (c) => {
             
             <!-- View: Search -->
             <div id="searchView" class="hidden">
-                <button onclick="app.showCourses(); document.getElementById('searchView').classList.add('hidden')" 
+                <button onclick="app.showCourses()" 
                         class="mb-4 text-blue-600 hover:text-blue-800 flex items-center gap-2">
                     <i class="fas fa-arrow-left"></i> Voltar aos cursos
                 </button>
