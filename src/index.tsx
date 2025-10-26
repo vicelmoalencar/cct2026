@@ -844,14 +844,16 @@ app.get('/api/admin/check', async (c) => {
 // Create course (admin only)
 app.post('/api/admin/courses', requireAdmin, async (c) => {
   try {
-    const { title, description, duration_hours, instructor } = await c.req.json()
+    const { title, description, duration_hours, instructor, offers_certificate, is_published } = await c.req.json()
     
     const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
     const result = await supabase.insert('courses', {
       title,
       description: description || null,
       duration_hours: duration_hours || 0,
-      instructor: instructor || 'Vicelmo'
+      instructor: instructor || 'Vicelmo',
+      offers_certificate: offers_certificate !== undefined ? offers_certificate : true,
+      is_published: is_published !== undefined ? is_published : true
     })
     
     return c.json({ 
@@ -868,14 +870,16 @@ app.post('/api/admin/courses', requireAdmin, async (c) => {
 app.put('/api/admin/courses/:id', requireAdmin, async (c) => {
   try {
     const courseId = c.req.param('id')
-    const { title, description, duration_hours, instructor } = await c.req.json()
+    const { title, description, duration_hours, instructor, offers_certificate, is_published } = await c.req.json()
     
     const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
     await supabase.update('courses', { id: courseId }, {
       title,
       description: description || null,
       duration_hours: duration_hours || 0,
-      instructor: instructor || 'Vicelmo'
+      instructor: instructor || 'Vicelmo',
+      offers_certificate: offers_certificate !== undefined ? offers_certificate : true,
+      is_published: is_published !== undefined ? is_published : true
     })
     
     return c.json({ success: true })
@@ -2278,9 +2282,28 @@ app.get('/api/courses', async (c) => {
   try {
     const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
     
-    // Get all courses
+    // Check if user is admin
+    const token = getCookie(c, 'sb-access-token')
+    let isAdmin = false
+    
+    if (token) {
+      const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+      if (user) {
+        const adminResult = await supabase.query('admins', {
+          select: 'id',
+          filters: { email: user.email },
+          single: true
+        })
+        isAdmin = !!adminResult
+      }
+    }
+    
+    // Get courses - filter by is_published if not admin
+    const filters = isAdmin ? {} : { is_published: true }
+    
     const courses = await supabase.query('courses', {
       select: '*',
+      filters,
       order: 'created_at.desc'
     })
     

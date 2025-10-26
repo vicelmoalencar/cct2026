@@ -348,7 +348,17 @@ const adminUI = {
             <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
               <div class="flex items-center justify-between">
                 <div class="flex-1">
-                  <h4 class="text-lg font-bold text-gray-800">${course.title}</h4>
+                  <div class="flex items-center gap-2 mb-1">
+                    <h4 class="text-lg font-bold text-gray-800">${course.title}</h4>
+                    ${course.is_published !== false ? 
+                      '<span class="text-xs bg-green-500 text-white px-2 py-1 rounded font-semibold"><i class="fas fa-eye mr-1"></i>PUBLICADO</span>' : 
+                      '<span class="text-xs bg-gray-500 text-white px-2 py-1 rounded font-semibold"><i class="fas fa-eye-slash mr-1"></i>RASCUNHO</span>'
+                    }
+                    ${course.offers_certificate !== false ? 
+                      '<span class="text-xs bg-yellow-500 text-white px-2 py-1 rounded font-semibold"><i class="fas fa-certificate mr-1"></i>CERTIFICADO</span>' : 
+                      ''
+                    }
+                  </div>
                   <p class="text-sm text-gray-600 mt-1">${course.description || 'Sem descrição'}</p>
                   <div class="flex items-center gap-4 mt-2 text-xs text-gray-500">
                     <span><i class="fas fa-user mr-1"></i>${course.instructor}</span>
@@ -434,6 +444,47 @@ const adminUI = {
             </div>
           </div>
           
+          <!-- Course Settings -->
+          <div class="border-2 border-gray-200 rounded-lg p-4 space-y-3 bg-gray-50">
+            <h4 class="text-sm font-bold text-gray-700 mb-3">
+              <i class="fas fa-cog mr-2"></i>Configurações do Curso
+            </h4>
+            
+            <div class="flex items-start">
+              <label class="flex items-center cursor-pointer flex-1">
+                <input type="checkbox" id="courseOffersCertificate" 
+                       ${isEdit && course.offers_certificate !== false ? 'checked' : !isEdit ? 'checked' : ''}
+                       class="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                <span class="ml-3">
+                  <span class="text-sm font-semibold text-gray-800 flex items-center">
+                    <i class="fas fa-certificate text-yellow-500 mr-2"></i>
+                    Oferece Certificado
+                  </span>
+                  <span class="block text-xs text-gray-600 mt-1">
+                    Alunos receberão certificado ao completar 100% do curso
+                  </span>
+                </span>
+              </label>
+            </div>
+            
+            <div class="flex items-start">
+              <label class="flex items-center cursor-pointer flex-1">
+                <input type="checkbox" id="courseIsPublished" 
+                       ${isEdit && course.is_published !== false ? 'checked' : !isEdit ? 'checked' : ''}
+                       class="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                <span class="ml-3">
+                  <span class="text-sm font-semibold text-gray-800 flex items-center">
+                    <i class="fas fa-eye text-green-500 mr-2"></i>
+                    Curso Publicado
+                  </span>
+                  <span class="block text-xs text-gray-600 mt-1">
+                    Curso visível para os alunos (desmarque para manter como rascunho)
+                  </span>
+                </span>
+              </label>
+            </div>
+          </div>
+          
           <div>
             <label class="block text-sm font-semibold text-gray-700 mb-2">
               <i class="fas fa-certificate text-yellow-500 mr-2"></i>
@@ -507,7 +558,9 @@ const adminUI = {
       title: document.getElementById('courseTitle').value,
       description: document.getElementById('courseDescription').value,
       duration_hours: parseInt(document.getElementById('courseDuration').value),
-      instructor: document.getElementById('courseInstructor').value
+      instructor: document.getElementById('courseInstructor').value,
+      offers_certificate: document.getElementById('courseOffersCertificate').checked,
+      is_published: document.getElementById('courseIsPublished').checked
     }
     
     try {
