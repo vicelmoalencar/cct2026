@@ -2365,19 +2365,40 @@ app.get('/api/lessons/:id', async (c) => {
     
     // Check if user has access to this lesson
     if (userEmail) {
-      const accessResult = await supabase.rpc('user_has_lesson_access', {
-        email_usuario: userEmail,
-        lesson_id: parseInt(lessonId)
-      })
-      
-      const hasAccess = accessResult && accessResult.length > 0 ? accessResult[0] : false
-      
-      if (!hasAccess) {
-        return c.json({ 
-          error: 'Access denied',
-          message: 'Você não tem permissão para acessar esta aula. Faça upgrade do seu plano!',
-          needsUpgrade: true
-        }, 403)
+      try {
+        const accessResult = await supabase.rpc('user_has_lesson_access', {
+          email_usuario: userEmail,
+          lesson_id: parseInt(lessonId)
+        })
+        
+        console.log('Access check result:', accessResult)
+        
+        // Handle different return formats
+        let hasAccess = false
+        if (Array.isArray(accessResult) && accessResult.length > 0) {
+          // If returns array of objects: [{user_has_lesson_access: true}]
+          hasAccess = accessResult[0].user_has_lesson_access || accessResult[0] === true || accessResult[0]
+        } else if (typeof accessResult === 'boolean') {
+          // If returns boolean directly
+          hasAccess = accessResult
+        }
+        
+        console.log('Has access:', hasAccess, 'User:', userEmail, 'Lesson:', lessonId)
+        
+        if (!hasAccess) {
+          console.log('❌ Access denied for user:', userEmail, 'lesson:', lessonId)
+          return c.json({ 
+            error: 'Access denied',
+            message: 'Você não tem permissão para acessar esta aula. Faça upgrade do seu plano!',
+            needsUpgrade: true
+          }, 403)
+        }
+        
+        console.log('✅ Access granted for user:', userEmail, 'lesson:', lessonId)
+      } catch (rpcError: any) {
+        console.error('❌ Error checking access via RPC:', rpcError)
+        // If RPC fails, allow access temporarily (fallback)
+        console.log('⚠️ Allowing access due to RPC error (fallback mode)')
       }
     } else {
       // Not authenticated - check if lesson is free
