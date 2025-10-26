@@ -163,6 +163,22 @@ app.post('/api/auth/register', async (c) => {
       return c.json({ error: data.error_description || 'Registration failed' }, 400)
     }
     
+    // Create user record in users table
+    try {
+      const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+      await supabase.insert('users', {
+        email,
+        nome: name,
+        ativo: true,
+        teste_gratis: false
+      })
+      console.log('✅ User record created in users table:', email)
+    } catch (userError) {
+      console.error('❌ Failed to create user record:', userError)
+      // Don't fail registration if user table insert fails
+      // The auth user was already created successfully
+    }
+    
     return c.json({ 
       success: true,
       message: 'Registration successful. Please check your email to confirm.',
@@ -215,7 +231,127 @@ app.get('/api/auth/me', async (c) => {
   return c.json({ user })
 })
 
-// Update user profile (name)
+// Get user profile data from users table
+app.get('/api/user/profile', async (c) => {
+  try {
+    const token = getCookie(c, 'sb-access-token')
+    
+    if (!token) {
+      return c.json({ error: 'Não autenticado' }, 401)
+    }
+    
+    const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    if (!user) {
+      return c.json({ error: 'Usuário não encontrado' }, 404)
+    }
+    
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    const userProfile = await supabase.query('users', {
+      select: '*',
+      filters: { email: user.email },
+      single: true
+    })
+    
+    if (!userProfile) {
+      // Create user profile if doesn't exist
+      await supabase.insert('users', {
+        email: user.email,
+        nome: user.user_metadata?.name || '',
+        ativo: true,
+        teste_gratis: false
+      })
+      
+      // Fetch again
+      const newProfile = await supabase.query('users', {
+        select: '*',
+        filters: { email: user.email },
+        single: true
+      })
+      
+      return c.json({ profile: newProfile })
+    }
+    
+    return c.json({ profile: userProfile })
+  } catch (error) {
+    console.error('Error fetching user profile:', error)
+    return c.json({ error: 'Erro ao buscar perfil' }, 500)
+  }
+})
+
+// Update user profile (complete data)
+app.put('/api/user/profile', async (c) => {
+  try {
+    const token = getCookie(c, 'sb-access-token')
+    
+    if (!token) {
+      return c.json({ error: 'Não autenticado' }, 401)
+    }
+    
+    const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    if (!user) {
+      return c.json({ error: 'Usuário não encontrado' }, 404)
+    }
+    
+    const {
+      nome,
+      first_name,
+      last_name,
+      cpf,
+      telefone,
+      whatsapp,
+      end_cep,
+      end_logradouro,
+      end_numero,
+      end_cidade,
+      end_estado
+    } = await c.req.json()
+    
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    // Update users table
+    await supabase.update('users', { email: user.email }, {
+      nome: nome || null,
+      first_name: first_name || null,
+      last_name: last_name || null,
+      cpf: cpf || null,
+      telefone: telefone || null,
+      whatsapp: whatsapp || null,
+      end_cep: end_cep || null,
+      end_logradouro: end_logradouro || null,
+      end_numero: end_numero || null,
+      end_cidade: end_cidade || null,
+      end_estado: end_estado || null,
+      updated_at: new Date().toISOString()
+    })
+    
+    // Also update auth user metadata with name
+    if (nome) {
+      await fetch(`${c.env.SUPABASE_URL}/auth/v1/user`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'apikey': c.env.SUPABASE_ANON_KEY
+        },
+        body: JSON.stringify({
+          data: { name: nome.trim() }
+        })
+      })
+    }
+    
+    return c.json({ 
+      success: true,
+      message: 'Perfil atualizado com sucesso!'
+    })
+  } catch (error) {
+    console.error('Error updating user profile:', error)
+    return c.json({ error: 'Erro ao atualizar perfil' }, 500)
+  }
+})
+
+// Update user profile (name only - legacy endpoint)
 app.put('/api/auth/profile', async (c) => {
   try {
     const token = getCookie(c, 'sb-access-token')
@@ -4223,18 +4359,8 @@ app.get('/profile', (c) => {
                     </h3>
                 </div>
                 <div class="p-6">
-                    <form id="profileForm" class="space-y-4">
-                        <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                <i class="fas fa-user mr-1 text-blue-600"></i> Nome Completo
-                            </label>
-                            <input type="text" 
-                                   id="profileName" 
-                                   required
-                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                   placeholder="Seu nome completo">
-                        </div>
-                        
+                    <form id="profileForm" class="space-y-6">
+                        <!-- Email (readonly) -->
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">
                                 <i class="fas fa-envelope mr-1 text-blue-600"></i> Email
@@ -4247,6 +4373,163 @@ app.get('/profile', (c) => {
                             <p class="text-xs text-gray-500 mt-1">
                                 <i class="fas fa-info-circle"></i> O email não pode ser alterado
                             </p>
+                        </div>
+                        
+                        <!-- Personal Information -->
+                        <div class="border-t pt-4">
+                            <h4 class="text-md font-bold text-gray-700 mb-4">
+                                <i class="fas fa-id-card mr-2 text-blue-600"></i>Informações Pessoais
+                            </h4>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="md:col-span-2">
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                        <i class="fas fa-user mr-1 text-blue-600"></i> Nome Completo
+                                    </label>
+                                    <input type="text" 
+                                           id="profileNome" 
+                                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                           placeholder="Seu nome completo">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                        <i class="fas fa-user mr-1 text-blue-600"></i> Primeiro Nome
+                                    </label>
+                                    <input type="text" 
+                                           id="profileFirstName" 
+                                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                           placeholder="Primeiro nome">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                        <i class="fas fa-user mr-1 text-blue-600"></i> Sobrenome
+                                    </label>
+                                    <input type="text" 
+                                           id="profileLastName" 
+                                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                           placeholder="Sobrenome">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                        <i class="fas fa-id-card mr-1 text-blue-600"></i> CPF
+                                    </label>
+                                    <input type="text" 
+                                           id="profileCPF" 
+                                           maxlength="14"
+                                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                           placeholder="000.000.000-00">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                        <i class="fas fa-phone mr-1 text-blue-600"></i> Telefone
+                                    </label>
+                                    <input type="text" 
+                                           id="profileTelefone" 
+                                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                           placeholder="(00) 0000-0000">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                        <i class="fab fa-whatsapp mr-1 text-green-600"></i> WhatsApp
+                                    </label>
+                                    <input type="text" 
+                                           id="profileWhatsapp" 
+                                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                           placeholder="(00) 00000-0000">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Address Information -->
+                        <div class="border-t pt-4">
+                            <h4 class="text-md font-bold text-gray-700 mb-4">
+                                <i class="fas fa-map-marker-alt mr-2 text-blue-600"></i>Endereço
+                            </h4>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                        <i class="fas fa-map-pin mr-1 text-blue-600"></i> CEP
+                                    </label>
+                                    <input type="text" 
+                                           id="profileCEP" 
+                                           maxlength="9"
+                                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                           placeholder="00000-000">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                        <i class="fas fa-road mr-1 text-blue-600"></i> Logradouro
+                                    </label>
+                                    <input type="text" 
+                                           id="profileLogradouro" 
+                                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                           placeholder="Rua, Avenida, etc.">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                        <i class="fas fa-hashtag mr-1 text-blue-600"></i> Número
+                                    </label>
+                                    <input type="text" 
+                                           id="profileNumero" 
+                                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                           placeholder="Número">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                        <i class="fas fa-city mr-1 text-blue-600"></i> Cidade
+                                    </label>
+                                    <input type="text" 
+                                           id="profileCidade" 
+                                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                           placeholder="Cidade">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                        <i class="fas fa-map mr-1 text-blue-600"></i> Estado
+                                    </label>
+                                    <select id="profileEstado" 
+                                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <option value="">Selecione</option>
+                                        <option value="AC">Acre</option>
+                                        <option value="AL">Alagoas</option>
+                                        <option value="AP">Amapá</option>
+                                        <option value="AM">Amazonas</option>
+                                        <option value="BA">Bahia</option>
+                                        <option value="CE">Ceará</option>
+                                        <option value="DF">Distrito Federal</option>
+                                        <option value="ES">Espírito Santo</option>
+                                        <option value="GO">Goiás</option>
+                                        <option value="MA">Maranhão</option>
+                                        <option value="MT">Mato Grosso</option>
+                                        <option value="MS">Mato Grosso do Sul</option>
+                                        <option value="MG">Minas Gerais</option>
+                                        <option value="PA">Pará</option>
+                                        <option value="PB">Paraíba</option>
+                                        <option value="PR">Paraná</option>
+                                        <option value="PE">Pernambuco</option>
+                                        <option value="PI">Piauí</option>
+                                        <option value="RJ">Rio de Janeiro</option>
+                                        <option value="RN">Rio Grande do Norte</option>
+                                        <option value="RS">Rio Grande do Sul</option>
+                                        <option value="RO">Rondônia</option>
+                                        <option value="RR">Roraima</option>
+                                        <option value="SC">Santa Catarina</option>
+                                        <option value="SP">São Paulo</option>
+                                        <option value="SE">Sergipe</option>
+                                        <option value="TO">Tocantins</option>
+                                    </select>
+                                </div>
+                            </div>
                         </div>
                         
                         <button type="submit" 
@@ -4365,29 +4648,76 @@ app.get('/profile', (c) => {
         // Load user data
         async function loadUserProfile() {
             try {
-                const response = await axios.get('/api/auth/me')
+                const authResponse = await axios.get('/api/auth/me')
                 
-                if (response.data.user) {
-                    const user = response.data.user
-                    
-                    // Update profile form
-                    document.getElementById('profileName').value = user.user_metadata?.name || ''
-                    document.getElementById('profileEmail').value = user.email || ''
-                    
-                    // Update header
-                    document.getElementById('userName').textContent = user.user_metadata?.name || 'Usuário'
-                    document.getElementById('userEmail').textContent = user.email || ''
-                    document.getElementById('userInfo').classList.remove('hidden')
-                    
-                    // Load subscription history
-                    loadSubscriptionHistory(user.email)
-                } else {
+                if (!authResponse.data.user) {
                     window.location.href = '/'
+                    return
                 }
+                
+                const user = authResponse.data.user
+                
+                // Update header
+                document.getElementById('userName').textContent = user.user_metadata?.name || 'Usuário'
+                document.getElementById('userEmail').textContent = user.email || ''
+                document.getElementById('userInfo').classList.remove('hidden')
+                
+                // Load full profile from users table
+                try {
+                    const profileResponse = await axios.get('/api/user/profile')
+                    const profile = profileResponse.data.profile || {}
+                    
+                    // Fill all form fields
+                    document.getElementById('profileEmail').value = user.email || ''
+                    document.getElementById('profileNome').value = profile.nome || ''
+                    document.getElementById('profileFirstName').value = profile.first_name || ''
+                    document.getElementById('profileLastName').value = profile.last_name || ''
+                    document.getElementById('profileCPF').value = profile.cpf || ''
+                    document.getElementById('profileTelefone').value = profile.telefone || ''
+                    document.getElementById('profileWhatsapp').value = profile.whatsapp || ''
+                    document.getElementById('profileCEP').value = profile.end_cep || ''
+                    document.getElementById('profileLogradouro').value = profile.end_logradouro || ''
+                    document.getElementById('profileNumero').value = profile.end_numero || ''
+                    document.getElementById('profileCidade').value = profile.end_cidade || ''
+                    document.getElementById('profileEstado').value = profile.end_estado || ''
+                    
+                    // Add CPF and CEP masks
+                    addInputMasks()
+                } catch (profileError) {
+                    console.error('Error loading profile data:', profileError)
+                    // Continue anyway with basic info
+                    document.getElementById('profileEmail').value = user.email || ''
+                }
+                
+                // Load subscription history
+                loadSubscriptionHistory(user.email)
             } catch (error) {
                 console.error('Error loading profile:', error)
                 window.location.href = '/'
             }
+        }
+        
+        // Add input masks
+        function addInputMasks() {
+            // CPF mask
+            const cpfInput = document.getElementById('profileCPF')
+            cpfInput.addEventListener('input', (e) => {
+                let value = e.target.value.replace(/\\D/g, '')
+                if (value.length > 11) value = value.slice(0, 11)
+                value = value.replace(/(\\d{3})(\\d)/, '$1.$2')
+                value = value.replace(/(\\d{3})(\\d)/, '$1.$2')
+                value = value.replace(/(\\d{3})(\\d{1,2})$/, '$1-$2')
+                e.target.value = value
+            })
+            
+            // CEP mask
+            const cepInput = document.getElementById('profileCEP')
+            cepInput.addEventListener('input', (e) => {
+                let value = e.target.value.replace(/\\D/g, '')
+                if (value.length > 8) value = value.slice(0, 8)
+                value = value.replace(/(\\d{5})(\\d)/, '$1-$2')
+                e.target.value = value
+            })
         }
         
         // Load subscription history
@@ -4530,25 +4860,33 @@ app.get('/profile', (c) => {
         profileForm.addEventListener('submit', async (e) => {
             e.preventDefault()
             
-            const name = document.getElementById('profileName').value.trim()
-            
-            if (!name) {
-                showMessage('❌ Por favor, preencha seu nome', true)
-                return
-            }
-            
             profileSubmitBtn.disabled = true
             profileSubmitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...'
             
             try {
-                const response = await axios.put('/api/auth/profile', { name })
+                const profileData = {
+                    nome: document.getElementById('profileNome').value.trim(),
+                    first_name: document.getElementById('profileFirstName').value.trim(),
+                    last_name: document.getElementById('profileLastName').value.trim(),
+                    cpf: document.getElementById('profileCPF').value.trim(),
+                    telefone: document.getElementById('profileTelefone').value.trim(),
+                    whatsapp: document.getElementById('profileWhatsapp').value.trim(),
+                    end_cep: document.getElementById('profileCEP').value.trim(),
+                    end_logradouro: document.getElementById('profileLogradouro').value.trim(),
+                    end_numero: document.getElementById('profileNumero').value.trim(),
+                    end_cidade: document.getElementById('profileCidade').value.trim(),
+                    end_estado: document.getElementById('profileEstado').value
+                }
+                
+                const response = await axios.put('/api/user/profile', profileData)
                 
                 if (response.data.success) {
                     showMessage('✅ ' + response.data.message, false)
-                    document.getElementById('userName').textContent = name
                     
-                    // Reload user data
-                    await loadUserProfile()
+                    // Update header name if changed
+                    if (profileData.nome) {
+                        document.getElementById('userName').textContent = profileData.nome
+                    }
                 }
             } catch (error) {
                 const errorMessage = error.response?.data?.error || 'Erro ao atualizar perfil'
