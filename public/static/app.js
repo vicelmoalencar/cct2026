@@ -420,6 +420,13 @@ const app = {
       
       this.showCourseView()
       this.hideLoadingState()
+      
+      // Apply access control to lessons after loading
+      if (typeof accessManager !== 'undefined') {
+        setTimeout(() => {
+          accessManager.attachLessonClickHandlers()
+        }, 300)
+      }
     } catch (error) {
       console.error('Error loading course:', error)
       this.hideLoadingState()

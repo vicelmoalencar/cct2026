@@ -130,28 +130,43 @@ const accessManager = {
     setTimeout(() => {
       const lessonItems = document.querySelectorAll('.lesson-item')
       
+      console.log('🔍 Attaching click handlers to', lessonItems.length, 'lessons')
+      console.log('👤 User access status:', this.userAccessStatus)
+      
       for (const item of lessonItems) {
         const isPremium = item.dataset.isPremium === 'true'
         const lessonId = item.dataset.lessonId
         
         if (!lessonId) continue
         
+        console.log(`Lesson ${lessonId}: isPremium=${isPremium}, accessType=${this.userAccessStatus?.accessType}`)
+        
         // If premium lesson and user doesn't have full access
         if (isPremium && this.userAccessStatus?.accessType !== 'COMPLETO') {
+          console.log(`🔒 BLOCKING lesson ${lessonId}`)
+          
           // Add visual styling
           item.style.opacity = '0.7'
           item.classList.add('premium-locked')
           
-          // Override click handler
-          const originalOnClick = item.getAttribute('onclick')
+          // Override click handler - IMPORTANT: Use onclick attribute AND addEventListener
+          item.onclick = null // Remove inline onclick
           item.removeAttribute('onclick')
           
+          // Remove any existing listeners by cloning
+          const newItem = item.cloneNode(true)
+          item.parentNode.replaceChild(newItem, item)
+          
           // Add new click handler that shows modal
-          item.addEventListener('click', (e) => {
+          newItem.addEventListener('click', (e) => {
             e.preventDefault()
             e.stopPropagation()
+            console.log('🚫 Blocked click on premium lesson', lessonId)
             this.showUpgradeModal()
-          })
+            return false
+          }, true) // Use capture phase
+        } else {
+          console.log(`✅ Lesson ${lessonId} is accessible`)
         }
       }
     }, 500)
