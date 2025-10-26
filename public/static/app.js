@@ -650,23 +650,37 @@ const app = {
             ${previousLesson || nextLesson ? `
               <div class="grid grid-cols-2 gap-4">
                 ${previousLesson ? `
-                  <button onclick="app.loadLesson(${previousLesson.id})"
-                          class="flex items-center gap-3 bg-white rounded-xl shadow-md p-4 hover:shadow-lg transition-all group">
+                  <button onclick="accessManager.navigateToLesson(${previousLesson.id}, ${JSON.stringify(previousLesson).replace(/"/g, '&quot;')})"
+                          data-lesson-id="${previousLesson.id}"
+                          data-is-premium="${!previousLesson.teste_gratis && !previousLesson.free_trial}"
+                          class="flex items-center gap-3 bg-white rounded-xl shadow-md p-4 hover:shadow-lg transition-all group ${(!previousLesson.teste_gratis && !previousLesson.free_trial) ? 'border-2 border-orange-200' : ''}">
                     <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center group-hover:bg-blue-200 transition-colors">
                       <i class="fas fa-chevron-left text-blue-600"></i>
                     </div>
                     <div class="flex-1 text-left">
-                      <p class="text-xs text-gray-500 mb-1">Anterior</p>
+                      <p class="text-xs text-gray-500 mb-1 flex items-center gap-2">
+                        Anterior
+                        ${(!previousLesson.teste_gratis && !previousLesson.free_trial) 
+                          ? '<i class="fas fa-lock text-red-500 text-xs"></i>' 
+                          : '<i class="fas fa-gift text-green-500 text-xs"></i>'}
+                      </p>
                       <p class="text-sm font-semibold text-gray-800 line-clamp-2">${previousLesson.title}</p>
                     </div>
                   </button>
                 ` : '<div></div>'}
                 
                 ${nextLesson ? `
-                  <button onclick="app.loadLesson(${nextLesson.id})"
-                          class="flex items-center gap-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl shadow-md p-4 hover:shadow-lg transition-all group">
+                  <button onclick="accessManager.navigateToLesson(${nextLesson.id}, ${JSON.stringify(nextLesson).replace(/"/g, '&quot;')})"
+                          data-lesson-id="${nextLesson.id}"
+                          data-is-premium="${!nextLesson.teste_gratis && !nextLesson.free_trial}"
+                          class="flex items-center gap-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl shadow-md p-4 hover:shadow-lg transition-all group ${(!nextLesson.teste_gratis && !nextLesson.free_trial) ? 'border-2 border-orange-300' : ''}">
                     <div class="flex-1 text-left">
-                      <p class="text-xs text-blue-100 mb-1">Próxima</p>
+                      <p class="text-xs text-blue-100 mb-1 flex items-center gap-2">
+                        Próxima
+                        ${(!nextLesson.teste_gratis && !nextLesson.free_trial) 
+                          ? '<i class="fas fa-lock text-white text-xs"></i>' 
+                          : '<i class="fas fa-gift text-white text-xs"></i>'}
+                      </p>
                       <p class="text-sm font-semibold line-clamp-2">${nextLesson.title}</p>
                     </div>
                     <div class="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center group-hover:bg-opacity-30 transition-colors">

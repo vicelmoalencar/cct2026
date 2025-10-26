@@ -12,6 +12,44 @@ const accessManager = {
     this.attachLessonClickHandlers()
   },
   
+  // Check if user can access a specific lesson
+  canAccessLesson(lesson) {
+    if (!lesson) return false
+    
+    // Free lessons are always accessible
+    const isFree = lesson.teste_gratis || lesson.free_trial || false
+    if (isFree) return true
+    
+    // Premium lessons require COMPLETO access
+    return this.userAccessStatus?.accessType === 'COMPLETO'
+  },
+  
+  // Safe navigation to lesson - checks access before loading
+  async navigateToLesson(lessonId, lesson = null) {
+    console.log('🔍 Attempting to navigate to lesson:', lessonId)
+    
+    // If we don't have lesson data, we need to check via API
+    if (!lesson) {
+      // Try to load the lesson - backend will block if no access
+      if (typeof app !== 'undefined') {
+        app.loadLesson(lessonId)
+      }
+      return
+    }
+    
+    // Check if user can access this lesson
+    if (!this.canAccessLesson(lesson)) {
+      console.log('🚫 Access denied - showing upgrade modal')
+      this.showUpgradeModal()
+      return
+    }
+    
+    console.log('✅ Access granted - loading lesson')
+    if (typeof app !== 'undefined') {
+      app.loadLesson(lessonId)
+    }
+  },
+  
   // Load user access status from API
   async loadUserAccessStatus() {
     try {
