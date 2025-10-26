@@ -28,7 +28,14 @@ window.searchManager = {
       
       // Get all courses
       const coursesResponse = await axios.get('/api/courses')
-      const courses = coursesResponse.data
+      const courses = coursesResponse.data.courses || coursesResponse.data
+      
+      console.log('📚 Courses loaded:', courses.length, 'courses')
+      
+      if (!Array.isArray(courses)) {
+        console.error('❌ courses is not an array:', courses)
+        throw new Error('API returned invalid courses data')
+      }
       
       this.allLessons = []
       
