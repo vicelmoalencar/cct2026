@@ -103,29 +103,29 @@ async function getUserAccessType(email: string, supabaseUrl: string, supabaseKey
     
     // Verificar plano pago ativo
     const planoPago = await supabase.query('member_subscriptions', {
-      select: 'id',
+      select: 'id, data_expiracao',
       filters: { 
-        user_email: email,
+        email_membro: email,
         teste_gratis: false
       },
       single: true
     })
     
-    if (planoPago && new Date(planoPago.expires_at) > new Date()) {
+    if (planoPago && new Date(planoPago.data_expiracao) > new Date()) {
       return 'COMPLETO'
     }
     
     // Verificar teste grátis ativo
     const testeGratis = await supabase.query('member_subscriptions', {
-      select: 'id',
+      select: 'id, data_expiracao',
       filters: { 
-        user_email: email,
+        email_membro: email,
         teste_gratis: true
       },
       single: true
     })
     
-    if (testeGratis && new Date(testeGratis.expires_at) > new Date()) {
+    if (testeGratis && new Date(testeGratis.data_expiracao) > new Date()) {
       return 'TESTE_GRATIS'
     }
     
@@ -248,23 +248,23 @@ app.get('/api/user/access-status', requireAuth, async (c) => {
     // Buscar detalhes das assinaturas
     const subscriptions = await supabase.query('member_subscriptions', {
       select: '*',
-      filters: { user_email: user.email },
-      order: 'expires_at.desc'
+      filters: { email_membro: user.email },
+      order: 'data_expiracao.desc'
     })
     
     const planoPagoAtivo = subscriptions?.find(s => 
-      !s.teste_gratis && new Date(s.expires_at) > new Date()
+      !s.teste_gratis && new Date(s.data_expiracao) > new Date()
     )
     
     const testeGratisAtivo = subscriptions?.find(s => 
-      s.teste_gratis && new Date(s.expires_at) > new Date()
+      s.teste_gratis && new Date(s.data_expiracao) > new Date()
     )
     
     return c.json({
       tipo_acesso: accessType,
       plano_pago_ativo: !!planoPagoAtivo,
       teste_gratis_ativo: !!testeGratisAtivo,
-      expira_em: planoPagoAtivo?.expires_at || testeGratisAtivo?.expires_at || null,
+      expira_em: planoPagoAtivo?.data_expiracao || testeGratisAtivo?.data_expiracao || null,
       plano_atual: planoPagoAtivo?.detalhe || testeGratisAtivo?.detalhe || null,
       mensagem: {
         'COMPLETO': '✅ Você tem acesso completo a todos os cursos',
@@ -421,7 +421,7 @@ function showUpgradeModal() {
 ### **1. Teste com Usuário de Teste Grátis**
 ```sql
 -- Criar usuário de teste
-INSERT INTO member_subscriptions (user_email, detalhe, teste_gratis, expires_at)
+INSERT INTO member_subscriptions (email_membro, detalhe, teste_gratis, data_expiracao)
 VALUES ('teste@exemplo.com', 'Teste grátis 5 dias', TRUE, CURRENT_TIMESTAMP + INTERVAL '5 days');
 
 -- Verificar tipo de acesso
@@ -437,7 +437,7 @@ SELECT user_tipo_acesso('teste@exemplo.com');
 ### **2. Teste com Usuário Pago**
 ```sql
 -- Criar assinatura paga
-INSERT INTO member_subscriptions (user_email, detalhe, teste_gratis, expires_at)
+INSERT INTO member_subscriptions (email_membro, detalhe, teste_gratis, data_expiracao)
 VALUES ('pago@exemplo.com', 'Transação Hotmart - HP123456', FALSE, CURRENT_TIMESTAMP + INTERVAL '365 days');
 
 -- Verificar tipo de acesso
@@ -453,7 +453,7 @@ SELECT user_tipo_acesso('pago@exemplo.com');
 ### **3. Teste com Usuário Expirado**
 ```sql
 -- Assinatura expirada
-INSERT INTO member_subscriptions (user_email, detalhe, teste_gratis, expires_at)
+INSERT INTO member_subscriptions (email_membro, detalhe, teste_gratis, data_expiracao)
 VALUES ('expirado@exemplo.com', 'Transação Hotmart - HP654321', FALSE, CURRENT_TIMESTAMP - INTERVAL '10 days');
 
 -- Verificar tipo de acesso
@@ -472,11 +472,11 @@ SELECT user_tipo_acesso('expirado@exemplo.com');
 
 ```sql
 -- Ver todos os usuários com teste grátis ativo
-SELECT user_email, detalhe, expires_at
+SELECT email_membro, detalhe, data_expiracao
 FROM member_subscriptions
 WHERE teste_gratis = TRUE
-  AND expires_at > CURRENT_TIMESTAMP
-ORDER BY expires_at;
+  AND data_expiracao > CURRENT_TIMESTAMP
+ORDER BY data_expiracao;
 
 -- Ver estatísticas de acesso
 SELECT 
