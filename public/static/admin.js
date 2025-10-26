@@ -297,7 +297,7 @@ const adminUI = {
   },
   
   // Switch between tabs
-  switchTab(tab) {
+  async switchTab(tab) {
     this.currentView = tab
     
     // Update tab styles
@@ -316,7 +316,7 @@ const adminUI = {
     // Render content
     if (tab === 'courses') this.renderCoursesTab()
     if (tab === 'modules') this.renderModulesTab()
-    if (tab === 'lessons') this.renderLessonsTab()
+    if (tab === 'lessons') await this.renderLessonsTab()  // Async: loads modules with lessons
     if (tab === 'plans') this.renderPlansTab()
     if (tab === 'subscriptions') this.renderSubscriptionsTab()
     if (tab === 'certificates') this.renderCertificatesTab()
@@ -802,9 +802,25 @@ const adminUI = {
   },
   
   // Render lessons tab
-  renderLessonsTab() {
+  async renderLessonsTab() {
     const content = document.getElementById('adminContent')
     
+    // Show loading state
+    content.innerHTML = `
+      <div class="bg-white rounded-lg shadow-md p-6">
+        <div class="flex items-center justify-center py-12">
+          <div class="text-center">
+            <i class="fas fa-spinner fa-spin text-4xl text-blue-600 mb-4"></i>
+            <p class="text-gray-600">Carregando aulas...</p>
+          </div>
+        </div>
+      </div>
+    `
+    
+    // Load modules with lessons for all courses
+    await this.loadModulesWithLessons()
+    
+    // Now render the full content
     content.innerHTML = `
       <div class="bg-white rounded-lg shadow-md p-6">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
@@ -866,6 +882,20 @@ const adminUI = {
     `
     
     this.updateLessonCount()
+  },
+  
+  // Load modules with lessons for all courses (lazy loading)
+  async loadModulesWithLessons() {
+    try {
+      for (const course of this.courses) {
+        if (!course.modules || course.modules.length === 0) {
+          const detailResponse = await axios.get(`/api/courses/${course.id}`)
+          course.modules = detailResponse.data.modules || []
+        }
+      }
+    } catch (error) {
+      console.error('Error loading modules with lessons:', error)
+    }
   },
   
   // Render lessons organized by course and module
@@ -1298,7 +1328,7 @@ const adminUI = {
       // Clear attachments cache
       this.currentAttachments = []
       await this.loadData()
-      this.renderLessonsTab()
+      await this.renderLessonsTab()
     } catch (error) {
       alert('❌ Erro ao salvar aula: ' + (error.response?.data?.error || error.message))
     }
@@ -1314,7 +1344,7 @@ const adminUI = {
       await adminManager.deleteLesson(id)
       alert('✅ Aula excluída com sucesso!')
       await this.loadData()
-      this.renderLessonsTab()
+      await this.renderLessonsTab()
     } catch (error) {
       alert('❌ Erro ao excluir aula: ' + (error.response?.data?.error || error.message))
     }
@@ -1333,7 +1363,7 @@ const adminUI = {
   
   async reloadAndShowLessons() {
     await this.loadData()
-    this.renderLessonsTab()
+    await this.renderLessonsTab()
   },
   
   // File handling methods
