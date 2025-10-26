@@ -509,6 +509,17 @@ const app = {
       this.currentLesson = lessonId
       
       const response = await axios.get(`/api/lessons/${lessonId}`)
+      
+      // Check if access was denied (403)
+      if (response.status === 403 || response.data.error === 'Access denied') {
+        // Show upgrade modal
+        if (typeof accessManager !== 'undefined') {
+          accessManager.showUpgradeModal()
+        }
+        this.showCourses()
+        return
+      }
+      
       const { lesson, comments } = response.data
       
       // Get course info with all modules and lessons
@@ -828,7 +839,19 @@ const app = {
     } catch (error) {
       console.error('Error loading lesson:', error)
       this.hideLoadingState()
-      alert('Erro ao carregar aula')
+      
+      // Check if it's an access denied error (403)
+      if (error.response && error.response.status === 403) {
+        // Show upgrade modal
+        if (typeof accessManager !== 'undefined') {
+          accessManager.showUpgradeModal()
+        } else {
+          alert('Você não tem acesso a esta aula. Faça upgrade do seu plano!')
+        }
+        this.showCourses()
+      } else {
+        alert('Erro ao carregar aula: ' + (error.response?.data?.message || error.message))
+      }
     }
   },
   

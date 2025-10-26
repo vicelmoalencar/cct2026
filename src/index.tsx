@@ -2350,7 +2350,51 @@ app.get('/api/lessons/:id', async (c) => {
   try {
     const lessonId = c.req.param('id')
     
+    // Get authenticated user
+    const token = getCookie(c, 'sb-access-token')
+    let userEmail = null
+    
+    if (token) {
+      const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+      if (user) {
+        userEmail = user.email
+      }
+    }
+    
     const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    // Check if user has access to this lesson
+    if (userEmail) {
+      const accessResult = await supabase.rpc('user_has_lesson_access', {
+        email_usuario: userEmail,
+        lesson_id: parseInt(lessonId)
+      })
+      
+      const hasAccess = accessResult && accessResult.length > 0 ? accessResult[0] : false
+      
+      if (!hasAccess) {
+        return c.json({ 
+          error: 'Access denied',
+          message: 'Você não tem permissão para acessar esta aula. Faça upgrade do seu plano!',
+          needsUpgrade: true
+        }, 403)
+      }
+    } else {
+      // Not authenticated - check if lesson is free
+      const lesson = await supabase.query('lessons', {
+        select: 'teste_gratis',
+        filters: { id: lessonId },
+        single: true
+      })
+      
+      if (!lesson?.teste_gratis) {
+        return c.json({ 
+          error: 'Access denied',
+          message: 'Esta é uma aula premium. Faça login e tenha um plano ativo para acessar.',
+          needsLogin: true
+        }, 403)
+      }
+    }
     
     // Get lesson with module info (using RPC for join)
     const lesson = await supabase.rpc('get_lesson_with_module', {
@@ -2370,6 +2414,7 @@ app.get('/api/lessons/:id', async (c) => {
     
     return c.json({ lesson: lesson[0], comments })
   } catch (error) {
+    console.error('Error fetching lesson:', error)
     return c.json({ error: 'Failed to fetch lesson' }, 500)
   }
 })
@@ -2984,17 +3029,17 @@ app.get('/api/lessons/:id/access', async (c) => {
     const token = getCookie(c, 'sb-access-token')
     
     if (!token) {
-      // Not logged in - check if lesson is free trial
+      // Not logged in - check if lesson is teste_gratis
       const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
       const lesson = await supabase.query('lessons', {
-        select: 'free_trial',
+        select: 'teste_gratis',
         filters: { id: lessonId },
         single: true
       })
       
       return c.json({ 
-        hasAccess: lesson?.free_trial || false,
-        reason: lesson?.free_trial ? 'free_trial' : 'not_authenticated'
+        hasAccess: lesson?.teste_gratis || false,
+        reason: lesson?.teste_gratis ? 'free_lesson' : 'not_authenticated'
       })
     }
     
@@ -3008,11 +3053,11 @@ app.get('/api/lessons/:id/access', async (c) => {
     
     // Use the database function to check access
     const result = await supabase.rpc('user_has_lesson_access', {
-      p_user_email: user.email,
-      p_lesson_id: parseInt(lessonId)
+      email_usuario: user.email,
+      lesson_id: parseInt(lessonId)
     })
     
-    const hasAccess = result && result.length > 0 ? result[0].user_has_lesson_access : false
+    const hasAccess = result && result.length > 0 ? result[0] : false
     
     return c.json({ 
       hasAccess,
