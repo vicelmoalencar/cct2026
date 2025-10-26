@@ -2,7 +2,7 @@
 // INTELLIGENT SEARCH MANAGER - Busca Inteligente de Aulas
 // ============================================================================
 
-const searchManager = {
+window.searchManager = {
   allLessons: [],
   searchResults: [],
   currentFilters: {
@@ -416,7 +416,7 @@ const searchManager = {
     if (typeof app !== 'undefined' && typeof accessManager !== 'undefined') {
       clearInterval(checkReady)
       console.log('🔍 Initializing search manager...')
-      searchManager.init().then(() => {
+      window.searchManager.init().then(() => {
         console.log('✅ Search manager initialized successfully')
       }).catch(err => {
         console.error('❌ Search manager initialization failed:', err)
