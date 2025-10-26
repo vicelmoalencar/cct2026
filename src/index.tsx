@@ -3690,8 +3690,8 @@ app.get('/', (c) => {
                         </div>
                         
                         <!-- Search Button -->
-                        <button onclick="app.showSearch()" 
-                                class="px-3 md:px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-xs md:text-sm font-semibold transition-colors">
+                        <button onclick="app.showSearch(this)" 
+                                class="px-3 md:px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-xs md:text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                             <i class="fas fa-search"></i>
                             <span class="hidden sm:inline ml-2">Buscar</span>
                         </button>

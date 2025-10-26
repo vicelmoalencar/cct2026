@@ -60,9 +60,16 @@ const app = {
   },
   
   // Show search view (safe wrapper)
-  async showSearch() {
+  async showSearch(buttonElement) {
     console.log('🔎 app.showSearch() called')
     console.log('🔍 window.searchManager exists?', typeof window.searchManager !== 'undefined')
+    
+    // Show spinner on button if provided
+    const originalHTML = buttonElement ? buttonElement.innerHTML : null
+    if (buttonElement) {
+      buttonElement.disabled = true
+      buttonElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span class="hidden sm:inline ml-2">Carregando...</span>'
+    }
     
     try {
       // Check if searchManager is available
@@ -77,6 +84,12 @@ const app = {
     } catch (error) {
       console.error('❌ Error opening search:', error)
       alert('Erro ao abrir busca: ' + error.message)
+    } finally {
+      // Restore button
+      if (buttonElement && originalHTML) {
+        buttonElement.disabled = false
+        buttonElement.innerHTML = originalHTML
+      }
     }
   },
   

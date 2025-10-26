@@ -5,6 +5,7 @@
 window.searchManager = {
   allLessons: [],
   searchResults: [],
+  searchTimeout: null,
   currentFilters: {
     query: '',
     courseId: null,
@@ -23,6 +24,9 @@ window.searchManager = {
   
   // Load all lessons from all courses
   async loadAllLessons() {
+    // Show loading spinner
+    this.showLoadingSpinner()
+    
     try {
       console.log('📚 Loading all lessons for search...')
       
@@ -64,6 +68,10 @@ window.searchManager = {
       this.populateCourseFilter(courses)
     } catch (error) {
       console.error('Error loading lessons:', error)
+      throw error
+    } finally {
+      // Hide loading spinner
+      this.hideLoadingSpinner()
     }
   },
   
@@ -86,12 +94,26 @@ window.searchManager = {
   
   // Setup event listeners
   setupEventListeners() {
-    // Search input
+    // Search input with debounce
     const searchInput = document.getElementById('searchInput')
     if (searchInput) {
       searchInput.addEventListener('input', (e) => {
         this.currentFilters.query = e.target.value
-        this.performSearch()
+        
+        // Clear previous timeout
+        if (this.searchTimeout) {
+          clearTimeout(this.searchTimeout)
+        }
+        
+        // Show spinner immediately for better UX
+        if (e.target.value.length >= 2) {
+          this.showSearchSpinner()
+        }
+        
+        // Debounce search (300ms delay)
+        this.searchTimeout = setTimeout(() => {
+          this.performSearch()
+        }, 300)
       })
     }
     
@@ -100,7 +122,8 @@ window.searchManager = {
     if (courseFilter) {
       courseFilter.addEventListener('change', (e) => {
         this.currentFilters.courseId = e.target.value ? parseInt(e.target.value) : null
-        this.performSearch()
+        this.showSearchSpinner()
+        setTimeout(() => this.performSearch(), 100)
       })
     }
     
@@ -109,7 +132,8 @@ window.searchManager = {
     if (typeFilter) {
       typeFilter.addEventListener('change', (e) => {
         this.currentFilters.lessonType = e.target.value
-        this.performSearch()
+        this.showSearchSpinner()
+        setTimeout(() => this.performSearch(), 100)
       })
     }
     
@@ -120,7 +144,8 @@ window.searchManager = {
         const [min, max] = e.target.value.split('-').map(Number)
         this.currentFilters.minDuration = min
         this.currentFilters.maxDuration = max || 999
-        this.performSearch()
+        this.showSearchSpinner()
+        setTimeout(() => this.performSearch(), 100)
       })
     }
     
@@ -129,7 +154,8 @@ window.searchManager = {
     if (sortFilter) {
       sortFilter.addEventListener('change', (e) => {
         this.currentFilters.sortBy = e.target.value
-        this.performSearch()
+        this.showSearchSpinner()
+        setTimeout(() => this.performSearch(), 100)
       })
     }
   },
@@ -345,6 +371,38 @@ window.searchManager = {
     }).join('')
     
     resultsContainer.innerHTML = resultsHTML
+  },
+  
+  // Show loading spinner
+  showLoadingSpinner() {
+    const container = document.getElementById('searchResults')
+    if (!container) return
+    
+    container.innerHTML = `
+      <div class="flex flex-col items-center justify-center py-16">
+        <i class="fas fa-spinner fa-spin text-6xl text-purple-600 mb-4"></i>
+        <p class="text-gray-600 text-lg">Carregando aulas...</p>
+        <p class="text-gray-400 text-sm mt-2">Por favor, aguarde</p>
+      </div>
+    `
+  },
+  
+  // Hide loading spinner
+  hideLoadingSpinner() {
+    // Spinner will be replaced by search results
+  },
+  
+  // Show search spinner (during filtering)
+  showSearchSpinner() {
+    const container = document.getElementById('searchResults')
+    if (!container) return
+    
+    container.innerHTML = `
+      <div class="flex items-center justify-center py-12">
+        <i class="fas fa-spinner fa-spin text-4xl text-purple-600 mr-3"></i>
+        <p class="text-gray-600">Buscando...</p>
+      </div>
+    `
   },
   
   // Open lesson
