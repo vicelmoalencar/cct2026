@@ -2545,7 +2545,7 @@ const adminUI = {
     
     content.innerHTML = `
       <div class="bg-white rounded-lg shadow-md p-6">
-        <div class="flex items-center justify-between mb-6">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <h2 class="text-2xl font-bold text-gray-800">
             <i class="fas fa-user-friends mr-2"></i>
             Gerenciar Usuários
@@ -2555,6 +2555,45 @@ const adminUI = {
             <i class="fas fa-file-upload mr-2"></i>
             Importar CSV
           </button>
+        </div>
+        
+        <!-- Search and Filters -->
+        <div class="mb-6 space-y-4">
+          <div class="flex flex-col md:flex-row gap-4">
+            <div class="flex-1">
+              <label class="block text-sm font-semibold text-gray-700 mb-2">
+                <i class="fas fa-search mr-1"></i>Buscar Usuário
+              </label>
+              <input type="text" id="searchUser" oninput="adminUI.filterUsers()" 
+                     placeholder="Nome, email ou CPF..."
+                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            
+            <div class="w-full md:w-48">
+              <label class="block text-sm font-semibold text-gray-700 mb-2">
+                <i class="fas fa-filter mr-1"></i>Status
+              </label>
+              <select id="filterUserStatus" onchange="adminUI.filterUsers()" 
+                      class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="all">Todos</option>
+                <option value="active">Ativos</option>
+                <option value="inactive">Inativos</option>
+              </select>
+            </div>
+            
+            <div class="flex items-end">
+              <button onclick="adminUI.resetUserFilters()" 
+                      class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-semibold transition-colors whitespace-nowrap">
+                <i class="fas fa-redo mr-2"></i>Limpar
+              </button>
+            </div>
+          </div>
+          
+          <div class="flex items-center justify-between text-sm">
+            <span class="text-gray-600">
+              <span id="userCount" class="font-semibold">0</span> usuários encontrados
+            </span>
+          </div>
         </div>
         
         <div id="usersTableContainer">
@@ -2569,10 +2608,13 @@ const adminUI = {
     await this.loadUsersTable()
   },
   
-  async loadUsersTable() {
+  async loadUsersTable(filters = {}) {
     try {
       const response = await axios.get('/api/admin/users')
-      const users = response.data.users || []
+      let users = response.data.users || []
+      
+      // Store all users for filtering
+      this.allUsers = users
       
       const container = document.getElementById('usersTableContainer')
       
@@ -2585,11 +2627,42 @@ const adminUI = {
         return
       }
       
+      // Apply filters
+      if (filters.search) {
+        const searchLower = filters.search.toLowerCase()
+        users = users.filter(u => 
+          (u.nome && u.nome.toLowerCase().includes(searchLower)) ||
+          (u.first_name && u.first_name.toLowerCase().includes(searchLower)) ||
+          (u.email && u.email.toLowerCase().includes(searchLower)) ||
+          (u.cpf && u.cpf.includes(searchLower))
+        )
+      }
+      
+      if (filters.status && filters.status !== 'all') {
+        if (filters.status === 'active') {
+          users = users.filter(u => u.ativo === true)
+        } else if (filters.status === 'inactive') {
+          users = users.filter(u => u.ativo === false || !u.ativo)
+        }
+      }
+      
+      // Update count
+      const userCountEl = document.getElementById('userCount')
+      if (userCountEl) {
+        userCountEl.textContent = users.length
+      }
+      
+      if (users.length === 0 && (filters.search || filters.status !== 'all')) {
+        container.innerHTML = `
+          <p class="text-center text-gray-500 py-8">
+            <i class="fas fa-search mr-2"></i>
+            Nenhum usuário encontrado com os filtros aplicados.
+          </p>
+        `
+        return
+      }
+      
       container.innerHTML = `
-        <div class="mb-4 text-sm text-gray-600">
-          <i class="fas fa-info-circle mr-1"></i>
-          Total de usuários: <strong>${users.length}</strong>
-        </div>
         
         <div class="overflow-x-auto">
           <table class="min-w-full divide-y divide-gray-200">
@@ -2659,6 +2732,20 @@ const adminUI = {
         </p>
       `
     }
+  },
+  
+  filterUsers() {
+    const filters = {
+      search: document.getElementById('searchUser')?.value || '',
+      status: document.getElementById('filterUserStatus')?.value || 'all'
+    }
+    this.loadUsersTable(filters)
+  },
+  
+  resetUserFilters() {
+    document.getElementById('searchUser').value = ''
+    document.getElementById('filterUserStatus').value = 'all'
+    this.loadUsersTable({})
   },
   
   async loginAsUser(userEmail, userName) {
