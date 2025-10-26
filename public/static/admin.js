@@ -1967,8 +1967,14 @@ const adminUI = {
                       ${sub.detalhe || '<span class="text-gray-400">-</span>'}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <button onclick='adminUI.showEditSubscriptionModal(${JSON.stringify(sub).replace(/'/g, "&#39;")})'
+                              class="text-blue-600 hover:text-blue-900 mr-3"
+                              title="Editar assinatura">
+                        <i class="fas fa-edit"></i>
+                      </button>
                       <button onclick="adminUI.deleteSubscription(${sub.id}, '${sub.email_membro}')"
-                              class="text-red-600 hover:text-red-900">
+                              class="text-red-600 hover:text-red-900"
+                              title="Deletar assinatura">
                         <i class="fas fa-trash"></i>
                       </button>
                     </td>
@@ -2006,6 +2012,202 @@ const adminUI = {
     } catch (error) {
       console.error('Error deleting subscription:', error)
       alert('❌ Erro ao deletar assinatura: ' + (error.response?.data?.error || error.message))
+    }
+  },
+  
+  showEditSubscriptionModal(subscription) {
+    // Format date for input (YYYY-MM-DD)
+    let expirationDateValue = ''
+    if (subscription.data_expiracao) {
+      const date = new Date(subscription.data_expiracao)
+      expirationDateValue = date.toISOString().split('T')[0]
+    }
+    
+    const modal = document.createElement('div')
+    modal.id = 'editSubscriptionModal'
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50'
+    modal.innerHTML = `
+      <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div class="bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-4">
+          <h3 class="text-xl font-bold text-white">
+            <i class="fas fa-edit mr-2"></i>
+            Editar Assinatura
+          </h3>
+        </div>
+        
+        <form id="editSubscriptionForm" class="p-6 space-y-4">
+          <!-- Email (readonly) -->
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-2">
+              <i class="fas fa-envelope mr-1 text-blue-600"></i> Email do Membro
+            </label>
+            <input type="email" 
+                   value="${subscription.email_membro}"
+                   disabled
+                   class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed">
+            <p class="text-xs text-gray-500 mt-1">
+              <i class="fas fa-info-circle"></i> O email não pode ser alterado
+            </p>
+          </div>
+          
+          <!-- Expiration Date -->
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-2">
+              <i class="fas fa-calendar-alt mr-1 text-blue-600"></i> Data de Expiração *
+            </label>
+            <input type="date" 
+                   id="editExpirationDate"
+                   value="${expirationDateValue}"
+                   required
+                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <p class="text-xs text-gray-500 mt-1">
+              <i class="fas fa-info-circle"></i> Defina a nova data de expiração da assinatura
+            </p>
+          </div>
+          
+          <!-- Detalhe -->
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-2">
+              <i class="fas fa-info-circle mr-1 text-blue-600"></i> Detalhe
+            </label>
+            <input type="text" 
+                   id="editDetalhe"
+                   value="${subscription.detalhe || ''}"
+                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                   placeholder="Ex: Transação Hotmart - HP123456">
+          </div>
+          
+          <!-- Origem -->
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-2">
+              <i class="fas fa-tag mr-1 text-blue-600"></i> Origem
+            </label>
+            <select id="editOrigem"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="hotmart" ${subscription.origem === 'hotmart' ? 'selected' : ''}>Hotmart</option>
+              <option value="manual" ${subscription.origem === 'manual' ? 'selected' : ''}>Manual</option>
+              <option value="promocao" ${subscription.origem === 'promocao' ? 'selected' : ''}>Promoção</option>
+              <option value="parceria" ${subscription.origem === 'parceria' ? 'selected' : ''}>Parceria</option>
+              <option value="outro" ${subscription.origem === 'outro' ? 'selected' : ''}>Outro</option>
+            </select>
+          </div>
+          
+          <!-- Teste Grátis -->
+          <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
+            <label class="flex items-center cursor-pointer">
+              <input type="checkbox" 
+                     id="editTesteGratis" 
+                     ${subscription.teste_gratis ? 'checked' : ''}
+                     class="w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500">
+              <span class="ml-3">
+                <span class="text-sm font-semibold text-gray-800 flex items-center">
+                  <i class="fas fa-gift text-purple-600 mr-2"></i>
+                  Teste Grátis
+                </span>
+                <span class="block text-xs text-gray-600 mt-1">
+                  Marque se esta é uma assinatura de teste grátis (5 dias)
+                </span>
+              </span>
+            </label>
+          </div>
+          
+          <!-- Ativo -->
+          <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+            <label class="flex items-center cursor-pointer">
+              <input type="checkbox" 
+                     id="editAtivo" 
+                     ${subscription.ativo !== false ? 'checked' : ''}
+                     class="w-5 h-5 text-green-600 border-gray-300 rounded focus:ring-green-500">
+              <span class="ml-3">
+                <span class="text-sm font-semibold text-gray-800 flex items-center">
+                  <i class="fas fa-toggle-on text-green-600 mr-2"></i>
+                  Assinatura Ativa
+                </span>
+                <span class="block text-xs text-gray-600 mt-1">
+                  Desmarque para desativar manualmente a assinatura
+                </span>
+              </span>
+            </label>
+          </div>
+          
+          <!-- Buttons -->
+          <div class="flex items-center gap-3 pt-4">
+            <button type="submit" 
+                    class="flex-1 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors">
+              <i class="fas fa-save mr-2"></i>Salvar Alterações
+            </button>
+            <button type="button" 
+                    onclick="adminUI.closeEditSubscriptionModal()"
+                    class="flex-1 px-6 py-3 bg-gray-400 hover:bg-gray-500 text-white rounded-lg font-semibold transition-colors">
+              <i class="fas fa-times mr-2"></i>Cancelar
+            </button>
+          </div>
+        </form>
+      </div>
+    `
+    
+    document.body.appendChild(modal)
+    
+    // Handle form submission
+    document.getElementById('editSubscriptionForm').addEventListener('submit', (e) => {
+      e.preventDefault()
+      this.saveSubscriptionChanges(subscription.id)
+    })
+    
+    // Close on background click
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        this.closeEditSubscriptionModal()
+      }
+    })
+  },
+  
+  async saveSubscriptionChanges(subscriptionId) {
+    const expirationDate = document.getElementById('editExpirationDate').value
+    const detalhe = document.getElementById('editDetalhe').value
+    const origem = document.getElementById('editOrigem').value
+    const testeGratis = document.getElementById('editTesteGratis').checked
+    const ativo = document.getElementById('editAtivo').checked
+    
+    if (!expirationDate) {
+      alert('❌ Por favor, informe a data de expiração')
+      return
+    }
+    
+    try {
+      const submitBtn = document.querySelector('#editSubscriptionForm button[type="submit"]')
+      submitBtn.disabled = true
+      submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Salvando...'
+      
+      await axios.put(`/api/admin/member-subscriptions/${subscriptionId}`, {
+        data_expiracao: new Date(expirationDate + 'T23:59:59').toISOString(),
+        detalhe: detalhe || null,
+        origem: origem || null,
+        teste_gratis: testeGratis,
+        ativo: ativo
+      })
+      
+      alert('✅ Assinatura atualizada com sucesso!')
+      
+      this.closeEditSubscriptionModal()
+      
+      // Reload table with current filters
+      const filters = this.getCurrentSubscriptionFilters()
+      await this.loadSubscriptionsTable(filters)
+    } catch (error) {
+      console.error('Error updating subscription:', error)
+      alert('❌ Erro ao atualizar assinatura: ' + (error.response?.data?.error || error.message))
+      
+      const submitBtn = document.querySelector('#editSubscriptionForm button[type="submit"]')
+      submitBtn.disabled = false
+      submitBtn.innerHTML = '<i class="fas fa-save mr-2"></i>Salvar Alterações'
+    }
+  },
+  
+  closeEditSubscriptionModal() {
+    const modal = document.getElementById('editSubscriptionModal')
+    if (modal) {
+      modal.remove()
     }
   },
   
