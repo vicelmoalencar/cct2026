@@ -1444,6 +1444,28 @@ app.get('/api/admin/certificates', requireAdmin, async (c) => {
   }
 })
 
+// Get single certificate (admin only)
+app.get('/api/admin/certificates/:id', requireAdmin, async (c) => {
+  try {
+    const certId = c.req.param('id')
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    const certificates = await supabase.query('certificates', {
+      select: '*',
+      filters: { id: certId }
+    })
+    
+    if (!certificates || certificates.length === 0) {
+      return c.json({ error: 'Certificate not found' }, 404)
+    }
+    
+    return c.json({ certificate: certificates[0] })
+  } catch (error: any) {
+    console.error('Get certificate error:', error)
+    return c.json({ error: error.message || 'Failed to get certificate' }, 500)
+  }
+})
+
 // Find certificate by email (for duplicate checking)
 app.get('/api/admin/certificates/find', requireAdmin, async (c) => {
   try {
@@ -1514,14 +1536,24 @@ app.put('/api/admin/certificates/:id', requireAdmin, async (c) => {
     
     const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
     
+    // Get course title if course_id is provided
+    let courseTitle = certData.course_title
+    if (certData.course_id) {
+      const courses = await supabase.query('courses', {
+        select: 'title',
+        filters: { id: certData.course_id }
+      })
+      if (courses && courses.length > 0) {
+        courseTitle = courses[0].title
+      }
+    }
+    
     await supabase.update('certificates', { id: certId }, {
       user_email: certData.user_email,
       user_name: certData.user_name,
       course_id: certData.course_id,
-      course_title: certData.course_title,
+      course_title: courseTitle,
       carga_horaria: certData.carga_horaria,
-      certificate_code: certData.certificate_code,
-      generated_at: certData.generated_at,
       updated_at: new Date().toISOString()
     })
     

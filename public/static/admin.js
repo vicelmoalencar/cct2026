@@ -2806,6 +2806,12 @@ const adminUI = {
               ${certificates.map(cert => {
                 const verificationUrl = cert.verification_code ? 
                   `${window.location.origin}/verificar/${cert.verification_code}` : null;
+                const userName = (cert.user_name || 'Sem nome').replace(/'/g, "&#39;");
+                const userEmail = (cert.user_email || '').replace(/'/g, "&#39;");
+                const courseTitle = (cert.course_title || '').replace(/'/g, "&#39;");
+                const cargaHoraria = cert.carga_horaria || 0;
+                const verificationCode = cert.verification_code || '';
+                const createdDate = cert.created_at ? new Date(cert.created_at).toLocaleDateString('pt-BR') : 'N/A';
                 
                 return `
                 <tr class="hover:bg-gray-50">
@@ -2813,40 +2819,45 @@ const adminUI = {
                     <div class="flex items-center">
                       <i class="fas fa-user-circle text-2xl text-gray-400 mr-3"></i>
                       <div>
-                        <div class="text-sm font-medium text-gray-900">\${cert.user_name || 'Sem nome'}</div>
-                        <div class="text-xs text-gray-500">\${cert.user_email}</div>
+                        <div class="text-sm font-medium text-gray-900">${userName}</div>
+                        <div class="text-xs text-gray-500">${userEmail}</div>
                       </div>
                     </div>
                   </td>
                   <td class="px-6 py-4">
                     <span class="px-2 py-1 text-xs font-semibold bg-blue-100 text-blue-800 rounded">
-                      \${cert.course_title}
+                      ${courseTitle}
                     </span>
                   </td>
                   <td class="px-6 py-4 text-sm text-gray-900">
-                    \${cert.carga_horaria ? \`\${cert.carga_horaria}h\` : '<span class="text-gray-400">N/A</span>'}
+                    ${cargaHoraria ? `${cargaHoraria}h` : '<span class="text-gray-400">N/A</span>'}
                   </td>
                   <td class="px-6 py-4">
-                    \${cert.verification_code ? \`
-                      <div class="text-xs font-mono text-gray-700 mb-1">\${cert.verification_code}</div>
-                      <a href="\${verificationUrl}" target="_blank" 
+                    ${verificationCode ? `
+                      <div class="text-xs font-mono text-gray-700 mb-1">${verificationCode}</div>
+                      <a href="${verificationUrl}" target="_blank" 
                          class="text-blue-600 hover:underline text-xs flex items-center gap-1">
                         <i class="fas fa-external-link-alt"></i> Verificar
                       </a>
-                    \` : '<span class="text-gray-400 text-xs">Sem código</span>'}
+                    ` : '<span class="text-gray-400 text-xs">Sem código</span>'}
                   </td>
                   <td class="px-6 py-4 text-sm text-gray-500">
-                    \${cert.created_at ? new Date(cert.created_at).toLocaleDateString('pt-BR') : 'N/A'}
+                    ${createdDate}
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                    \${cert.verification_code ? \`
-                      <button onclick="adminUI.viewCertificate(\${cert.id})" 
+                    <button onclick="adminUI.showEditCertificateModal(${cert.id})" 
+                            title="Editar Certificado"
+                            class="text-green-600 hover:text-green-900">
+                      <i class="fas fa-edit"></i>
+                    </button>
+                    ${verificationCode ? `
+                      <button onclick="adminUI.viewCertificate(${cert.id})" 
                               title="Visualizar Certificado"
                               class="text-blue-600 hover:text-blue-900">
                         <i class="fas fa-eye"></i>
                       </button>
-                    \` : ''}
-                    <button onclick="adminUI.deleteCertificate(\${cert.id}, '\${cert.user_email}', '\${cert.course_title}')"
+                    ` : ''}
+                    <button onclick="adminUI.deleteCertificate(${cert.id}, '${userEmail}', '${courseTitle}')"
                             title="Deletar Certificado"
                             class="text-red-600 hover:text-red-900">
                       <i class="fas fa-trash"></i>
@@ -2915,6 +2926,205 @@ const adminUI = {
     document.getElementById('certificateSearch').value = ''
     document.getElementById('certificateCourseFilter').value = 'all'
     this.loadCertificatesTable({})
+  },
+  
+  // Edit Certificate
+  async showEditCertificateModal(certId) {
+    try {
+      // Get certificate details
+      const certResponse = await axios.get(`/api/admin/certificates/${certId}`)
+      const cert = certResponse.data.certificate
+      
+      // Get all courses for dropdown
+      const coursesResponse = await axios.get('/api/courses')
+      const courses = coursesResponse.data.courses || []
+      
+      // Get modules for selected course if exists
+      let modules = []
+      if (cert.course_id) {
+        try {
+          const moduleResponse = await axios.get(`/api/courses/${cert.course_id}`)
+          modules = moduleResponse.data.modules || []
+        } catch (e) {
+          console.log('No modules found for course')
+        }
+      }
+      
+      const modal = document.createElement('div')
+      modal.id = 'editCertificateModal'
+      modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4'
+      modal.innerHTML = `
+        <div class="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+          <div class="bg-gradient-to-r from-green-600 to-green-700 px-6 py-4 flex items-center justify-between">
+            <h3 class="text-xl font-bold text-white flex items-center">
+              <i class="fas fa-edit mr-3"></i>
+              Editar Certificado
+            </h3>
+            <button onclick="adminUI.closeEditCertificateModal()" class="text-white hover:text-gray-200">
+              <i class="fas fa-times text-xl"></i>
+            </button>
+          </div>
+          
+          <div class="p-6">
+            <form id="editCertificateForm" class="space-y-6">
+              <!-- User Info -->
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-semibold text-gray-700 mb-2">
+                    <i class="fas fa-user mr-2 text-blue-600"></i>Nome do Aluno
+                  </label>
+                  <input type="text" id="editCertUserName" value="${cert.user_name || ''}" required
+                         class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                </div>
+                
+                <div>
+                  <label class="block text-sm font-semibold text-gray-700 mb-2">
+                    <i class="fas fa-envelope mr-2 text-blue-600"></i>Email do Aluno
+                  </label>
+                  <input type="email" id="editCertUserEmail" value="${cert.user_email || ''}" required
+                         class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                </div>
+              </div>
+              
+              <!-- Course Selection -->
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                  <i class="fas fa-book mr-2 text-blue-600"></i>Curso
+                </label>
+                <select id="editCertCourseId" required onchange="adminUI.loadCourseModulesForCertificate(this.value)"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                  <option value="">Selecione um curso...</option>
+                  ${courses.map(c => `
+                    <option value="${c.id}" ${c.id === cert.course_id ? 'selected' : ''}>
+                      ${c.title}
+                    </option>
+                  `).join('')}
+                </select>
+              </div>
+              
+              <!-- Modules List -->
+              <div id="certificateModulesContainer" class="${modules.length > 0 ? '' : 'hidden'}">
+                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                  <i class="fas fa-list mr-2 text-blue-600"></i>Módulos do Curso
+                </label>
+                <div id="certificateModulesList" class="space-y-2 max-h-60 overflow-y-auto border border-gray-200 rounded-lg p-4 bg-gray-50">
+                  ${modules.map(m => `
+                    <div class="flex items-center gap-2 text-sm text-gray-700">
+                      <i class="fas fa-layer-group text-blue-500"></i>
+                      <span class="font-medium">${m.title}</span>
+                      <span class="text-gray-500">• ${m.order}</span>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+              
+              <!-- Certificate Details -->
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-semibold text-gray-700 mb-2">
+                    <i class="fas fa-clock mr-2 text-blue-600"></i>Carga Horária (horas)
+                  </label>
+                  <input type="number" id="editCertCargaHoraria" value="${cert.carga_horaria || 0}" min="0" required
+                         class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                </div>
+                
+                <div>
+                  <label class="block text-sm font-semibold text-gray-700 mb-2">
+                    <i class="fas fa-barcode mr-2 text-blue-600"></i>Código de Verificação
+                  </label>
+                  <input type="text" id="editCertVerificationCode" value="${cert.verification_code || ''}" readonly
+                         class="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100">
+                </div>
+              </div>
+              
+              <!-- Action Buttons -->
+              <div class="flex justify-end gap-3 pt-4 border-t">
+                <button type="button" onclick="adminUI.closeEditCertificateModal()"
+                        class="px-6 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg font-semibold transition-colors">
+                  <i class="fas fa-times mr-2"></i>Cancelar
+                </button>
+                <button type="submit"
+                        class="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors shadow-md">
+                  <i class="fas fa-save mr-2"></i>Salvar Alterações
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      `
+      
+      document.body.appendChild(modal)
+      
+      // Setup form submit
+      document.getElementById('editCertificateForm').addEventListener('submit', (e) => {
+        e.preventDefault()
+        this.saveCertificateChanges(certId)
+      })
+    } catch (error) {
+      console.error('Error showing edit certificate modal:', error)
+      alert('❌ Erro ao carregar dados do certificado: ' + (error.response?.data?.error || error.message))
+    }
+  },
+  
+  async loadCourseModulesForCertificate(courseId) {
+    const container = document.getElementById('certificateModulesContainer')
+    const modulesList = document.getElementById('certificateModulesList')
+    
+    if (!courseId) {
+      container.classList.add('hidden')
+      return
+    }
+    
+    try {
+      const response = await axios.get(`/api/courses/${courseId}`)
+      const modules = response.data.modules || []
+      
+      if (modules.length > 0) {
+        container.classList.remove('hidden')
+        modulesList.innerHTML = modules.map(m => `
+          <div class="flex items-center gap-2 text-sm text-gray-700">
+            <i class="fas fa-layer-group text-blue-500"></i>
+            <span class="font-medium">${m.title}</span>
+            <span class="text-gray-500">• ${m.order}</span>
+          </div>
+        `).join('')
+      } else {
+        container.classList.add('hidden')
+      }
+    } catch (error) {
+      console.error('Error loading modules:', error)
+      container.classList.add('hidden')
+    }
+  },
+  
+  async saveCertificateChanges(certId) {
+    try {
+      const data = {
+        user_name: document.getElementById('editCertUserName').value,
+        user_email: document.getElementById('editCertUserEmail').value,
+        course_id: parseInt(document.getElementById('editCertCourseId').value),
+        carga_horaria: parseInt(document.getElementById('editCertCargaHoraria').value)
+      }
+      
+      await axios.put(`/api/admin/certificates/${certId}`, data)
+      
+      alert('✅ Certificado atualizado com sucesso!')
+      this.closeEditCertificateModal()
+      
+      // Reload certificates table
+      const filters = this.getCurrentCertificateFilters()
+      await this.loadCertificatesTable(filters)
+    } catch (error) {
+      console.error('Error saving certificate:', error)
+      alert('❌ Erro ao salvar certificado: ' + (error.response?.data?.error || error.message))
+    }
+  },
+  
+  closeEditCertificateModal() {
+    const modal = document.getElementById('editCertificateModal')
+    if (modal) {
+      modal.remove()
+    }
   },
   
   // ==================== IMPORT TAB ====================
