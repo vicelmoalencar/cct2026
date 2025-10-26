@@ -3689,6 +3689,13 @@ app.get('/', (c) => {
                             </div>
                         </div>
                         
+                        <!-- Search Button -->
+                        <button onclick="searchManager.showSearchView()" 
+                                class="px-3 md:px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-xs md:text-sm font-semibold transition-colors">
+                            <i class="fas fa-search"></i>
+                            <span class="hidden sm:inline ml-2">Buscar</span>
+                        </button>
+                        
                         <!-- Plans Button -->
                         <button onclick="app.showPlans()" 
                                 class="px-3 md:px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-xs md:text-sm font-semibold transition-colors">
@@ -3758,12 +3765,107 @@ app.get('/', (c) => {
                     <!-- Lesson details will be loaded here -->
                 </div>
             </div>
+            
+            <!-- View: Search -->
+            <div id="searchView" class="hidden">
+                <button onclick="app.showCourses(); document.getElementById('searchView').classList.add('hidden')" 
+                        class="mb-4 text-blue-600 hover:text-blue-800 flex items-center gap-2">
+                    <i class="fas fa-arrow-left"></i> Voltar aos cursos
+                </button>
+                
+                <!-- Search Header -->
+                <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                    <div class="flex items-center gap-4 mb-6">
+                        <i class="fas fa-search text-3xl text-purple-600"></i>
+                        <div>
+                            <h2 class="text-2xl font-bold text-gray-800">Busca Inteligente de Aulas</h2>
+                            <p class="text-gray-600">Encontre rapidamente a aula que você precisa</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Search Input -->
+                    <div class="relative mb-6">
+                        <input type="text" 
+                               id="searchInput" 
+                               placeholder="Digite palavras-chave (ex: liquidação, horas extras, FGTS...)"
+                               class="w-full px-4 py-3 pl-12 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none text-lg">
+                        <i class="fas fa-search absolute left-4 top-4 text-gray-400 text-xl"></i>
+                    </div>
+                    
+                    <!-- Filters Grid -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <!-- Course Filter -->
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                <i class="fas fa-book mr-2"></i>Curso
+                            </label>
+                            <select id="courseFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none">
+                                <option value="">Todos os cursos</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Type Filter -->
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                <i class="fas fa-filter mr-2"></i>Tipo
+                            </label>
+                            <select id="typeFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none">
+                                <option value="all">Todas</option>
+                                <option value="free">Apenas Grátis</option>
+                                <option value="premium">Apenas Premium</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Duration Filter -->
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                <i class="fas fa-clock mr-2"></i>Duração
+                            </label>
+                            <select id="durationFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none">
+                                <option value="0-120">Qualquer duração</option>
+                                <option value="0-10">Até 10 min</option>
+                                <option value="10-30">10-30 min</option>
+                                <option value="30-60">30-60 min</option>
+                                <option value="60-999">Mais de 1 hora</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Sort Filter -->
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                <i class="fas fa-sort mr-2"></i>Ordenar por
+                            </label>
+                            <select id="sortFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none">
+                                <option value="relevance">Relevância</option>
+                                <option value="title">Título (A-Z)</option>
+                                <option value="duration">Duração</option>
+                                <option value="date">Mais recentes</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Results Count -->
+                    <div class="mt-4 flex items-center justify-between">
+                        <p id="resultsCount" class="text-gray-600 font-semibold"></p>
+                        <button onclick="searchManager.clearSearch()" 
+                                class="text-sm text-purple-600 hover:text-purple-800 font-semibold">
+                            <i class="fas fa-redo mr-1"></i>Limpar filtros
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Search Results -->
+                <div id="searchResults" class="space-y-4">
+                    <!-- Results will be rendered here -->
+                </div>
+            </div>
         </main>
 
         <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
         <script src="/static/auth.js"></script>
         <script src="/static/admin.js"></script>
         <script src="/static/access-control.js"></script>
+        <script src="/static/search.js"></script>
         <script src="/static/app.js"></script>
     </body>
     </html>
