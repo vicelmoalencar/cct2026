@@ -23,6 +23,9 @@ const app = {
       userNameEl.textContent = authManager.getUserName()
     }
     
+    // Check if in impersonation mode
+    this.checkImpersonationMode()
+    
     // Check if user is admin and show admin button
     this.checkAdminAccess()
     
@@ -33,6 +36,67 @@ const app = {
     }
     
     this.loadCourses()
+  },
+  
+  // Check and show impersonation banner
+  checkImpersonationMode() {
+    const isImpersonating = sessionStorage.getItem('impersonation_mode') === 'true'
+    
+    if (isImpersonating) {
+      const userName = sessionStorage.getItem('impersonation_user')
+      const userEmail = sessionStorage.getItem('impersonation_email')
+      
+      // Create impersonation banner
+      const banner = document.createElement('div')
+      banner.id = 'impersonationBanner'
+      banner.className = 'fixed top-0 left-0 right-0 bg-gradient-to-r from-orange-500 to-red-600 text-white px-4 py-3 shadow-lg z-50'
+      banner.innerHTML = `
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <i class="fas fa-eye text-2xl"></i>
+            <div>
+              <p class="font-bold text-lg">Modo Simulação Ativa</p>
+              <p class="text-sm opacity-90">Você está vendo como: <strong>${userName}</strong> (${userEmail})</p>
+            </div>
+          </div>
+          <button onclick="app.exitImpersonation()" 
+                  class="px-6 py-2 bg-white text-red-600 hover:bg-gray-100 rounded-lg font-semibold transition-colors shadow-md">
+            <i class="fas fa-sign-out-alt mr-2"></i>Sair da Simulação
+          </button>
+        </div>
+      `
+      
+      // Insert at the beginning of body
+      document.body.insertBefore(banner, document.body.firstChild)
+      
+      // Add padding to main content to account for banner
+      const mainContent = document.querySelector('body')
+      if (mainContent) {
+        mainContent.style.paddingTop = '80px'
+      }
+    }
+  },
+  
+  // Exit impersonation mode
+  exitImpersonation() {
+    if (!confirm('Deseja sair do modo de simulação e voltar à sua conta admin?')) {
+      return
+    }
+    
+    // Restore admin token to cookie
+    const adminToken = sessionStorage.getItem('admin_token_backup')
+    if (adminToken) {
+      document.cookie = `sb-access-token=${adminToken}; path=/; max-age=86400; SameSite=Lax`
+    }
+    
+    // Clear impersonation data
+    sessionStorage.removeItem('impersonation_mode')
+    sessionStorage.removeItem('impersonation_user')
+    sessionStorage.removeItem('impersonation_email')
+    sessionStorage.removeItem('admin_token_backup')
+    
+    // Reload page
+    window.location.href = '/admin'
   },
   
   // Check admin access

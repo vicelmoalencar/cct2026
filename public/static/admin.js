@@ -2631,11 +2631,15 @@ const adminUI = {
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     ${user.dt_expiracao ? new Date(user.dt_expiracao).toLocaleDateString('pt-BR') : '-'}
                   </td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <button onclick="adminUI.editUser(${user.id})" class="text-blue-600 hover:text-blue-900 mr-3">
+                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                    <button onclick="adminUI.loginAsUser('${user.email.replace(/'/g, "\\'")}', '${(user.nome || 'Usuário').replace(/'/g, "\\'")}')" 
+                            class="text-green-600 hover:text-green-900" title="Logar como este usuário">
+                      <i class="fas fa-sign-in-alt"></i>
+                    </button>
+                    <button onclick="adminUI.editUser(${user.id})" class="text-blue-600 hover:text-blue-900" title="Editar usuário">
                       <i class="fas fa-edit"></i>
                     </button>
-                    <button onclick="adminUI.deleteUser(${user.id})" class="text-red-600 hover:text-red-900">
+                    <button onclick="adminUI.deleteUser(${user.id})" class="text-red-600 hover:text-red-900" title="Deletar usuário">
                       <i class="fas fa-trash"></i>
                     </button>
                   </td>
@@ -2655,6 +2659,49 @@ const adminUI = {
         </p>
       `
     }
+  },
+  
+  async loginAsUser(userEmail, userName) {
+    if (!confirm(`Deseja logar como "${userName}" (${userEmail})?\n\nVocê será redirecionado para a área do aluno com a visão deste usuário. Para voltar ao admin, clique no banner laranja no topo.`)) {
+      return
+    }
+    
+    try {
+      // Save current admin token from cookie
+      const currentToken = this.getCookie('sb-access-token')
+      if (currentToken) {
+        sessionStorage.setItem('admin_token_backup', currentToken)
+      }
+      
+      // Request impersonation token
+      const response = await axios.post('/api/admin/impersonate', { user_email: userEmail })
+      
+      if (response.data.token) {
+        // Set impersonation token in cookie (same way as normal auth)
+        document.cookie = `sb-access-token=${response.data.token}; path=/; max-age=86400; SameSite=Lax`
+        
+        // Mark as impersonation mode
+        sessionStorage.setItem('impersonation_mode', 'true')
+        sessionStorage.setItem('impersonation_user', userName)
+        sessionStorage.setItem('impersonation_email', userEmail)
+        
+        // Redirect to student view
+        alert(`✅ Agora você está vendo a plataforma como "${userName}"!\n\nPara voltar ao admin, clique no botão "Sair da Simulação" no banner laranja no topo.`)
+        window.location.href = '/'
+      } else {
+        alert('❌ Erro: Token de autenticação não recebido')
+      }
+    } catch (error) {
+      console.error('Error impersonating user:', error)
+      alert('❌ Erro ao logar como usuário: ' + (error.response?.data?.error || error.message))
+    }
+  },
+  
+  getCookie(name) {
+    const value = `; ${document.cookie}`
+    const parts = value.split(`; ${name}=`)
+    if (parts.length === 2) return parts.pop().split(';').shift()
+    return null
   },
   
   async editUser(userId) {

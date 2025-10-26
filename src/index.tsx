@@ -41,6 +41,40 @@ app.get('/health', (c) => {
 
 async function verifySupabaseToken(token: string, supabaseUrl: string, supabaseKey: string) {
   try {
+    // Check if this is an impersonation token
+    if (token.startsWith('IMPERSONATE:')) {
+      const impersonationData = JSON.parse(
+        Buffer.from(token.replace('IMPERSONATE:', ''), 'base64').toString('utf-8')
+      )
+      
+      // Verify signature
+      const expectedSignature = Buffer.from(`${impersonationData.email}:${supabaseKey}`).toString('base64')
+      if (impersonationData.signature !== expectedSignature) {
+        console.error('❌ Invalid impersonation token signature')
+        return null
+      }
+      
+      // Check if token is not too old (24 hours)
+      const tokenAge = Date.now() - new Date(impersonationData.impersonated_at).getTime()
+      if (tokenAge > 24 * 60 * 60 * 1000) {
+        console.error('❌ Impersonation token expired')
+        return null
+      }
+      
+      console.log(`🎭 Using impersonation token for ${impersonationData.email}`)
+      
+      // Return user object in same format as Supabase
+      return {
+        email: impersonationData.email,
+        user_metadata: {
+          name: impersonationData.nome
+        },
+        id: impersonationData.user_id,
+        impersonated: true
+      }
+    }
+    
+    // Normal Supabase token verification
     const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -54,6 +88,7 @@ async function verifySupabaseToken(token: string, supabaseUrl: string, supabaseK
     
     return await response.json()
   } catch (error) {
+    console.error('Token verification error:', error)
     return null
   }
 }
@@ -975,6 +1010,56 @@ app.get('/api/admin/check', async (c) => {
   
   const adminCheck = await isAdmin(user.email, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
   return c.json({ isAdmin: adminCheck })
+})
+
+// Impersonate user (admin only)
+app.post('/api/admin/impersonate', requireAdmin, async (c) => {
+  try {
+    const { user_email } = await c.req.json()
+    
+    if (!user_email) {
+      return c.json({ error: 'user_email is required' }, 400)
+    }
+    
+    console.log(`🎭 Admin impersonating user: ${user_email}`)
+    
+    // Check if user exists in users table
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    const users = await supabase.query('users', {
+      select: '*',
+      filters: { email: user_email }
+    })
+    
+    if (!users || users.length === 0) {
+      return c.json({ error: 'User not found' }, 404)
+    }
+    
+    const targetUser = users[0]
+    
+    // Create impersonation token (base64 encoded JSON with special marker)
+    const impersonationData = {
+      email: user_email,
+      nome: targetUser.nome || 'Usuário',
+      impersonated: true,
+      impersonated_at: new Date().toISOString(),
+      user_id: targetUser.id,
+      // Add a signature to prevent tampering (simple version)
+      signature: Buffer.from(`${user_email}:${c.env.SUPABASE_ANON_KEY}`).toString('base64')
+    }
+    
+    const impersonationToken = `IMPERSONATE:${Buffer.from(JSON.stringify(impersonationData)).toString('base64')}`
+    
+    console.log(`✅ Impersonation token created for ${user_email}`)
+    
+    return c.json({ 
+      token: impersonationToken,
+      user_email,
+      user_name: targetUser.nome
+    })
+  } catch (error: any) {
+    console.error('Impersonation error:', error)
+    return c.json({ error: error.message || 'Failed to impersonate user' }, 500)
+  }
 })
 
 // Create course (admin only)
