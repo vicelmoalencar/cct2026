@@ -355,10 +355,19 @@ window.searchManager = {
   
   // Show search view
   async showSearchView() {
+    console.log('🔍 showSearchView called, allLessons.length:', this.allLessons.length)
+    
     // Initialize if not already done
     if (this.allLessons.length === 0) {
-      console.log('🔍 Search not initialized yet, initializing now...')
-      await this.init()
+      console.log('📚 Search not initialized yet, initializing now...')
+      try {
+        await this.init()
+        console.log('✅ Search initialized, total lessons:', this.allLessons.length)
+      } catch (error) {
+        console.error('❌ Failed to initialize search:', error)
+        alert('Erro ao carregar sistema de busca. Tente recarregar a página.')
+        return
+      }
     }
     
     // Hide other views
@@ -404,29 +413,6 @@ window.searchManager = {
   }
 }
 
-// Initialize search after all dependencies are loaded
-// Use a simple polling mechanism that works even if DOM is already loaded
-(function initSearchManager() {
-  let attempts = 0
-  const maxAttempts = 50 // 5 seconds
-  
-  const checkReady = setInterval(() => {
-    attempts++
-    
-    if (typeof app !== 'undefined' && typeof accessManager !== 'undefined') {
-      clearInterval(checkReady)
-      console.log('🔍 Initializing search manager...')
-      window.searchManager.init().then(() => {
-        console.log('✅ Search manager initialized successfully')
-      }).catch(err => {
-        console.error('❌ Search manager initialization failed:', err)
-      })
-    } else if (attempts >= maxAttempts) {
-      clearInterval(checkReady)
-      console.warn('⚠️ Search manager initialization timed out. Dependencies not ready:', {
-        app: typeof app !== 'undefined',
-        accessManager: typeof accessManager !== 'undefined'
-      })
-    }
-  }, 100)
-})()
+// Initialize search when first accessed (lazy initialization)
+// This is handled by showSearchView() method
+console.log('✅ Search manager module loaded (will initialize on first use)')

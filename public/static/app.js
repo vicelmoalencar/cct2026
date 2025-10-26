@@ -61,29 +61,22 @@ const app = {
   
   // Show search view (safe wrapper)
   async showSearch() {
+    console.log('🔎 app.showSearch() called')
+    console.log('🔍 window.searchManager exists?', typeof window.searchManager !== 'undefined')
+    
     try {
       // Check if searchManager is available
       if (typeof window.searchManager === 'undefined') {
-        console.warn('⚠️ searchManager not loaded yet, waiting...')
-        
-        // Wait up to 3 seconds for searchManager to load
-        let attempts = 0
-        while (typeof window.searchManager === 'undefined' && attempts < 30) {
-          await new Promise(resolve => setTimeout(resolve, 100))
-          attempts++
-        }
-        
-        if (typeof window.searchManager === 'undefined') {
-          alert('Sistema de busca ainda está carregando. Por favor, aguarde alguns segundos e tente novamente.')
-          return
-        }
+        console.error('❌ window.searchManager is undefined!')
+        alert('Erro: Sistema de busca não foi carregado. Por favor, recarregue a página (Ctrl+F5).')
+        return
       }
       
-      // Now safe to call
+      console.log('✅ Calling searchManager.showSearchView()')
       await window.searchManager.showSearchView()
     } catch (error) {
       console.error('❌ Error opening search:', error)
-      alert('Erro ao abrir busca. Tente recarregar a página.')
+      alert('Erro ao abrir busca: ' + error.message)
     }
   },
   
