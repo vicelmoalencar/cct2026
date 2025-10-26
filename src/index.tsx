@@ -382,6 +382,72 @@ app.post('/api/auth/change-password', async (c) => {
   }
 })
 
+// Get user access status (for banner and access control)
+app.get('/api/user/access-status', requireAuth, async (c) => {
+  try {
+    const user = c.get('user')
+    const userEmail = user.email
+    
+    if (!userEmail) {
+      return c.json({ error: 'Email do usuário não encontrado' }, 400)
+    }
+    
+    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    
+    // Get user access type using database function
+    const accessTypeResult = await supabase.rpc('user_tipo_acesso', {
+      email_usuario: userEmail
+    })
+    
+    const accessType = accessTypeResult && accessTypeResult.length > 0 
+      ? accessTypeResult[0].user_tipo_acesso 
+      : 'SEM_ACESSO'
+    
+    // Get active subscription details
+    const activeSubscription = await supabase.query('member_subscriptions', {
+      select: 'data_expiracao, teste_gratis, detalhe',
+      filters: { 
+        email_membro: userEmail
+      },
+      order: 'data_expiracao.desc',
+      limit: 1
+    })
+    
+    let expirationDate = null
+    let subscriptionDetail = null
+    
+    if (activeSubscription && activeSubscription.length > 0) {
+      const sub = activeSubscription[0]
+      const expDate = new Date(sub.data_expiracao)
+      
+      // Only include if not expired
+      if (expDate > new Date()) {
+        expirationDate = sub.data_expiracao
+        subscriptionDetail = sub.detalhe
+      }
+    }
+    
+    return c.json({ 
+      email: userEmail,
+      accessType: accessType,
+      hasActiveSubscription: accessType !== 'SEM_ACESSO',
+      hasFullAccess: accessType === 'COMPLETO',
+      expirationDate: expirationDate,
+      subscriptionDetail: subscriptionDetail
+    })
+  } catch (error: any) {
+    console.error('Error loading access status:', error)
+    return c.json({ 
+      email: user?.email || '',
+      accessType: 'SEM_ACESSO',
+      hasActiveSubscription: false,
+      hasFullAccess: false,
+      expirationDate: null,
+      subscriptionDetail: null
+    }, 200)
+  }
+})
+
 // Get user subscriptions history
 app.get('/api/user/subscriptions', requireAuth, async (c) => {
   try {
@@ -3607,6 +3673,7 @@ app.get('/', (c) => {
         <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
         <script src="/static/auth.js"></script>
         <script src="/static/admin.js"></script>
+        <script src="/static/access-control.js"></script>
         <script src="/static/app.js"></script>
     </body>
     </html>
