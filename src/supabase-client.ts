@@ -19,7 +19,8 @@ export class SupabaseClient {
       order?: string
       limit?: number
       single?: boolean
-    } = {}
+    } = {},
+    token?: string
   ) {
     const { select = '*', filters = {}, order, limit, single = false } = options
     
@@ -43,6 +44,10 @@ export class SupabaseClient {
     const headers: Record<string, string> = {
       'apikey': this.supabaseKey,
       'Content-Type': 'application/json'
+    }
+
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
     }
     
     // Add single result header if needed
