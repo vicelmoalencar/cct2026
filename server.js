@@ -13,6 +13,7 @@ const port = parseInt(process.env.PORT || '8080', 10)
 // Get environment variables
 const SUPABASE_URL = process.env.SUPABASE_URL
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY
+const DATABASE_CCT = process.env.DATABASE_CCT
 
 console.log('🔍 Environment variables check:')
 console.log('SUPABASE_URL:', SUPABASE_URL ? '✅ Set' : '❌ Missing')
@@ -133,7 +134,8 @@ const server = serve({
     // Create a custom environment object with Supabase credentials
     const env = {
       SUPABASE_URL: SUPABASE_URL || '',
-      SUPABASE_ANON_KEY: SUPABASE_ANON_KEY || ''
+      SUPABASE_ANON_KEY: SUPABASE_ANON_KEY || '',
+      DATABASE_CCT: DATABASE_CCT || ''
     }
     
     // Call the Hono app with the environment

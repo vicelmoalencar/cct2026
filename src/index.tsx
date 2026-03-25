@@ -1,14 +1,24 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie'
-import { SupabaseClient } from './supabase-client'
+import { PostgresClient } from './postgres-client'
 
 type Bindings = {
   SUPABASE_URL: string;
   SUPABASE_ANON_KEY: string;
+  DATABASE_CCT: string;
 }
 
 const app = new Hono<{ Bindings: Bindings }>()
+
+// Helper: retorna cliente PostgreSQL para dados do CCT
+function getDB(c: any): PostgresClient {
+  const connStr = c.env.DATABASE_CCT
+  if (!connStr) {
+    throw new Error('DATABASE_CCT não configurado nas variáveis de ambiente')
+  }
+  return new PostgresClient(connStr)
+}
 
 // Enable CORS for API routes
 app.use('/api/*', cors())
@@ -200,8 +210,8 @@ app.post('/api/auth/register', async (c) => {
     
     // Create user record in users table
     try {
-      const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
-      await supabase.insert('users', {
+      const db = getDB(c)
+      await db.insert('users', {
         email,
         nome: name,
         ativo: true,
@@ -281,8 +291,8 @@ app.get('/api/user/profile', async (c) => {
       return c.json({ error: 'Usuário não encontrado' }, 404)
     }
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
-    const userProfile = await supabase.query('users', {
+    const db = getDB(c)
+    const userProfile = await db.query('users', {
       select: '*',
       filters: { email: user.email },
       single: true
@@ -290,7 +300,7 @@ app.get('/api/user/profile', async (c) => {
     
     if (!userProfile) {
       // Create user profile if doesn't exist
-      await supabase.insert('users', {
+      await db.insert('users', {
         email: user.email,
         nome: user.user_metadata?.name || '',
         ativo: true,
@@ -298,7 +308,7 @@ app.get('/api/user/profile', async (c) => {
       })
       
       // Fetch again
-      const newProfile = await supabase.query('users', {
+      const newProfile = await db.query('users', {
         select: '*',
         filters: { email: user.email },
         single: true
@@ -343,10 +353,10 @@ app.put('/api/user/profile', async (c) => {
       end_estado
     } = await c.req.json()
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    const db = getDB(c)
     
     // Update users table
-    await supabase.update('users', { email: user.email }, {
+    await db.update('users', { email: user.email }, {
       nome: nome || null,
       first_name: first_name || null,
       last_name: last_name || null,
@@ -563,10 +573,9 @@ app.get('/api/user/access-status', requireAuth, async (c) => {
       return c.json({ error: 'Email do usuário não encontrado' }, 400)
     }
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
-    
     // Get user access type using database function
-    const accessTypeResult = await supabase.rpc('user_tipo_acesso', {
+    const db = getDB(c)
+    const accessTypeResult = await db.rpc('user_tipo_acesso', {
       email_usuario: userEmail
     })
     
@@ -588,7 +597,7 @@ app.get('/api/user/access-status', requireAuth, async (c) => {
     console.log('✅ Determined access type:', accessType)
     
     // Get active subscription details
-    const activeSubscription = await supabase.query('member_subscriptions', {
+    const activeSubscription = await db.query('member_subscriptions', {
       select: 'data_expiracao, teste_gratis, detalhe',
       filters: { 
         email_membro: userEmail
@@ -642,10 +651,9 @@ app.get('/api/user/subscriptions', requireAuth, async (c) => {
       return c.json({ error: 'Email do usuário não encontrado' }, 400)
     }
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
-    
     // Buscar todas as assinaturas do usuário
-    const subscriptions = await supabase.query('member_subscriptions', {
+    const db = getDB(c)
+    const subscriptions = await db.query('member_subscriptions', {
       select: '*',
       filters: { email_membro: userEmail },
       order: 'data_expiracao.desc'
@@ -952,10 +960,9 @@ app.post('/api/auth/reset-password', async (c) => {
 // ADMIN HELPERS
 // ============================================
 
-async function isAdmin(email: string, supabaseUrl: string, supabaseKey: string) {
+async function isAdmin(email: string, db: PostgresClient) {
   try {
-    const supabase = new SupabaseClient(supabaseUrl, supabaseKey)
-    const result = await supabase.query('admins', {
+    const result = await db.query('admins', {
       select: '*',
       filters: { email },
       single: true
@@ -980,7 +987,8 @@ async function requireAdmin(c: any, next: any) {
     return c.json({ error: 'Invalid token' }, 401)
   }
   
-  const adminCheck = await isAdmin(user.email, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+  const db = getDB(c)
+  const adminCheck = await isAdmin(user.email, db)
   
   if (!adminCheck) {
     return c.json({ error: 'Forbidden - Admin only' }, 403)
@@ -1008,7 +1016,8 @@ app.get('/api/admin/check', async (c) => {
     return c.json({ isAdmin: false })
   }
   
-  const adminCheck = await isAdmin(user.email, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+  const db = getDB(c)
+  const adminCheck = await isAdmin(user.email, db)
   return c.json({ isAdmin: adminCheck })
 })
 
@@ -1024,8 +1033,8 @@ app.post('/api/admin/impersonate', requireAdmin, async (c) => {
     console.log(`🎭 Admin impersonating user: ${user_email}`)
     
     // Check if user exists in users table
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
-    const users = await supabase.query('users', {
+    const db = getDB(c)
+    const users = await db.query('users', {
       select: '*',
       filters: { email: user_email }
     })
@@ -1044,7 +1053,7 @@ app.post('/api/admin/impersonate', requireAdmin, async (c) => {
       impersonated_at: new Date().toISOString(),
       user_id: targetUser.id,
       // Add a signature to prevent tampering (simple version)
-      signature: Buffer.from(`${user_email}:${c.env.SUPABASE_ANON_KEY}`).toString('base64')
+      signature: Buffer.from(`${user_email}:${c.env.SUPABASE_ANON_KEY}`).toString('base64') // auth key for signature only
     }
     
     const impersonationToken = `IMPERSONATE:${Buffer.from(JSON.stringify(impersonationData)).toString('base64')}`
@@ -1067,8 +1076,8 @@ app.post('/api/admin/courses', requireAdmin, async (c) => {
   try {
     const { title, description, duration_hours, instructor, offers_certificate, is_published } = await c.req.json()
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
-    const result = await supabase.insert('courses', {
+    const db = getDB(c)
+    const result = await db.insert('courses', {
       title,
       description: description || null,
       duration_hours: duration_hours || 0,
@@ -1093,8 +1102,8 @@ app.put('/api/admin/courses/:id', requireAdmin, async (c) => {
     const courseId = c.req.param('id')
     const { title, description, duration_hours, instructor, offers_certificate, is_published } = await c.req.json()
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
-    await supabase.update('courses', { id: courseId }, {
+    const db = getDB(c)
+    await db.update('courses', { id: courseId }, {
       title,
       description: description || null,
       duration_hours: duration_hours || 0,
@@ -1114,8 +1123,8 @@ app.delete('/api/admin/courses/:id', requireAdmin, async (c) => {
   try {
     const courseId = c.req.param('id')
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
-    await supabase.delete('courses', { id: courseId })
+    const db = getDB(c)
+    await db.delete('courses', { id: courseId })
     
     return c.json({ success: true })
   } catch (error) {
@@ -1132,10 +1141,8 @@ app.get('/api/admin/courses/find', requireAdmin, async (c) => {
       return c.json({ error: 'Title is required' }, 400)
     }
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
-    
-    // Query with exact title match
-    const courses = await supabase.query('courses', {
+    const db = getDB(c)
+    const courses = await db.query('courses', {
       select: '*',
       filters: { title: title },
       limit: 1
@@ -1157,8 +1164,8 @@ app.post('/api/admin/modules', requireAdmin, async (c) => {
   try {
     const { course_id, title, description, order_index } = await c.req.json()
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
-    const result = await supabase.insert('modules', {
+    const db = getDB(c)
+    const result = await db.insert('modules', {
       course_id,
       title,
       description: description || null,
@@ -1181,8 +1188,8 @@ app.put('/api/admin/modules/:id', requireAdmin, async (c) => {
     const moduleId = c.req.param('id')
     const { title, description, order_index } = await c.req.json()
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
-    await supabase.update('modules', { id: moduleId }, {
+    const db = getDB(c)
+    await db.update('modules', { id: moduleId }, {
       title,
       description: description || null,
       order_index
@@ -1199,8 +1206,8 @@ app.delete('/api/admin/modules/:id', requireAdmin, async (c) => {
   try {
     const moduleId = c.req.param('id')
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
-    await supabase.delete('modules', { id: moduleId })
+    const db = getDB(c)
+    await db.delete('modules', { id: moduleId })
     
     return c.json({ success: true })
   } catch (error) {
@@ -1218,10 +1225,8 @@ app.get('/api/admin/modules/find', requireAdmin, async (c) => {
       return c.json({ error: 'course_id and title are required' }, 400)
     }
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
-    
-    // Query with exact title match in this course
-    const modules = await supabase.query('modules', {
+    const db = getDB(c)
+    const modules = await db.query('modules', {
       select: '*',
       filters: { 
         course_id: courseId,
@@ -1258,8 +1263,8 @@ app.post('/api/admin/lessons', requireAdmin, async (c) => {
       }
     }
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
-    const result = await supabase.insert('lessons', {
+    const db = getDB(c)
+    const result = await db.insert('lessons', {
       module_id,
       title,
       description: description || null,
@@ -1268,10 +1273,7 @@ app.post('/api/admin/lessons', requireAdmin, async (c) => {
       video_id: video_id || null,
       duration_minutes: duration_minutes || 0,
       order_index: order_index || 0,
-      teste_gratis: free_trial || false,  // Use teste_gratis column
-      support_text: support_text || null,
-      transcript: transcript || null,
-      attachments: attachments || []
+      teste_gratis: free_trial || false
     })
     
     return c.json({ 
@@ -1302,8 +1304,8 @@ app.put('/api/admin/lessons/:id', requireAdmin, async (c) => {
       }
     }
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
-    await supabase.update('lessons', { id: lessonId }, {
+    const db = getDB(c)
+    await db.update('lessons', { id: lessonId }, {
       title,
       description: description || null,
       video_url,
@@ -1311,10 +1313,7 @@ app.put('/api/admin/lessons/:id', requireAdmin, async (c) => {
       video_id: video_id || null,
       duration_minutes,
       order_index,
-      teste_gratis: free_trial !== undefined ? free_trial : false,  // Use teste_gratis column
-      support_text: support_text || null,
-      transcript: transcript || null,
-      attachments: attachments || []
+      teste_gratis: free_trial !== undefined ? free_trial : false
     })
     
     return c.json({ success: true })
@@ -1328,8 +1327,8 @@ app.delete('/api/admin/lessons/:id', requireAdmin, async (c) => {
   try {
     const lessonId = c.req.param('id')
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
-    await supabase.delete('lessons', { id: lessonId })
+    const db = getDB(c)
+    await db.delete('lessons', { id: lessonId })
     
     return c.json({ success: true })
   } catch (error) {
@@ -1347,10 +1346,8 @@ app.get('/api/admin/lessons/find', requireAdmin, async (c) => {
       return c.json({ error: 'module_id and title are required' }, 400)
     }
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
-    
-    // Query with exact title match in this module
-    const lessons = await supabase.query('lessons', {
+    const db = getDB(c)
+    const lessons = await db.query('lessons', {
       select: '*',
       filters: { 
         module_id: moduleId,
@@ -1377,13 +1374,11 @@ app.get('/api/admin/lessons/find', requireAdmin, async (c) => {
 // Get all users (admin only)
 app.get('/api/admin/users', requireAdmin, async (c) => {
   try {
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
-    
-    const users = await supabase.query('users', {
+    const db = getDB(c)
+    const users = await db.query('users', {
       select: '*',
-      order: 'created_at.desc'
+      order: 'created_at DESC'
     })
-    
     return c.json({ users })
   } catch (error: any) {
     console.error('Get users error:', error)
@@ -1400,9 +1395,8 @@ app.get('/api/admin/users/find', requireAdmin, async (c) => {
       return c.json({ error: 'Email is required' }, 400)
     }
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
-    
-    const users = await supabase.query('users', {
+    const db = getDB(c)
+    const users = await db.query('users', {
       select: '*',
       filters: { email: email },
       limit: 1
@@ -1428,9 +1422,8 @@ app.post('/api/admin/users', requireAdmin, async (c) => {
       return c.json({ error: 'Email is required' }, 400)
     }
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
-    
-    const result = await supabase.insert('users', {
+    const db = getDB(c)
+    const result = await db.insert('users', {
       email: userData.email,
       nome: userData.nome || null,
       first_name: userData.first_name || null,
@@ -1465,9 +1458,8 @@ app.put('/api/admin/users/:id', requireAdmin, async (c) => {
     const userId = c.req.param('id')
     const userData = await c.req.json()
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
-    
-    await supabase.update('users', { id: userId }, {
+    const db = getDB(c)
+    await db.update('users', { id: userId }, {
       nome: userData.nome,
       first_name: userData.first_name,
       last_name: userData.last_name,
@@ -1498,8 +1490,8 @@ app.delete('/api/admin/users/:id', requireAdmin, async (c) => {
   try {
     const userId = c.req.param('id')
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
-    await supabase.delete('users', { id: userId })
+    const db = getDB(c)
+    await db.delete('users', { id: userId })
     
     return c.json({ success: true })
   } catch (error: any) {
@@ -1515,13 +1507,11 @@ app.delete('/api/admin/users/:id', requireAdmin, async (c) => {
 // List all certificates (admin only)
 app.get('/api/admin/certificates', requireAdmin, async (c) => {
   try {
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
-    
-    const certificates = await supabase.query('certificates', {
+    const db = getDB(c)
+    const certificates = await db.query('certificates', {
       select: '*',
-      order: 'created_at.desc'
+      order: 'created_at DESC'
     })
-    
     return c.json({ certificates: certificates || [] })
   } catch (error: any) {
     console.error('List certificates error:', error)
@@ -1533,17 +1523,14 @@ app.get('/api/admin/certificates', requireAdmin, async (c) => {
 app.get('/api/admin/certificates/:id', requireAdmin, async (c) => {
   try {
     const certId = c.req.param('id')
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
-    
-    const certificates = await supabase.query('certificates', {
+    const db = getDB(c)
+    const certificates = await db.query('certificates', {
       select: '*',
       filters: { id: certId }
     })
-    
     if (!certificates || certificates.length === 0) {
       return c.json({ error: 'Certificate not found' }, 404)
     }
-    
     return c.json({ certificate: certificates[0] })
   } catch (error: any) {
     console.error('Get certificate error:', error)
@@ -1561,16 +1548,14 @@ app.get('/api/admin/certificates/find', requireAdmin, async (c) => {
       return c.json({ error: 'Email and course parameters are required' }, 400)
     }
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
-    
-    const certificates = await supabase.query('certificates', {
+    const db = getDB(c)
+    const certificates = await db.query('certificates', {
       select: '*',
       filters: { 
         user_email: email,
         course_title: course
       }
     })
-    
     return c.json({ certificates: certificates || [] })
   } catch (error: any) {
     console.error('Find certificate error:', error)
@@ -1587,11 +1572,10 @@ app.post('/api/admin/certificates', requireAdmin, async (c) => {
       return c.json({ error: 'Email and course title are required' }, 400)
     }
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
-    
+    const db = getDB(c)
     const now = new Date().toISOString()
     
-    const result = await supabase.insert('certificates', {
+    const result = await db.insert('certificates', {
       user_email: certData.user_email,
       user_name: certData.user_name || 'Aluno',
       course_id: certData.course_id || null,
@@ -1619,12 +1603,12 @@ app.put('/api/admin/certificates/:id', requireAdmin, async (c) => {
     const certId = c.req.param('id')
     const certData = await c.req.json()
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    const db = getDB(c)
     
     // Get course title if course_id is provided
     let courseTitle = certData.course_title
     if (certData.course_id) {
-      const courses = await supabase.query('courses', {
+      const courses = await db.query('courses', {
         select: 'title',
         filters: { id: certData.course_id }
       })
@@ -1633,7 +1617,7 @@ app.put('/api/admin/certificates/:id', requireAdmin, async (c) => {
       }
     }
     
-    await supabase.update('certificates', { id: certId }, {
+    await db.update('certificates', { id: certId }, {
       user_email: certData.user_email,
       user_name: certData.user_name,
       course_id: certData.course_id,
@@ -1654,8 +1638,8 @@ app.delete('/api/admin/certificates/:id', requireAdmin, async (c) => {
   try {
     const certId = c.req.param('id')
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
-    await supabase.delete('certificates', { id: certId })
+    const db = getDB(c)
+    await db.delete('certificates', { id: certId })
     
     return c.json({ success: true })
   } catch (error: any) {
@@ -2083,12 +2067,12 @@ app.get('/api/my-certificates', requireAuth, async (c) => {
       return c.json({ error: 'User email not found' }, 400)
     }
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    const db = getDB(c)
     
-    const certificates = await supabase.query('certificates', {
+    const certificates = await db.query('certificates', {
       select: '*',
       filters: { user_email: userEmail },
-      order: 'completion_date.desc'
+      order: 'completion_date DESC'
     })
     
     return c.json({ certificates: certificates || [] })
@@ -2105,10 +2089,10 @@ app.get('/api/certificates/:id/html', requireAuth, async (c) => {
     const user = c.get('user')
     const userEmail = user.email
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    const db = getDB(c)
     
     // Get certificate
-    const certificates = await supabase.query('certificates', {
+    const certificates = await db.query('certificates', {
       select: '*',
       filters: { id: certId }
     })
@@ -2146,10 +2130,10 @@ app.get('/api/certificates/:id/html', requireAuth, async (c) => {
     // Se não houver módulos armazenados e houver course_id, buscar do banco
     if (modules.length === 0 && cert.course_id) {
       try {
-        const courseModules = await supabase.query('modules', {
+        const courseModules = await db.query('modules', {
           select: 'title, order_index',
           filters: { course_id: cert.course_id },
-          order: 'order_index.asc'
+          order: 'order_index ASC'
         })
         
         if (courseModules && courseModules.length > 0) {
@@ -2187,9 +2171,9 @@ app.get('/verificar/:code', async (c) => {
   try {
     const code = c.req.param('code')
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    const db = getDB(c)
     
-    const certificates = await supabase.query('certificates', {
+    const certificates = await db.query('certificates', {
       select: '*',
       filters: { verification_code: code }
     })
@@ -2228,7 +2212,7 @@ app.get('/verificar/:code', async (c) => {
     const cert = certificates[0]
     
     // Increment verification count
-    await supabase.update('certificates', { id: cert.id }, {
+    await db.update('certificates', { id: cert.id }, {
       verification_count: (cert.verification_count || 0) + 1
     })
     
@@ -2249,10 +2233,10 @@ app.get('/verificar/:code', async (c) => {
     
     if (modules.length === 0 && cert.course_id) {
       try {
-        const courseModules = await supabase.query('modules', {
+        const courseModules = await db.query('modules', {
           select: 'title, order_index',
           filters: { course_id: cert.course_id },
-          order: 'order_index.asc'
+          order: 'order_index ASC'
         })
         
         if (courseModules && courseModules.length > 0) {
@@ -2376,9 +2360,9 @@ app.get('/api/verify/:code', async (c) => {
   try {
     const code = c.req.param('code')
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    const db = getDB(c)
     
-    const certificates = await supabase.query('certificates', {
+    const certificates = await db.query('certificates', {
       select: '*',
       filters: { verification_code: code }
     })
@@ -2390,7 +2374,7 @@ app.get('/api/verify/:code', async (c) => {
     const cert = certificates[0]
     
     // Increment verification count
-    await supabase.update('certificates', { id: cert.id }, {
+    await db.update('certificates', { id: cert.id }, {
       verification_count: (cert.verification_count || 0) + 1
     })
     
@@ -2419,11 +2403,11 @@ app.get('/api/verify/:code', async (c) => {
 // List all member subscriptions (admin only)
 app.get('/api/admin/member-subscriptions', requireAdmin, async (c) => {
   try {
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    const db = getDB(c)
     
-    const subscriptions = await supabase.query('member_subscriptions', {
+    const subscriptions = await db.query('member_subscriptions', {
       select: '*',
-      order: 'created_at.desc'
+      order: 'created_at DESC'
     })
     
     return c.json({ subscriptions: subscriptions || [] })
@@ -2442,9 +2426,9 @@ app.get('/api/admin/member-subscriptions/find', requireAdmin, async (c) => {
       return c.json({ error: 'Email parameter is required' }, 400)
     }
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    const db = getDB(c)
     
-    const subscriptions = await supabase.query('member_subscriptions', {
+    const subscriptions = await db.query('member_subscriptions', {
       select: '*',
       filters: { email_membro: email }
     })
@@ -2465,9 +2449,9 @@ app.post('/api/admin/member-subscriptions', requireAdmin, async (c) => {
       return c.json({ error: 'Email is required' }, 400)
     }
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    const db = getDB(c)
     
-    const result = await supabase.insert('member_subscriptions', {
+    const result = await db.insert('member_subscriptions', {
       email_membro: subData.email_membro,
       data_expiracao: subData.data_expiracao || null,
       detalhe: subData.detalhe || null,
@@ -2492,9 +2476,9 @@ app.put('/api/admin/member-subscriptions/:id', requireAdmin, async (c) => {
     const subId = c.req.param('id')
     const subData = await c.req.json()
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    const db = getDB(c)
     
-    await supabase.update('member_subscriptions', { id: subId }, {
+    await db.update('member_subscriptions', { id: subId }, {
       email_membro: subData.email_membro,
       data_expiracao: subData.data_expiracao,
       detalhe: subData.detalhe,
@@ -2516,8 +2500,8 @@ app.delete('/api/admin/member-subscriptions/:id', requireAdmin, async (c) => {
   try {
     const subId = c.req.param('id')
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
-    await supabase.delete('member_subscriptions', { id: subId })
+    const db = getDB(c)
+    await db.delete('member_subscriptions', { id: subId })
     
     return c.json({ success: true })
   } catch (error: any) {
@@ -2533,7 +2517,7 @@ app.delete('/api/admin/member-subscriptions/:id', requireAdmin, async (c) => {
 // Get all courses
 app.get('/api/courses', async (c) => {
   try {
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    const db = getDB(c)
     
     // Check if user is admin
     const token = getCookie(c, 'sb-access-token')
@@ -2542,7 +2526,7 @@ app.get('/api/courses', async (c) => {
     if (token) {
       const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
       if (user) {
-        const adminResult = await supabase.query('admins', {
+        const adminResult = await db.query('admins', {
           select: 'id',
           filters: { email: user.email },
           single: true
@@ -2554,22 +2538,22 @@ app.get('/api/courses', async (c) => {
     // Get courses - filter by is_published if not admin
     const filters = isAdmin ? {} : { is_published: true }
     
-    const courses = await supabase.query('courses', {
+    const courses = await db.query('courses', {
       select: '*',
       filters,
-      order: 'created_at.desc'
+      order: 'created_at DESC'
     })
     
     // For each course, count modules and lessons
     const coursesWithCounts = await Promise.all(courses.map(async (course: any) => {
-      const modules = await supabase.query('modules', {
+      const modules = await db.query('modules', {
         select: 'id',
         filters: { course_id: course.id }
       })
       
       let lessonsCount = 0
       for (const module of modules) {
-        const lessons = await supabase.query('lessons', {
+        const lessons = await db.query('lessons', {
           select: 'id',
           filters: { module_id: module.id }
         })
@@ -2594,10 +2578,10 @@ app.get('/api/courses/:id', async (c) => {
   try {
     const courseId = c.req.param('id')
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    const db = getDB(c)
     
     // Get course
-    const course = await supabase.query('courses', {
+    const course = await db.query('courses', {
       select: '*',
       filters: { id: courseId },
       single: true
@@ -2608,7 +2592,7 @@ app.get('/api/courses/:id', async (c) => {
     }
     
     // Get modules with lessons
-    const modules = await supabase.query('modules', {
+    const modules = await db.query('modules', {
       select: '*',
       filters: { course_id: courseId },
       order: 'order_index'
@@ -2616,7 +2600,7 @@ app.get('/api/courses/:id', async (c) => {
     
     // Get lessons for each module
     for (const module of modules) {
-      const lessons = await supabase.query('lessons', {
+      const lessons = await db.query('lessons', {
         select: '*',
         filters: { module_id: module.id },
         order: 'order_index'
@@ -2650,26 +2634,28 @@ app.get('/api/lessons/:id', async (c) => {
       }
     }
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    const db = getDB(c)
     
     // Check if user has access to this lesson
+    let hasAccess = false;
+    let fallbackMode = false;
+
     if (userEmail) {
       try {
-        const accessResult = await supabase.rpc('user_has_lesson_access', {
+        const accessResult = await db.rpc('user_has_lesson_access', {
           email_usuario: userEmail,
-          lesson_id: parseInt(lessonId)
+          p_lesson_id: parseInt(lessonId) 
         })
         
         console.log('Access check result:', accessResult)
         
         // Handle different return formats
-        let hasAccess = false
         if (Array.isArray(accessResult) && accessResult.length > 0) {
-          // If returns array of objects: [{user_has_lesson_access: true}]
-          hasAccess = accessResult[0].user_has_lesson_access || accessResult[0] === true || accessResult[0]
+          hasAccess = accessResult[0].user_has_lesson_access || accessResult[0] === true || !!accessResult[0]
         } else if (typeof accessResult === 'boolean') {
-          // If returns boolean directly
           hasAccess = accessResult
+        } else if (accessResult && typeof accessResult === 'object') {
+          hasAccess = !!accessResult.user_has_lesson_access
         }
         
         console.log('Has access:', hasAccess, 'User:', userEmail, 'Lesson:', lessonId)
@@ -2688,10 +2674,14 @@ app.get('/api/lessons/:id', async (c) => {
         console.error('❌ Error checking access via RPC:', rpcError)
         // If RPC fails, allow access temporarily (fallback)
         console.log('⚠️ Allowing access due to RPC error (fallback mode)')
+        fallbackMode = true;
+        hasAccess = true;
       }
-    } else {
+    } 
+    
+    if (!userEmail || (!hasAccess && !fallbackMode)) {
       // Not authenticated - check if lesson is free
-      const lesson = await supabase.query('lessons', {
+      const lesson = await db.query('lessons', {
         select: 'teste_gratis',
         filters: { id: lessonId },
         single: true
@@ -2706,23 +2696,30 @@ app.get('/api/lessons/:id', async (c) => {
       }
     }
     
-    // Get lesson with module info (using RPC for join)
-    const lesson = await supabase.rpc('get_lesson_with_module', {
-      p_lesson_id: parseInt(lessonId)
-    })
+    // Get lesson with module info (using query with JOIN)
+    const sqlQuery = `
+      SELECT l.*, m.title as module_title, c.title as course_title, c.id as course_id
+      FROM lessons l
+      LEFT JOIN modules m ON l.module_id = m.id
+      LEFT JOIN courses c ON m.course_id = c.id
+      WHERE l.id = $1
+    `
+    const lessonResult = await db.sql(sqlQuery, [parseInt(lessonId)])
     
-    if (!lesson || lesson.length === 0) {
+    if (!lessonResult || lessonResult.length === 0) {
       return c.json({ error: 'Lesson not found' }, 404)
     }
     
+    const lesson = lessonResult[0]
+    
     // Get comments
-    const comments = await supabase.query('comments', {
+    const comments = await db.query('comments', {
       select: '*',
       filters: { lesson_id: lessonId },
-      order: 'created_at.desc'
+      order: 'created_at DESC'
     })
     
-    return c.json({ lesson: lesson[0], comments })
+    return c.json({ lesson, comments })
   } catch (error) {
     console.error('Error fetching lesson:', error)
     return c.json({ error: 'Failed to fetch lesson' }, 500)
@@ -2754,12 +2751,12 @@ app.post('/api/lessons/:id/comments', async (c) => {
       return c.json({ error: 'Comment text is required' }, 400)
     }
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
-    
     // Get user name from user metadata or email
     const userName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuário'
     
-    const result = await supabase.insert('comments', {
+    const db = getDB(c)
+    
+    const result = await db.insert('comments', {
       lesson_id: parseInt(lessonId),
       user_name: userName,
       user_email: user.email,
@@ -2780,19 +2777,23 @@ app.post('/api/lessons/:id/comments', async (c) => {
 // API ROUTES - USER PROGRESS
 // ============================================
 
-// Get user progress for a course
 app.get('/api/progress/:email/:courseId', async (c) => {
   try {
     const email = c.req.param('email')
     const courseId = c.req.param('courseId')
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    const db = getDB(c)
     
-    // Use RPC function to get progress with joins
-    const progress = await supabase.rpc('get_user_course_progress', {
-      p_user_email: email,
-      p_course_id: parseInt(courseId)
-    })
+    // Use SQL join para obter progresso + info da aula
+    // Visto que RPC nem sempre é fácil portar dependendo do tipo retornado
+    const sqlQuery = `
+      SELECT up.*, l.module_id
+      FROM user_progress up
+      JOIN lessons l ON up.lesson_id = l.id
+      JOIN modules m ON l.module_id = m.id
+      WHERE up.user_email = $1 AND m.course_id = $2
+    `
+    const progress = await db.sql(sqlQuery, [email, parseInt(courseId)])
     
     return c.json({ progress: progress || [] })
   } catch (error) {
@@ -2809,23 +2810,23 @@ app.post('/api/progress/complete', async (c) => {
       return c.json({ error: 'Missing required fields' }, 400)
     }
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    const db = getDB(c)
     
     // Check if progress exists
-    const existing = await supabase.query('user_progress', {
+    const existing = await db.query('user_progress', {
       select: '*',
       filters: { user_email, lesson_id }
     })
     
-    if (existing.length > 0) {
+    if (existing && existing.length > 0) {
       // Update existing
-      await supabase.update('user_progress', { id: existing[0].id }, {
+      await db.update('user_progress', { id: existing[0].id }, {
         completed: true,
         completed_at: new Date().toISOString()
       })
     } else {
       // Insert new
-      await supabase.insert('user_progress', {
+      await db.insert('user_progress', {
         user_email,
         lesson_id: parseInt(lesson_id),
         completed: true,
@@ -2848,16 +2849,16 @@ app.post('/api/progress/uncomplete', async (c) => {
       return c.json({ error: 'Missing required fields' }, 400)
     }
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    const db = getDB(c)
     
     // Find and delete progress
-    const existing = await supabase.query('user_progress', {
+    const existing = await db.query('user_progress', {
       select: '*',
       filters: { user_email, lesson_id }
     })
     
-    if (existing.length > 0) {
-      await supabase.delete('user_progress', { id: existing[0].id })
+    if (existing && existing.length > 0) {
+      await db.delete('user_progress', { id: existing[0].id })
     }
     
     return c.json({ success: true })
@@ -2938,24 +2939,24 @@ app.post('/api/admin/certificate-template', requireAdmin, async (c) => {
     // Generate public URL
     const template_url = `${c.env.SUPABASE_URL}/storage/v1/object/public/certificate-templates/${course_id}/${file_name}`
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    const db = getDB(c)
     
     // Check if template already exists for this course
-    const existing = await supabase.query('certificate_templates', {
+    const existing = await db.query('certificate_templates', {
       select: '*',
       filters: { course_id }
     })
     
-    if (existing.length > 0) {
+    if (existing && existing.length > 0) {
       // Update existing template
-      await supabase.update('certificate_templates', { id: existing[0].id }, {
+      await db.update('certificate_templates', { id: existing[0].id }, {
         template_url,
         updated_at: new Date().toISOString()
       })
       console.log('✅ Certificate template updated in database')
     } else {
       // Insert new template
-      await supabase.insert('certificate_templates', {
+      await db.insert('certificate_templates', {
         course_id: parseInt(course_id),
         template_url,
         created_at: new Date().toISOString(),
@@ -2983,9 +2984,9 @@ app.get('/api/certificate-template/:courseId', async (c) => {
   try {
     const courseId = c.req.param('courseId')
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    const db = getDB(c)
     
-    const template = await supabase.query('certificate_templates', {
+    const template = await db.query('certificate_templates', {
       select: '*',
       filters: { course_id: courseId },
       single: true
@@ -3023,10 +3024,10 @@ app.post('/api/certificates/generate', async (c) => {
       return c.json({ error: 'ID do curso é obrigatório' }, 400)
     }
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    const db = getDB(c)
     
     // Check if certificate already exists
-    const existing = await supabase.query('certificates', {
+    const existing = await db.query('certificates', {
       select: '*',
       filters: { 
         user_email: user.email, 
@@ -3034,7 +3035,7 @@ app.post('/api/certificates/generate', async (c) => {
       }
     })
     
-    if (existing.length > 0) {
+    if (existing && existing.length > 0) {
       console.log('✅ Certificate already exists')
       return c.json({ 
         success: true,
@@ -3044,7 +3045,7 @@ app.post('/api/certificates/generate', async (c) => {
     }
     
     // Verify user has completed 100% of the course
-    const course = await supabase.query('courses', {
+    const course = await db.query('courses', {
       select: '*',
       filters: { id: course_id },
       single: true
@@ -3055,18 +3056,22 @@ app.post('/api/certificates/generate', async (c) => {
     }
     
     // Get all lessons in the course
-    const modules = await supabase.query('modules', {
+    const modules = await db.query('modules', {
       select: '*',
       filters: { course_id }
     })
     
     let allLessonIds: number[] = []
-    for (const module of modules) {
-      const lessons = await supabase.query('lessons', {
-        select: 'id',
-        filters: { module_id: module.id }
-      })
-      allLessonIds = [...allLessonIds, ...lessons.map((l: any) => l.id)]
+    if (modules) {
+      for (const module of modules) {
+        const lessons = await db.query('lessons', {
+          select: 'id',
+          filters: { module_id: module.id }
+        })
+        if (lessons) {
+          allLessonIds = [...allLessonIds, ...lessons.map((l: any) => l.id)]
+        }
+      }
     }
     
     if (allLessonIds.length === 0) {
@@ -3074,10 +3079,10 @@ app.post('/api/certificates/generate', async (c) => {
     }
     
     // Check user progress
-    const progress = await supabase.query('user_progress', {
+    const progress = await db.query('user_progress', {
       select: '*',
       filters: { user_email: user.email }
-    })
+    }) || []
     
     const completedLessonIds = progress
       .filter((p: any) => p.completed && allLessonIds.includes(p.lesson_id))
@@ -3099,7 +3104,7 @@ app.post('/api/certificates/generate', async (c) => {
     }
     
     // Generate certificate
-    const certificate = await supabase.insert('certificates', {
+    const certificate = await db.insert('certificates', {
       user_email: user.email,
       user_name: user.user_metadata?.name || 'Aluno',
       course_id: parseInt(course_id),
@@ -3149,18 +3154,18 @@ app.get('/api/certificates', async (c) => {
       return c.json({ error: 'Usuário não encontrado' }, 401)
     }
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    const db = getDB(c)
     
-    const certificates = await supabase.query('certificates', {
+    const certificates = await db.query('certificates', {
       select: '*',
       filters: { user_email: user.email },
-      order: 'issued_at.desc'
-    })
+      order: 'issued_at DESC'
+    }) || []
     
     // Get certificate templates for each certificate
     const certificatesWithTemplates = await Promise.all(
       certificates.map(async (cert: any) => {
-        const template = await supabase.query('certificate_templates', {
+        const template = await db.query('certificate_templates', {
           select: '*',
           filters: { course_id: cert.course_id },
           single: true
@@ -3184,9 +3189,9 @@ app.get('/api/certificates/:id', async (c) => {
   try {
     const certId = c.req.param('id')
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    const db = getDB(c)
     
-    const certificate = await supabase.query('certificates', {
+    const certificate = await db.query('certificates', {
       select: '*',
       filters: { id: certId },
       single: true
@@ -3197,7 +3202,7 @@ app.get('/api/certificates/:id', async (c) => {
     }
     
     // Get template
-    const template = await supabase.query('certificate_templates', {
+    const template = await db.query('certificate_templates', {
       select: '*',
       filters: { course_id: certificate.course_id },
       single: true
@@ -3221,13 +3226,13 @@ app.get('/api/certificates/:id', async (c) => {
 // Get all active plans
 app.get('/api/plans', async (c) => {
   try {
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    const db = getDB(c)
     
-    const plans = await supabase.query('plans', {
+    const plans = await db.query('plans', {
       select: '*',
       filters: { is_active: true },
       order: 'display_order'
-    })
+    }) || []
     
     return c.json({ plans })
   } catch (error) {
@@ -3250,12 +3255,18 @@ app.get('/api/subscriptions/current', async (c) => {
       return c.json({ subscription: null })
     }
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    const db = getDB(c)
     
     // Get user's active subscription with plan details
-    const result = await supabase.rpc('get_user_current_plan', {
-      p_user_email: user.email
-    })
+    const sqlQuery = `
+      SELECT s.*, p.name as plan_name, p.monthly_price, p.duration_days
+      FROM subscriptions s
+      JOIN plans p ON s.plan_id = p.id
+      WHERE s.user_email = $1 AND s.status = 'active'
+      ORDER BY s.end_date DESC
+      LIMIT 1
+    `
+    const result = await db.sql(sqlQuery, [user.email])
     
     return c.json({ subscription: result && result.length > 0 ? result[0] : null })
   } catch (error) {
@@ -3273,10 +3284,10 @@ app.post('/api/admin/subscriptions', requireAdmin, async (c) => {
       return c.json({ error: 'Email e plano são obrigatórios' }, 400)
     }
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    const db = getDB(c)
     
     // Get plan details
-    const plan = await supabase.query('plans', {
+    const plan = await db.query('plans', {
       select: '*',
       filters: { id: plan_id },
       single: true
@@ -3292,14 +3303,14 @@ app.post('/api/admin/subscriptions', requireAdmin, async (c) => {
     endDate.setDate(endDate.getDate() + (duration_days || plan.duration_days))
     
     // Check if user already has active subscription
-    const existing = await supabase.query('subscriptions', {
+    const existing = await db.query('subscriptions', {
       select: '*',
       filters: { user_email, status: 'active' }
     })
     
-    if (existing.length > 0) {
+    if (existing && existing.length > 0) {
       // Update existing subscription
-      await supabase.update('subscriptions', { id: existing[0].id }, {
+      await db.update('subscriptions', { id: existing[0].id }, {
         plan_id,
         end_date: endDate.toISOString(),
         updated_at: new Date().toISOString()
@@ -3312,7 +3323,7 @@ app.post('/api/admin/subscriptions', requireAdmin, async (c) => {
       })
     } else {
       // Create new subscription
-      const subscription = await supabase.insert('subscriptions', {
+      const subscription = await db.insert('subscriptions', {
         user_email,
         plan_id,
         status: 'active',
@@ -3340,8 +3351,8 @@ app.get('/api/lessons/:id/access', async (c) => {
     
     if (!token) {
       // Not logged in - check if lesson is teste_gratis
-      const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
-      const lesson = await supabase.query('lessons', {
+      const db = getDB(c)
+      const lesson = await db.query('lessons', {
         select: 'teste_gratis',
         filters: { id: lessonId },
         single: true
@@ -3359,15 +3370,22 @@ app.get('/api/lessons/:id/access', async (c) => {
       return c.json({ hasAccess: false, reason: 'invalid_token' })
     }
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    const db = getDB(c)
     
     // Use the database function to check access
-    const result = await supabase.rpc('user_has_lesson_access', {
+    const result = await db.rpc('user_has_lesson_access', {
       email_usuario: user.email,
-      lesson_id: parseInt(lessonId)
+      p_lesson_id: parseInt(lessonId)
     })
     
-    const hasAccess = result && result.length > 0 ? result[0] : false
+    let hasAccess = false
+    if (Array.isArray(result) && result.length > 0) {
+      hasAccess = result[0].user_has_lesson_access || result[0] === true || !!result[0]
+    } else if (typeof result === 'boolean') {
+      hasAccess = result
+    } else if (result && typeof result === 'object') {
+      hasAccess = !!result.user_has_lesson_access
+    }
     
     return c.json({ 
       hasAccess,
@@ -3382,9 +3400,9 @@ app.get('/api/lessons/:id/access', async (c) => {
 // Expire subscriptions (can be called by cron job)
 app.post('/api/admin/subscriptions/expire', requireAdmin, async (c) => {
   try {
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    const db = getDB(c)
     
-    await supabase.rpc('expire_subscriptions', {})
+    await db.rpc('expire_subscriptions', {})
     
     return c.json({ 
       success: true,
@@ -3399,12 +3417,12 @@ app.post('/api/admin/subscriptions/expire', requireAdmin, async (c) => {
 // Admin: Get all plans (including inactive)
 app.get('/api/admin/plans', requireAdmin, async (c) => {
   try {
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    const db = getDB(c)
     
-    const plans = await supabase.query('plans', {
+    const plans = await db.query('plans', {
       select: '*',
       order: 'display_order'
-    })
+    }) || []
     
     return c.json({ plans })
   } catch (error) {
@@ -3418,11 +3436,11 @@ app.post('/api/admin/plans', requireAdmin, async (c) => {
     const data = await c.req.json()
     const { id, name, description, price, duration_days, is_active, is_free_trial, features, display_order } = data
     
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    const db = getDB(c)
     
     if (id) {
       // Update existing plan
-      await supabase.update('plans', { id }, {
+      await db.update('plans', { id }, {
         name,
         description,
         price: parseFloat(price),
@@ -3437,7 +3455,7 @@ app.post('/api/admin/plans', requireAdmin, async (c) => {
       return c.json({ success: true, message: 'Plano atualizado!' })
     } else {
       // Create new plan
-      const plan = await supabase.insert('plans', {
+      const plan = await db.insert('plans', {
         name,
         description,
         price: parseFloat(price),
@@ -3459,17 +3477,17 @@ app.post('/api/admin/plans', requireAdmin, async (c) => {
 // Admin: Get all subscriptions
 app.get('/api/admin/subscriptions', requireAdmin, async (c) => {
   try {
-    const supabase = new SupabaseClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    const db = getDB(c)
     
-    const subscriptions = await supabase.query('subscriptions', {
+    const subscriptions = await db.query('subscriptions', {
       select: '*',
-      order: 'created_at.desc'
-    })
+      order: 'created_at DESC'
+    }) || []
     
     // Get plan details for each subscription
     const subscriptionsWithPlans = await Promise.all(
       subscriptions.map(async (sub: any) => {
-        const plan = await supabase.query('plans', {
+        const plan = await db.query('plans', {
           select: '*',
           filters: { id: sub.plan_id },
           single: true
