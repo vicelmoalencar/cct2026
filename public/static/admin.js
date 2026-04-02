@@ -2792,7 +2792,167 @@ const adminUI = {
   },
   
   async editUser(userId) {
-    alert('Funcionalidade de edição será implementada em breve')
+    const user = (this.allUsers || []).find(u => u.id === userId)
+    if (!user) {
+      alert('Usuário não encontrado')
+      return
+    }
+
+    // Remove any existing modal
+    const existing = document.getElementById('userEditModal')
+    if (existing) existing.remove()
+
+    const plans = this.plans || []
+    const planOptions = plans.map(p =>
+      `<option value="${p.id}" data-duration="${p.duration_days || 30}">${p.name} (${p.duration_days || 30} dias)</option>`
+    ).join('')
+
+    const currentExpiration = user.dt_expiracao
+      ? new Date(user.dt_expiracao).toISOString().split('T')[0]
+      : ''
+
+    const modal = document.createElement('div')
+    modal.id = 'userEditModal'
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4'
+    modal.innerHTML = `
+      <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg">
+        <div class="flex items-center justify-between p-6 border-b">
+          <div>
+            <h3 class="text-xl font-bold text-gray-800">
+              <i class="fas fa-user-edit mr-2 text-blue-600"></i>Editar Usuário
+            </h3>
+            <p class="text-sm text-gray-500 mt-1">${user.nome || user.email}</p>
+          </div>
+          <button onclick="adminUI.closeUserEditModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+        </div>
+
+        <div class="p-6 space-y-6">
+
+          <!-- Assign Plan -->
+          <div class="border border-blue-100 rounded-lg p-4 bg-blue-50">
+            <h4 class="font-semibold text-blue-800 mb-3">
+              <i class="fas fa-tags mr-2"></i>Atribuir Plano
+            </h4>
+            ${plans.length === 0
+              ? '<p class="text-sm text-gray-500">Nenhum plano cadastrado.</p>'
+              : `
+              <div class="space-y-3">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Plano</label>
+                  <select id="editUserPlan" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          onchange="adminUI.onPlanChange()">
+                    <option value="">-- Selecione um plano --</option>
+                    ${planOptions}
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Duração (dias)</label>
+                  <input type="number" id="editUserPlanDuration" min="1" placeholder="Padrão do plano"
+                         class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <p class="text-xs text-gray-500 mt-1">Deixe em branco para usar a duração padrão do plano</p>
+                </div>
+                <button onclick="adminUI.saveUserPlan(${userId}, '${user.email.replace(/'/g, "\\'")}')"
+                        class="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors">
+                  <i class="fas fa-check mr-2"></i>Atribuir Plano
+                </button>
+              </div>`
+            }
+          </div>
+
+          <!-- Change Expiration Date -->
+          <div class="border border-orange-100 rounded-lg p-4 bg-orange-50">
+            <h4 class="font-semibold text-orange-800 mb-3">
+              <i class="fas fa-calendar-alt mr-2"></i>Data de Expiração
+            </h4>
+            <div class="space-y-3">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Nova data de expiração</label>
+                <input type="date" id="editUserExpiration" value="${currentExpiration}"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500">
+                <p class="text-xs text-gray-500 mt-1">
+                  Atual: ${currentExpiration ? new Date(user.dt_expiracao).toLocaleDateString('pt-BR') : 'Sem expiração definida'}
+                </p>
+              </div>
+              <button onclick="adminUI.saveUserExpiration(${userId})"
+                      class="w-full px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-semibold transition-colors">
+                <i class="fas fa-save mr-2"></i>Salvar Data de Expiração
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="flex justify-end p-4 border-t bg-gray-50 rounded-b-xl">
+          <button onclick="adminUI.closeUserEditModal()"
+                  class="px-6 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-semibold transition-colors">
+            Fechar
+          </button>
+        </div>
+      </div>
+    `
+
+    document.body.appendChild(modal)
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) adminUI.closeUserEditModal()
+    })
+  },
+
+  onPlanChange() {
+    const select = document.getElementById('editUserPlan')
+    const durationInput = document.getElementById('editUserPlanDuration')
+    const selected = select.options[select.selectedIndex]
+    if (selected && selected.dataset.duration) {
+      durationInput.placeholder = `Padrão: ${selected.dataset.duration} dias`
+    }
+  },
+
+  closeUserEditModal() {
+    const modal = document.getElementById('userEditModal')
+    if (modal) modal.remove()
+  },
+
+  async saveUserPlan(userId, userEmail) {
+    const planId = document.getElementById('editUserPlan')?.value
+    const durationVal = document.getElementById('editUserPlanDuration')?.value
+
+    if (!planId) {
+      alert('Selecione um plano')
+      return
+    }
+
+    try {
+      const payload = { user_email: userEmail, plan_id: parseInt(planId) }
+      if (durationVal) payload.duration_days = parseInt(durationVal)
+
+      await axios.post('/api/admin/subscriptions', payload)
+      alert('✅ Plano atribuído com sucesso!')
+      this.closeUserEditModal()
+      await this.loadUsersTable({
+        search: document.getElementById('searchUser')?.value || '',
+        status: document.getElementById('filterUserStatus')?.value || 'all'
+      })
+    } catch (error) {
+      console.error('Error assigning plan:', error)
+      alert('❌ Erro ao atribuir plano: ' + (error.response?.data?.error || error.message))
+    }
+  },
+
+  async saveUserExpiration(userId) {
+    const dateVal = document.getElementById('editUserExpiration')?.value
+
+    try {
+      const payload = { dt_expiracao: dateVal ? new Date(dateVal).toISOString() : null }
+      await axios.put(`/api/admin/users/${userId}`, payload)
+      alert('✅ Data de expiração atualizada!')
+      this.closeUserEditModal()
+      await this.loadUsersTable({
+        search: document.getElementById('searchUser')?.value || '',
+        status: document.getElementById('filterUserStatus')?.value || 'all'
+      })
+    } catch (error) {
+      console.error('Error updating expiration:', error)
+      alert('❌ Erro ao atualizar data: ' + (error.response?.data?.error || error.message))
+    }
   },
   
   async deleteUser(userId) {
