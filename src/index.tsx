@@ -3279,65 +3279,58 @@ app.get('/api/subscriptions/current', async (c) => {
 app.post('/api/admin/subscriptions', requireAdmin, async (c) => {
   try {
     const { user_email, plan_id, duration_days } = await c.req.json()
-    
+
     if (!user_email || !plan_id) {
       return c.json({ error: 'Email e plano são obrigatórios' }, 400)
     }
-    
+
     const db = getDB(c)
-    
+
     // Get plan details
     const plan = await db.query('plans', {
       select: '*',
       filters: { id: plan_id },
       single: true
     })
-    
+
     if (!plan) {
       return c.json({ error: 'Plano não encontrado' }, 404)
     }
-    
-    // Calculate end date
-    const startDate = new Date()
-    const endDate = new Date(startDate)
+
+    // Calculate expiration date
+    const endDate = new Date()
     endDate.setDate(endDate.getDate() + (duration_days || plan.duration_days))
-    
-    // Check if user already has active subscription
-    const existing = await db.query('subscriptions', {
-      select: '*',
-      filters: { user_email, status: 'active' }
+    const endDateISO = endDate.toISOString()
+
+    // Insert into member_subscriptions (used for access control)
+    const subscription = await db.insert('member_subscriptions', {
+      email_membro: user_email,
+      data_expiracao: endDateISO,
+      detalhe: plan.name,
+      origem: 'admin',
+      teste_gratis: plan.is_free_trial || false,
+      ativo: true
     })
-    
-    if (existing && existing.length > 0) {
-      // Update existing subscription
-      await db.update('subscriptions', { id: existing[0].id }, {
-        plan_id,
-        end_date: endDate.toISOString(),
+
+    // Also update users.dt_expiracao to keep in sync
+    const users = await db.query('users', {
+      select: 'id',
+      filters: { email: user_email },
+      single: true
+    })
+    if (users) {
+      await db.update('users', { id: users.id }, {
+        dt_expiracao: endDateISO,
         updated_at: new Date().toISOString()
       })
-      
-      return c.json({ 
-        success: true,
-        message: 'Assinatura atualizada com sucesso!',
-        subscription: existing[0]
-      })
-    } else {
-      // Create new subscription
-      const subscription = await db.insert('subscriptions', {
-        user_email,
-        plan_id,
-        status: 'active',
-        start_date: startDate.toISOString(),
-        end_date: endDate.toISOString()
-      })
-      
-      return c.json({ 
-        success: true,
-        message: 'Assinatura criada com sucesso!',
-        subscription: subscription[0]
-      })
     }
-  } catch (error) {
+
+    return c.json({
+      success: true,
+      message: 'Assinatura criada com sucesso!',
+      subscription: subscription[0]
+    })
+  } catch (error: any) {
     console.error('Error creating subscription:', error)
     return c.json({ error: 'Erro ao criar assinatura' }, 500)
   }
