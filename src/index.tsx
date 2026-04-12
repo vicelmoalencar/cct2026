@@ -1281,11 +1281,11 @@ app.post('/api/admin/lessons', requireAdmin, async (c) => {
       teste_gratis: free_trial || false,
       support_text: support_text || null,
       transcript: transcript || null,
-      attachments: attachments || []
+      attachments: JSON.stringify(attachments || [])
     })
-    
-    return c.json({ 
-      success: true, 
+
+    return c.json({
+      success: true,
       lesson_id: result[0].id
     })
   } catch (error: any) {
@@ -1324,12 +1324,13 @@ app.put('/api/admin/lessons/:id', requireAdmin, async (c) => {
       teste_gratis: free_trial !== undefined ? free_trial : false,
       support_text: support_text || null,
       transcript: transcript || null,
-      attachments: attachments || []
+      attachments: JSON.stringify(attachments || [])
     })
     
     return c.json({ success: true })
-  } catch (error) {
-    return c.json({ error: 'Failed to update lesson' }, 500)
+  } catch (error: any) {
+    console.error('Update lesson error:', error)
+    return c.json({ error: error.message || 'Failed to update lesson' }, 500)
   }
 })
 
