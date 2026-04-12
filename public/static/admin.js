@@ -1241,7 +1241,7 @@ const adminUI = {
                       class="w-full px-4 py-3 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg font-semibold transition-colors">
                 <i class="fas fa-cloud-upload-alt mr-2"></i>Selecionar Arquivos
               </button>
-              <p class="text-xs text-gray-500 mt-2 text-center">PDF, Excel, Word, PowerPoint, ZIP (máx. 10MB por arquivo)</p>
+              <p class="text-xs text-gray-500 mt-2 text-center">Todos os tipos de arquivo aceitos (máx. 10MB por arquivo)</p>
               
               <div id="filesList" class="mt-4 space-y-2">
                 ${isEdit && lesson.attachments && Array.isArray(lesson.attachments) && lesson.attachments.length > 0 ? 
@@ -1374,28 +1374,11 @@ const adminUI = {
     if (!files || files.length === 0) return
     
     const maxSize = 10 * 1024 * 1024 // 10MB
-    const allowedTypes = [
-      'application/pdf',
-      'application/vnd.ms-excel',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'application/vnd.ms-powerpoint',
-      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-      'application/zip',
-      'application/x-zip-compressed'
-    ]
-    
+
     for (const file of files) {
       // Validate size
       if (file.size > maxSize) {
         alert(`❌ Arquivo "${file.name}" muito grande. Máximo: 10MB`)
-        continue
-      }
-      
-      // Validate type
-      if (!allowedTypes.includes(file.type)) {
-        alert(`❌ Tipo de arquivo "${file.name}" não permitido. Use: PDF, Excel, Word, PowerPoint ou ZIP`)
         continue
       }
       
