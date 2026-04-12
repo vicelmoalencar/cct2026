@@ -1278,7 +1278,10 @@ app.post('/api/admin/lessons', requireAdmin, async (c) => {
       video_id: video_id || null,
       duration_minutes: duration_minutes || 0,
       order_index: order_index || 0,
-      teste_gratis: free_trial || false
+      teste_gratis: free_trial || false,
+      support_text: support_text || null,
+      transcript: transcript || null,
+      attachments: attachments || []
     })
     
     return c.json({ 
@@ -1318,7 +1321,10 @@ app.put('/api/admin/lessons/:id', requireAdmin, async (c) => {
       video_id: video_id || null,
       duration_minutes,
       order_index,
-      teste_gratis: free_trial !== undefined ? free_trial : false
+      teste_gratis: free_trial !== undefined ? free_trial : false,
+      support_text: support_text || null,
+      transcript: transcript || null,
+      attachments: attachments || []
     })
     
     return c.json({ success: true })
