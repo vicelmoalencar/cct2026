@@ -1379,6 +1379,20 @@ app.get('/api/admin/lessons/find', requireAdmin, async (c) => {
   }
 })
 
+// Run migration: add lesson extra fields (one-time endpoint)
+app.post('/api/admin/run-migration-lesson-fields', requireAdmin, async (c) => {
+  try {
+    const db = getDB(c)
+    await db.sql(`ALTER TABLE lessons ADD COLUMN IF NOT EXISTS support_text TEXT`)
+    await db.sql(`ALTER TABLE lessons ADD COLUMN IF NOT EXISTS transcript TEXT`)
+    await db.sql(`ALTER TABLE lessons ADD COLUMN IF NOT EXISTS attachments JSONB DEFAULT '[]'::jsonb`)
+    return c.json({ success: true, message: 'Migration applied successfully' })
+  } catch (error: any) {
+    console.error('Migration error:', error)
+    return c.json({ error: error.message }, 500)
+  }
+})
+
 // ============================================
 // API ROUTES - USERS MANAGEMENT
 // ============================================
