@@ -2634,8 +2634,9 @@ app.get('/api/courses', async (c) => {
     }))
     
     return c.json({ courses: coursesWithCounts })
-  } catch (error) {
-    return c.json({ error: 'Failed to fetch courses' }, 500)
+  } catch (error: any) {
+    console.error('❌ /api/courses error:', error?.message || error)
+    return c.json({ error: error?.message || 'Failed to fetch courses' }, 500)
   }
 })
 
