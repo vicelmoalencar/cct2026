@@ -9,8 +9,11 @@
 // e o driver pg para Node.js (produção via server.js).
 // ============================================
 
+// Pool compartilhado por connection string — evita "too many clients"
+// pois getDB(c) instancia PostgresClient a cada request
+const sharedPools: Map<string, any> = new Map()
+
 export class PostgresClient {
-  private pool: any = null
   private connectionString: string
 
   constructor(connectionString: string) {
@@ -21,7 +24,9 @@ export class PostgresClient {
   }
 
   private async getPool() {
-    if (this.pool) return this.pool
+    if (sharedPools.has(this.connectionString)) {
+      return sharedPools.get(this.connectionString)
+    }
 
     // Importar pg dinamicamente (disponível apenas em Node.js via server.js)
     const pg = await import('pg')
@@ -33,19 +38,20 @@ export class PostgresClient {
       connStr += (connStr.includes('?') ? '&' : '?') + 'connect_timeout=5'
     }
 
-    this.pool = new Pool({
+    const pool = new Pool({
       connectionString: connStr,
       ssl: false,
-      max: 10,
+      max: 5,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 5000,
     })
 
-    this.pool.on('error', (err: any) => {
+    pool.on('error', (err: any) => {
       console.error('❌ PostgreSQL pool error:', err.message)
     })
 
-    return this.pool
+    sharedPools.set(this.connectionString, pool)
+    return pool
   }
 
   // ============================================
@@ -210,9 +216,10 @@ export class PostgresClient {
   // ENCERRAR pool (para shutdown)
   // ============================================
   async end() {
-    if (this.pool) {
-      await this.pool.end()
-      this.pool = null
+    const pool = sharedPools.get(this.connectionString)
+    if (pool) {
+      await pool.end()
+      sharedPools.delete(this.connectionString)
     }
   }
 }
