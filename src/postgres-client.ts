@@ -27,8 +27,14 @@ export class PostgresClient {
     const pg = await import('pg')
     const { Pool } = pg.default || pg
 
+    // Adiciona connect_timeout=5 na connection string para evitar hang TCP
+    let connStr = this.connectionString
+    if (!connStr.includes('connect_timeout')) {
+      connStr += (connStr.includes('?') ? '&' : '?') + 'connect_timeout=5'
+    }
+
     this.pool = new Pool({
-      connectionString: this.connectionString,
+      connectionString: connStr,
       ssl: false,
       max: 10,
       idleTimeoutMillis: 30000,
