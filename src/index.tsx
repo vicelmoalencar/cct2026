@@ -690,8 +690,22 @@ app.get('/api/user/subscriptions', requireAuth, async (c) => {
       filters: { email_membro: userEmail },
       order: 'data_expiracao.desc'
     })
-    
-    return c.json({ 
+
+    // Sobrepor data_expiracao com a do suiteplus (produto ID 4) quando for mais recente
+    const suiteplusConn = c.env.DATABASE_SUITEPLUS
+    if (suiteplusConn && subscriptions && subscriptions.length > 0) {
+      const suiteplusExpires = await getSuiteplusExpiration(userEmail, suiteplusConn)
+      if (suiteplusExpires) {
+        for (const sub of subscriptions) {
+          const current = new Date(sub.data_expiracao)
+          if (suiteplusExpires > current) {
+            sub.data_expiracao = suiteplusExpires.toISOString()
+          }
+        }
+      }
+    }
+
+    return c.json({
       subscriptions: subscriptions || [],
       total: subscriptions?.length || 0
     })
