@@ -661,9 +661,9 @@ app.get('/api/user/access-status', requireAuth, async (c) => {
       subscriptionDetail: subscriptionDetail
     })
   } catch (error: any) {
-    console.error('Error loading access status:', error)
-    return c.json({ 
-      email: user?.email || '',
+    console.error('Error loading access status:', error?.message || error)
+    return c.json({
+      email: c.get('user')?.email || '',
       accessType: 'SEM_ACESSO',
       hasActiveSubscription: false,
       hasFullAccess: false,
