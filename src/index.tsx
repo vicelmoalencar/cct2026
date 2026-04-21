@@ -8,6 +8,7 @@ type Bindings = {
   SUPABASE_URL: string;
   SUPABASE_ANON_KEY: string;
   DATABASE_CCT: string;
+  DATABASE_SUITEPLUS: string;
 }
 
 const app = new Hono<{ Bindings: Bindings }>()
@@ -19,6 +20,24 @@ function getDB(c: any): PostgresClient {
     throw new Error('DATABASE_CCT não configurado nas variáveis de ambiente')
   }
   return new PostgresClient(connStr)
+}
+
+// Consulta a data de expiração do usuário no sistema suiteplus (produto ID 4)
+async function getSuiteplusExpiration(email: string, connStr: string): Promise<Date | null> {
+  try {
+    const db = new PostgresClient(connStr)
+    const rows = await db.sql(
+      `SELECT expires_at FROM user_subscriptions
+       WHERE user_email = $1 AND product_id = 4 AND status = 'active'
+       ORDER BY expires_at DESC LIMIT 1`,
+      [email.toLowerCase()]
+    )
+    if (rows.length > 0 && rows[0].expires_at) return new Date(rows[0].expires_at)
+    return null
+  } catch (err: any) {
+    console.error('⚠️ Suiteplus subscription check failed:', err.message)
+    return null
+  }
 }
 
 // Enable CORS for API routes
@@ -613,15 +632,27 @@ app.get('/api/user/access-status', requireAuth, async (c) => {
     if (activeSubscription && activeSubscription.length > 0) {
       const sub = activeSubscription[0]
       const expDate = new Date(sub.data_expiracao)
-      
+
       // Only include if not expired
       if (expDate > new Date()) {
         expirationDate = sub.data_expiracao
         subscriptionDetail = sub.detalhe
       }
     }
-    
-    return c.json({ 
+
+    // Verificar assinatura no suiteplus (produto ID 4) como fonte primária de expiração
+    const suiteplusConn = c.env.DATABASE_SUITEPLUS
+    if (suiteplusConn) {
+      const suiteplusExpires = await getSuiteplusExpiration(userEmail, suiteplusConn)
+      if (suiteplusExpires && suiteplusExpires > new Date()) {
+        if (accessType === 'SEM_ACESSO') accessType = 'COMPLETO'
+        if (!expirationDate || suiteplusExpires > new Date(expirationDate)) {
+          expirationDate = suiteplusExpires.toISOString()
+        }
+      }
+    }
+
+    return c.json({
       email: userEmail,
       accessType: accessType,
       hasActiveSubscription: accessType !== 'SEM_ACESSO',
@@ -3401,7 +3432,18 @@ app.get('/api/lessons/:id/access', async (c) => {
       hasAccess = !!result.user_has_lesson_access
     }
     
-    return c.json({ 
+    // Fallback: verificar suiteplus (produto ID 4) se ainda sem acesso
+    if (!hasAccess) {
+      const suiteplusConn = c.env.DATABASE_SUITEPLUS
+      if (suiteplusConn) {
+        const suiteplusExpires = await getSuiteplusExpiration(user.email, suiteplusConn)
+        if (suiteplusExpires && suiteplusExpires > new Date()) {
+          hasAccess = true
+        }
+      }
+    }
+
+    return c.json({
       hasAccess,
       reason: hasAccess ? 'active_subscription' : 'no_active_subscription'
     })
