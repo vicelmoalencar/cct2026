@@ -2711,7 +2711,7 @@ app.get('/api/lessons/:id', async (c) => {
       try {
         const accessResult = await db.rpc('user_has_lesson_access', {
           email_usuario: userEmail,
-          p_lesson_id: parseInt(lessonId) 
+          lesson_id: parseInt(lessonId) 
         })
         
         console.log('Access check result:', accessResult)
@@ -3436,7 +3436,7 @@ app.get('/api/lessons/:id/access', async (c) => {
     // Use the database function to check access
     const result = await db.rpc('user_has_lesson_access', {
       email_usuario: user.email,
-      p_lesson_id: parseInt(lessonId)
+      lesson_id: parseInt(lessonId)
     })
     
     let hasAccess = false
