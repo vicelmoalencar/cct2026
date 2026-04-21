@@ -698,6 +698,9 @@ const app = {
               <div class="p-6">
                 <div class="flex items-start justify-between gap-4 mb-4">
                   <div class="flex-1">
+                    <p class="text-xs text-gray-500 font-semibold mb-1 uppercase tracking-wide">
+                      <i class="fas fa-book mr-1"></i>${course.title}
+                    </p>
                     <p class="text-sm text-blue-600 font-semibold mb-2">
                       <i class="fas fa-folder mr-1"></i>${lesson.module_title}
                     </p>
@@ -1178,6 +1181,7 @@ const app = {
   showLessonView() {
     document.getElementById('coursesView').classList.add('hidden')
     document.getElementById('courseView').classList.add('hidden')
+    document.getElementById('searchView')?.classList.add('hidden')
     document.getElementById('lessonView').classList.remove('hidden')
   },
   
