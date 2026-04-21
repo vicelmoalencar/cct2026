@@ -2675,8 +2675,9 @@ app.get('/api/courses/:id', async (c) => {
     }
     
     return c.json({ course, modules })
-  } catch (error) {
-    return c.json({ error: 'Failed to fetch course' }, 500)
+  } catch (error: any) {
+    console.error('❌ /api/courses/:id error:', error?.message || error)
+    return c.json({ error: error?.message || 'Failed to fetch course' }, 500)
   }
 })
 
@@ -2862,8 +2863,9 @@ app.get('/api/progress/:email/:courseId', async (c) => {
     const progress = await db.sql(sqlQuery, [email, parseInt(courseId)])
     
     return c.json({ progress: progress || [] })
-  } catch (error) {
-    return c.json({ error: 'Failed to fetch progress' }, 500)
+  } catch (error: any) {
+    console.error('❌ /api/progress error:', error?.message || error)
+    return c.json({ error: error?.message || 'Failed to fetch progress' }, 500)
   }
 })
 
