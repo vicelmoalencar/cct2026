@@ -1,7 +1,8 @@
 /**
  * Importa usuarios-importados.csv para a tabela usuarios_importados.
- * Uso: node scripts/import-usuarios-csv.mjs
+ * Uso: node scripts/import-usuarios-csv.mjs [caminho/para/arquivo.csv]
  * Requer: DATABASE_CCT no ambiente ou .env
+ * Exemplo: DATABASE_CCT=postgresql://... node scripts/import-usuarios-csv.mjs /tmp/usuarios-importados.csv
  */
 
 import fs from 'node:fs'
@@ -10,7 +11,19 @@ import { fileURLToPath } from 'node:url'
 import pg from 'pg'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const CSV_PATH = path.resolve(__dirname, '..', 'usuarios-importados.csv')
+
+// Aceita caminho como argumento ou usa o padrão relativo ao projeto
+const csvArg = process.argv[2]
+const CSV_PATH = csvArg
+  ? path.resolve(csvArg)
+  : path.resolve(__dirname, '..', 'usuarios-importados.csv')
+
+if (!fs.existsSync(CSV_PATH)) {
+  console.error(`❌ Arquivo CSV não encontrado: ${CSV_PATH}`)
+  console.error('Uso: node scripts/import-usuarios-csv.mjs [caminho/para/arquivo.csv]')
+  console.error('Exemplo: node scripts/import-usuarios-csv.mjs /tmp/usuarios-importados.csv')
+  process.exit(1)
+}
 
 // Suporte a .env simples sem dependências externas
 const envPath = path.resolve(__dirname, '..', '.env')
