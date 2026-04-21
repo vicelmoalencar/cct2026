@@ -977,6 +977,7 @@ const app = {
       
       this.showLessonView()
       this.hideLoadingState()
+      window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (error) {
       console.error('Error loading lesson:', error)
       this.hideLoadingState()
