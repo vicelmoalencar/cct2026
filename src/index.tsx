@@ -1893,284 +1893,301 @@ function generateCertificateHTML(data: {
 </html>`
   }
 
-  // ── Fallback: certificado gerado sem imagem de template ────────────────────
-  // Módulos ficam apenas no verso (página 2)
-  const versoPageHTML = hasModules
-    ? `
-    <div class="verso-container">
-      <div class="certificate-border"></div>
-      <div class="watermark">ENSINO PLUS</div>
-      <div class="certificate-content">
-        <div class="header">
-          <div class="logo-section">
-            <svg class="logo-image" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-              <defs><linearGradient id="grad2" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" style="stop-color:#3498db;stop-opacity:1"/>
-                <stop offset="100%" style="stop-color:#2c3e50;stop-opacity:1"/>
-              </linearGradient></defs>
-              <circle cx="50" cy="50" r="45" fill="url(#grad2)"/>
-              <path d="M 30 35 L 50 25 L 70 35 L 70 50 L 50 60 L 30 50 Z" fill="#fff" opacity="0.9"/>
-              <circle cx="50" cy="50" r="8" fill="#fff"/>
-              <text x="50" y="80" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" fill="#fff">EP</text>
-            </svg>
-            <div class="company-info">
-              <div class="company-name">CENTRO DE ENSINO E<br>APRENDIZAGEM PLUS LTDA</div>
-              <div class="company-cnpj">CNPJ: 35.537.045/0001-84</div>
-            </div>
-          </div>
-          <div class="header-right">
-            <div class="cct-logo">CCT 2026</div>
-            <div class="subtitle">Verso do Certificado</div>
-          </div>
-        </div>
+  // ── Fallback: certificado sem imagem de template — design Ensino Plus ───────
 
-        <div class="main-content">
-          <div class="modules-title-big">Módulos Concluídos</div>
-          <div class="student-name-small">${data.studentName} — ${data.courseName}</div>
-          <div class="modules-grid-verso">
-            ${data.modules!.map((m, i) => `
-              <div class="module-item-verso">
-                <span class="mod-num">${String(i + 1).padStart(2, '0')}.</span> ${m}
-              </div>`).join('')}
-          </div>
-        </div>
+  // SVG do logo Ensino Plus (círculo com "e" estilizado + cursor)
+  const epLogoSVG = `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="60" cy="60" r="58" fill="#1a1a2e" stroke="#c0392b" stroke-width="3"/>
+    <text x="60" y="75" font-family="Georgia,serif" font-size="58" font-weight="bold"
+          text-anchor="middle" fill="white">e</text>
+    <polygon points="85,68 92,63 85,58" fill="#c0392b"/>
+  </svg>`
 
-        <div class="footer">
-          <div class="signature-line">
-            <div class="signature-name">NÁRGILA DE SOUZA SANTOS</div>
-            <div class="signature-title">Diretora</div>
-          </div>
-          <div class="signature-line">
-            <div class="signature-name">Sistema CCT 2026</div>
-            <div class="signature-title">Certificação Digital</div>
-          </div>
+  // SVG do selo/medalha central
+  const medalSVG = `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="70" height="70">
+    <polygon points="50,5 61,35 95,35 68,57 79,91 50,70 21,91 32,57 5,35 39,35"
+             fill="none" stroke="#c0a84a" stroke-width="3"/>
+    <circle cx="50" cy="50" r="22" fill="#1a1a2e" stroke="#c0a84a" stroke-width="2"/>
+    <text x="50" y="46" font-family="Georgia,serif" font-size="9" font-weight="bold"
+          text-anchor="middle" fill="#c0a84a">ENSINO</text>
+    <text x="50" y="57" font-family="Georgia,serif" font-size="9" font-weight="bold"
+          text-anchor="middle" fill="#c0a84a">PLUS</text>
+  </svg>`
+
+  const pageCSS = `
+    @page { size: A4 landscape; margin: 0; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Georgia', 'Times New Roman', serif; background: #fff; }
+
+    /* ── página (frente ou verso) ── */
+    .page {
+      width: 297mm; height: 210mm;
+      position: relative; overflow: hidden;
+      background: #fff;
+      page-break-after: always;
+    }
+    .page:last-child { page-break-after: auto; }
+
+    /* cantos diagonais vermelho/preto */
+    .corner-tl {
+      position: absolute; top: 0; left: 0;
+      width: 0; height: 0;
+      border-style: solid;
+      border-width: 72px 72px 0 0;
+      border-color: #c0392b transparent transparent transparent;
+      z-index: 10;
+    }
+    .corner-tl::after {
+      content: '';
+      position: absolute;
+      top: -72px; left: 0;
+      width: 0; height: 0;
+      border-style: solid;
+      border-width: 52px 52px 0 0;
+      border-color: #1a1a2e transparent transparent transparent;
+    }
+    .corner-br {
+      position: absolute; bottom: 0; right: 0;
+      width: 0; height: 0;
+      border-style: solid;
+      border-width: 0 0 72px 72px;
+      border-color: transparent transparent #c0392b transparent;
+      z-index: 10;
+    }
+    .corner-br::after {
+      content: '';
+      position: absolute;
+      bottom: -72px; right: 0;
+      width: 0; height: 0;
+      border-style: solid;
+      border-width: 0 0 52px 52px;
+      border-color: transparent transparent #1a1a2e transparent;
+    }
+
+    /* borda ornamental dupla */
+    .outer-border {
+      position: absolute; inset: 12px;
+      border: 2px solid #1a1a2e;
+      z-index: 2;
+    }
+    .inner-border {
+      position: absolute; inset: 16px;
+      border: 1px solid #c0392b;
+      z-index: 2;
+    }
+
+    /* marca d'água */
+    .watermark {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      opacity: 0.04; z-index: 1;
+      width: 180px; height: 180px;
+    }
+
+    /* conteúdo */
+    .content {
+      position: absolute; inset: 22px;
+      z-index: 5;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 28px 10px;
+    }
+
+    /* logo + nome da empresa */
+    .logo-row {
+      display: flex; align-items: center; gap: 12px;
+      align-self: flex-start;
+    }
+    .logo-svg { width: 52px; height: 52px; }
+    .company-block { line-height: 1.25; }
+    .company-main { font-size: 13px; font-weight: bold; color: #1a1a2e; text-transform: uppercase; letter-spacing: 0.5px; }
+    .company-sub  { font-size: 10px; color: #555; }
+    .company-cnpj { font-size: 9px;  color: #888; margin-top: 1px; }
+
+    /* título CERTIFICADO */
+    .cert-title-row { text-align: center; }
+    .cert-arrows { font-size: 13px; color: #c0392b; letter-spacing: 4px; }
+    .cert-title {
+      font-size: 30px; font-weight: bold; letter-spacing: 6px;
+      color: #1a1a2e; text-transform: uppercase;
+      border-top: 1.5px solid #1a1a2e;
+      border-bottom: 1.5px solid #1a1a2e;
+      padding: 3px 0;
+      margin: 2px 0;
+    }
+    .cert-ornament { font-size: 11px; color: #888; letter-spacing: 2px; }
+
+    /* corpo */
+    .cert-body { text-align: center; width: 100%; }
+    .cert-text { font-size: 12px; color: #333; margin-bottom: 2px; }
+    .cert-name {
+      font-size: 22px; font-weight: bold; color: #1a1a2e;
+      border-bottom: 1.5px solid #1a1a2e;
+      display: inline-block; padding: 0 40px 2px;
+      margin: 4px 0 8px;
+    }
+    .cert-course {
+      font-size: 14px; font-weight: bold; color: #1a1a2e;
+      margin-bottom: 4px;
+    }
+    .cert-course span { color: #c0392b; }
+    .cert-desc { font-size: 11px; color: #555; line-height: 1.5; max-width: 480px; margin: 0 auto; }
+
+    /* rodapé */
+    .cert-footer {
+      display: flex; align-items: flex-end; justify-content: space-between;
+      width: 100%; gap: 10px;
+    }
+    .footer-left, .footer-right { flex: 1; }
+    .footer-label { font-size: 9px; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+    .footer-value { font-size: 11px; color: #1a1a2e; margin-top: 2px; }
+    .footer-line  { display: block; width: 100%; height: 1px; background: #1a1a2e; margin-bottom: 3px; }
+    .footer-right { text-align: right; }
+    .sig-name  { font-size: 11px; font-weight: bold; color: #1a1a2e; }
+    .sig-title { font-size: 9px;  color: #888; font-style: italic; }
+    .footer-center { text-align: center; }
+
+    .verif-code { font-size: 8px; color: #aaa; text-align: right; margin-top: 2px; }
+
+    /* ── VERSO ── */
+    .verso-body { text-align: center; width: 100%; flex: 1; display: flex; flex-direction: column; }
+    .verso-title { font-size: 18px; font-weight: bold; color: #1a1a2e; text-transform: uppercase; letter-spacing: 3px; margin-bottom: 2px; }
+    .verso-sub   { font-size: 10px; color: #888; font-style: italic; margin-bottom: 10px; }
+    .modules-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr);
+      gap: 5px 20px; text-align: left; flex: 1;
+      overflow: hidden;
+    }
+    .mod-item {
+      font-size: 10.5px; color: #1a1a2e;
+      padding: 4px 8px;
+      border-left: 3px solid #c0392b;
+      background: #fafafa;
+      line-height: 1.3;
+    }
+    .mod-num { font-weight: bold; color: #c0392b; margin-right: 3px; }
+
+    @media print { body { background: #fff; } }
+  `
+
+  const versoPageHTML = hasModules ? `
+  <div class="page">
+    <div class="corner-tl"></div>
+    <div class="corner-br"></div>
+    <div class="outer-border"></div>
+    <div class="inner-border"></div>
+    <div class="watermark">${epLogoSVG}</div>
+
+    <div class="content">
+      <div class="logo-row">
+        <div class="logo-svg">${epLogoSVG}</div>
+        <div class="company-block">
+          <div class="company-main">Ensino Plus</div>
+          <div class="company-sub">Centro de Aprendizagem</div>
+          <div class="company-cnpj">CNPJ: 35.537.045/0001-84</div>
         </div>
       </div>
-    </div>`
-    : ''
+
+      <div class="verso-body">
+        <div class="verso-title">Conteúdo Programático</div>
+        <div class="verso-sub">${data.studentName} — ${data.courseName}</div>
+        <div class="modules-grid">
+          ${data.modules!.map((m, i) => `
+            <div class="mod-item">
+              <span class="mod-num">${String(i + 1).padStart(2, '0')}.</span>${m}
+            </div>`).join('')}
+        </div>
+      </div>
+
+      <div class="cert-footer">
+        <div class="footer-left">
+          <span class="footer-line"></span>
+          <div class="footer-label">Código de Verificação</div>
+          <div class="footer-value">${data.verificationCode}</div>
+        </div>
+        <div class="footer-center">${medalSVG}</div>
+        <div class="footer-right">
+          <span class="footer-line"></span>
+          <div class="sig-name">NÁRGILA DE SOUZA SANTOS</div>
+          <div class="sig-title">DIRETORA</div>
+        </div>
+      </div>
+    </div>
+  </div>` : ''
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Certificado - CCT 2026</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        @page {
-            size: A4 landscape;
-            margin: 0;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Georgia', 'Times New Roman', serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            width: 297mm;
-            height: 210mm;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 15mm;
-        }
-
-        .certificate-container {
-            width: 100%;
-            height: 100%;
-            background: white;
-            border: 15px solid #2c3e50;
-            border-radius: 20px;
-            box-shadow: 0 10px 50px rgba(0,0,0,0.3);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .certificate-border {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            right: 10px;
-            bottom: 10px;
-            border: 3px solid #3498db;
-            border-radius: 10px;
-        }
-
-        .certificate-content {
-            position: relative;
-            z-index: 1;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            padding: 20px 40px;
-        }
-
-        .header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            border-bottom: 3px solid #3498db;
-            padding-bottom: 10px;
-        }
-        .logo-section { display: flex; align-items: center; gap: 15px; }
-        .logo-image { width: 80px; height: 80px; }
-        .company-name { font-size: 16px; font-weight: bold; color: #2c3e50; line-height: 1.3; margin-bottom: 3px; }
-        .company-cnpj { font-size: 11px; color: #7f8c8d; }
-        .header-right { text-align: right; }
-        .cct-logo { font-size: 28px; font-weight: bold; color: #2c3e50; letter-spacing: 2px; }
-        .subtitle { font-size: 12px; color: #7f8c8d; font-style: italic; }
-
-        .main-content {
-            text-align: center;
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            padding: 15px 0;
-        }
-        .certificate-title { font-size: 42px; color: #2c3e50; font-weight: bold; text-transform: uppercase; letter-spacing: 4px; margin-bottom: 15px; }
-        .certificate-text { font-size: 16px; color: #34495e; line-height: 1.6; margin-bottom: 10px; }
-        .student-name { font-size: 28px; color: #3498db; font-weight: bold; margin: 15px 0; border-bottom: 2px solid #3498db; display: inline-block; padding: 8px 30px; }
-        .course-name { font-size: 22px; color: #2c3e50; font-weight: bold; margin: 15px 0; }
-        .details { display: flex; justify-content: space-around; margin-top: 15px; font-size: 13px; color: #7f8c8d; }
-        .detail-item { text-align: center; }
-        .detail-label { font-weight: bold; color: #2c3e50; display: block; margin-bottom: 5px; }
-        .footer { display: flex; justify-content: space-around; align-items: flex-end; border-top: 3px solid #3498db; padding-top: 15px; }
-        .signature-line { text-align: center; flex: 1; margin: 0 15px; }
-        .signature-line::before { content: ''; display: block; width: 180px; height: 1px; background: #2c3e50; margin: 0 auto 5px; }
-        .signature-name { font-size: 13px; font-weight: bold; color: #2c3e50; }
-        .signature-title { font-size: 11px; color: #7f8c8d; font-style: italic; }
-        .verification-code { position: absolute; bottom: 15px; right: 25px; font-size: 10px; color: #95a5a6; text-align: right; }
-        .verification-code-label { font-weight: bold; display: block; margin-bottom: 3px; }
-        .verification-url { font-size: 9px; color: #3498db; }
-
-        /* Verso (página 2) */
-        .verso-container {
-            width: 100%; height: 100%;
-            background: white; border: 15px solid #2c3e50; border-radius: 20px;
-            position: relative; overflow: hidden;
-            page-break-before: always;
-            display: flex;
-        }
-        .modules-title-big { font-size: 24px; font-weight: bold; color: #2c3e50; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px; }
-        .student-name-small { font-size: 13px; color: #7f8c8d; margin-bottom: 16px; font-style: italic; }
-        .modules-grid-verso { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px 24px; text-align: left; max-width: 95%; margin: 0 auto; }
-        .module-item-verso { font-size: 12px; color: #34495e; padding: 5px 10px; background: #f8f9fa; border-radius: 4px; border-left: 3px solid #3498db; line-height: 1.3; }
-        .mod-num { font-weight: bold; color: #2563eb; margin-right: 4px; }
-
-        .watermark {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) rotate(-45deg);
-            font-size: 100px;
-            color: rgba(52, 152, 219, 0.03);
-            font-weight: bold;
-            z-index: 0;
-            pointer-events: none;
-        }
-        
-        @media print {
-            body {
-                background: white;
-            }
-            
-            .certificate-container {
-                box-shadow: none;
-            }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>Certificado - Ensino Plus</title>
+  <style>${pageCSS}</style>
 </head>
 <body>
-    <div class="certificate-container">
-        <div class="certificate-border"></div>
-        <div class="watermark">ENSINO PLUS</div>
-        
-        <div class="certificate-content">
-            <div class="header">
-                <div class="logo-section">
-                    <svg class="logo-image" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-                        <defs>
-                            <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
-                                <stop offset="0%" style="stop-color:#3498db;stop-opacity:1" />
-                                <stop offset="100%" style="stop-color:#2c3e50;stop-opacity:1" />
-                            </linearGradient>
-                        </defs>
-                        <circle cx="50" cy="50" r="45" fill="url(#grad1)"/>
-                        <path d="M 30 35 L 50 25 L 70 35 L 70 50 L 50 60 L 30 50 Z" fill="#fff" opacity="0.9"/>
-                        <circle cx="50" cy="50" r="8" fill="#fff"/>
-                        <text x="50" y="80" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" fill="#fff">EP</text>
-                    </svg>
-                    <div class="company-info">
-                        <div class="company-name">CENTRO DE ENSINO E<br>APRENDIZAGEM PLUS LTDA</div>
-                        <div class="company-cnpj">CNPJ: 35.537.045/0001-84</div>
-                    </div>
-                </div>
-                
-                <div class="header-right">
-                    <div class="cct-logo">CCT 2026</div>
-                    <div class="subtitle">Centro de Capacitação Técnica</div>
-                </div>
-            </div>
-            
-            <div class="main-content">
-                <div class="certificate-title">Certificado</div>
-                
-                <div class="certificate-text">
-                    Certificamos que
-                </div>
-                
-                <div class="student-name">${data.studentName}</div>
-                
-                <div class="certificate-text">
-                    concluiu com êxito o curso
-                </div>
-                
-                <div class="course-name">${data.courseName}</div>
 
-                <div class="details">
-                    <div class="detail-item">
-                        <span class="detail-label">Carga Horária</span>
-                        <span>${data.workload} horas</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Data de Conclusão</span>
-                        <span>${data.completionDate}</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Data de Emissão</span>
-                        <span>${data.issueDate}</span>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="footer">
-                <div class="signature-line">
-                    <div class="signature-name">NÁRGILA DE SOUZA SANTOS</div>
-                    <div class="signature-title">Diretora</div>
-                </div>
-                <div class="signature-line">
-                    <div class="signature-name">Sistema CCT 2026</div>
-                    <div class="signature-title">Certificação Digital</div>
-                </div>
-            </div>
-            
-            <div class="verification-code">
-                <span class="verification-code-label">Código de Verificação:</span>
-                <span>${data.verificationCode}</span>
-                <div class="verification-url">
-                    Verifique em: ${data.verificationUrl}
-                </div>
-            </div>
+  <!-- FRENTE -->
+  <div class="page">
+    <div class="corner-tl"></div>
+    <div class="corner-br"></div>
+    <div class="outer-border"></div>
+    <div class="inner-border"></div>
+    <div class="watermark">${epLogoSVG}</div>
+
+    <div class="content">
+      <!-- Logo + empresa -->
+      <div class="logo-row">
+        <div class="logo-svg">${epLogoSVG}</div>
+        <div class="company-block">
+          <div class="company-main">Ensino Plus</div>
+          <div class="company-sub">Centro de Aprendizagem</div>
+          <div class="company-cnpj">CNPJ: 35.537.045/0001-84</div>
         </div>
+      </div>
+
+      <!-- Título -->
+      <div class="cert-title-row">
+        <div class="cert-arrows">&#8592;&#8592;&#8592; &nbsp; &#8593; &nbsp; &#8594;&#8594;&#8594;</div>
+        <div class="cert-title">CERTIFICADO</div>
+        <div class="cert-ornament">~ ~ ~</div>
+      </div>
+
+      <!-- Corpo -->
+      <div class="cert-body">
+        <div class="cert-text">Certificamos que</div>
+        <div class="cert-name">${data.studentName}</div>
+        <div class="cert-text">concluiu com êxito o curso</div>
+        <div class="cert-course"><span>${data.courseName}</span></div>
+        <div class="cert-desc">
+          ministrado pelo Ensino Plus – Centro de Aprendizagem,
+          com carga horária de <strong>${data.workload} horas</strong>,
+          conforme o conteúdo programático.
+        </div>
+      </div>
+
+      <!-- Rodapé -->
+      <div class="cert-footer">
+        <div class="footer-left">
+          <span class="footer-line"></span>
+          <div class="footer-label">DATA</div>
+          <div class="footer-value">${data.completionDate}</div>
+        </div>
+        <div class="footer-center">${medalSVG}</div>
+        <div class="footer-right">
+          <span class="footer-line"></span>
+          <div class="sig-name">NÁRGILA DE SOUZA SANTOS</div>
+          <div class="sig-title">DIRETORA</div>
+        </div>
+      </div>
     </div>
 
-    ${versoPageHTML}
+    <div class="verif-code" style="position:absolute;bottom:20px;right:26px;z-index:9;">
+      Código: ${data.verificationCode} &nbsp;|&nbsp; ${data.verificationUrl}
+    </div>
+  </div>
+
+  ${versoPageHTML}
+
 </body>
 </html>`
 }
