@@ -1726,29 +1726,154 @@ app.delete('/api/admin/certificates/:id', requireAdmin, async (c) => {
 function generateCertificateHTML(data: {
   studentName: string;
   courseName: string;
-  workload: string;
+  workload: string | number;
   completionDate: string;
   issueDate: string;
   verificationCode: string;
   verificationUrl: string;
-  modules?: string[];  // Array de módulos concluídos
+  modules?: string[];
+  templateImageUrl?: string;   // URL da frente (ex: /api/certificate-template/5/image)
+  versoImageUrl?: string;      // URL do verso  (ex: /api/certificate-template/5/verso)
 }) {
-  // Gerar HTML dos módulos se existirem
-  const modulesHTML = data.modules && data.modules.length > 0 
-    ? `
-    <div class="modules-section">
-      <div class="modules-title">Módulos Concluídos:</div>
-      <div class="modules-grid">
-        ${data.modules.map((module, index) => `
-          <div class="module-item">
-            <i class="fas fa-check-circle"></i> ${module}
-          </div>
-        `).join('')}
+  const hasTemplate = !!data.templateImageUrl
+  const hasVerso    = !!data.versoImageUrl
+  const hasModules  = data.modules && data.modules.length > 0
+
+  // ── Frente com imagem de template ──────────────────────────────────────────
+  if (hasTemplate) {
+    const modulesBlock = hasModules
+      ? data.modules!.map((m, i) =>
+          `<div class="mod-item"><span class="mod-num">${String(i + 1).padStart(2, '0')}.</span> ${m}</div>`
+        ).join('')
+      : ''
+
+    const versoPage = hasVerso ? `
+    <div class="page verso-page">
+      <img class="bg-img" src="${data.versoImageUrl}" alt="Verso do certificado">
+      ${hasModules ? `
+      <div class="verso-overlay">
+        <div class="mod-grid">${modulesBlock}</div>
+      </div>` : ''}
+    </div>` : ''
+
+    return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Certificado - ${data.studentName}</title>
+  <style>
+    @page { size: A4 landscape; margin: 0; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 297mm; background: #555; }
+
+    .page {
+      width: 297mm;
+      height: 210mm;
+      position: relative;
+      overflow: hidden;
+      page-break-after: always;
+      background: #fff;
+    }
+    .bg-img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    /* ── Overlay frente: só carga horária ── */
+    .frente-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding-bottom: 28mm;
+    }
+    .carga-box {
+      text-align: center;
+      background: rgba(255,255,255,0.0);
+    }
+    .carga-value {
+      font-family: Georgia, serif;
+      font-size: 22pt;
+      font-weight: bold;
+      color: #1a2e4a;
+      letter-spacing: 1px;
+    }
+    .carga-label {
+      font-family: Georgia, serif;
+      font-size: 11pt;
+      color: #1a2e4a;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    /* ── Overlay verso: módulos ── */
+    .verso-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 18mm 22mm;
+    }
+    .mod-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 5px 20px;
+      width: 100%;
+    }
+    .mod-item {
+      font-family: Georgia, serif;
+      font-size: 10pt;
+      color: #1a2e4a;
+      padding: 4px 0;
+      border-bottom: 1px solid rgba(26,46,74,0.15);
+      line-height: 1.3;
+    }
+    .mod-num {
+      font-weight: bold;
+      margin-right: 4px;
+      color: #2563eb;
+    }
+
+    @media print {
+      html, body { background: white; }
+      .page { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- FRENTE -->
+  <div class="page frente-page">
+    <img class="bg-img" src="${data.templateImageUrl}" alt="Frente do certificado">
+    <div class="frente-overlay">
+      <div class="carga-box">
+        <div class="carga-value">${data.workload} horas</div>
+        <div class="carga-label">Carga Horária</div>
       </div>
     </div>
-    `
-    : '';
-  
+  </div>
+
+  ${versoPage}
+
+</body>
+</html>`
+  }
+
+  // ── Fallback: certificado gerado sem imagem de template ────────────────────
+  const modulesHTML = hasModules
+    ? `<div class="modules-section">
+        <div class="modules-title">Módulos Concluídos:</div>
+        <div class="modules-grid">
+          ${data.modules!.map(m => `<div class="module-item">✓ ${m}</div>`).join('')}
+        </div>
+      </div>`
+    : ''
+
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -1761,13 +1886,13 @@ function generateCertificateHTML(data: {
             size: A4 landscape;
             margin: 0;
         }
-        
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
             font-family: 'Georgia', 'Times New Roman', serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -1778,7 +1903,7 @@ function generateCertificateHTML(data: {
             align-items: center;
             padding: 15mm;
         }
-        
+
         .certificate-container {
             width: 100%;
             height: 100%;
@@ -1789,7 +1914,7 @@ function generateCertificateHTML(data: {
             position: relative;
             overflow: hidden;
         }
-        
+
         .certificate-border {
             position: absolute;
             top: 10px;
@@ -1799,7 +1924,7 @@ function generateCertificateHTML(data: {
             border: 3px solid #3498db;
             border-radius: 10px;
         }
-        
+
         .certificate-content {
             position: relative;
             z-index: 1;
@@ -1809,7 +1934,7 @@ function generateCertificateHTML(data: {
             justify-content: space-between;
             padding: 20px 40px;
         }
-        
+
         .header {
             display: flex;
             align-items: center;
@@ -1817,52 +1942,14 @@ function generateCertificateHTML(data: {
             border-bottom: 3px solid #3498db;
             padding-bottom: 10px;
         }
-        
-        .logo-section {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-        
-        .logo-image {
-            width: 80px;
-            height: 80px;
-        }
-        
-        .company-info {
-            text-align: left;
-        }
-        
-        .company-name {
-            font-size: 16px;
-            font-weight: bold;
-            color: #2c3e50;
-            line-height: 1.3;
-            margin-bottom: 3px;
-        }
-        
-        .company-cnpj {
-            font-size: 11px;
-            color: #7f8c8d;
-        }
-        
-        .header-right {
-            text-align: right;
-        }
-        
-        .cct-logo {
-            font-size: 28px;
-            font-weight: bold;
-            color: #2c3e50;
-            letter-spacing: 2px;
-        }
-        
-        .subtitle {
-            font-size: 12px;
-            color: #7f8c8d;
-            font-style: italic;
-        }
-        
+        .logo-section { display: flex; align-items: center; gap: 15px; }
+        .logo-image { width: 80px; height: 80px; }
+        .company-name { font-size: 16px; font-weight: bold; color: #2c3e50; line-height: 1.3; margin-bottom: 3px; }
+        .company-cnpj { font-size: 11px; color: #7f8c8d; }
+        .header-right { text-align: right; }
+        .cct-logo { font-size: 28px; font-weight: bold; color: #2c3e50; letter-spacing: 2px; }
+        .subtitle { font-size: 12px; color: #7f8c8d; font-style: italic; }
+
         .main-content {
             text-align: center;
             flex: 1;
@@ -1871,147 +1958,25 @@ function generateCertificateHTML(data: {
             justify-content: center;
             padding: 15px 0;
         }
-        
-        .certificate-title {
-            font-size: 42px;
-            color: #2c3e50;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 4px;
-            margin-bottom: 15px;
-        }
-        
-        .certificate-text {
-            font-size: 16px;
-            color: #34495e;
-            line-height: 1.6;
-            margin-bottom: 10px;
-        }
-        
-        .student-name {
-            font-size: 28px;
-            color: #3498db;
-            font-weight: bold;
-            margin: 15px 0;
-            border-bottom: 2px solid #3498db;
-            display: inline-block;
-            padding: 8px 30px;
-        }
-        
-        .course-name {
-            font-size: 22px;
-            color: #2c3e50;
-            font-weight: bold;
-            margin: 15px 0;
-        }
-        
-        .modules-section {
-            margin: 15px auto;
-            max-width: 90%;
-        }
-        
-        .modules-title {
-            font-size: 14px;
-            font-weight: bold;
-            color: #2c3e50;
-            margin-bottom: 10px;
-        }
-        
-        .modules-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 8px;
-            text-align: left;
-        }
-        
-        .module-item {
-            font-size: 12px;
-            color: #34495e;
-            padding: 5px 10px;
-            background: #f8f9fa;
-            border-radius: 5px;
-            border-left: 3px solid #3498db;
-        }
-        
-        .module-item i {
-            color: #27ae60;
-            margin-right: 5px;
-        }
-        
-        .details {
-            display: flex;
-            justify-content: space-around;
-            margin-top: 15px;
-            font-size: 13px;
-            color: #7f8c8d;
-        }
-        
-        .detail-item {
-            text-align: center;
-        }
-        
-        .detail-label {
-            font-weight: bold;
-            color: #2c3e50;
-            display: block;
-            margin-bottom: 5px;
-        }
-        
-        .footer {
-            display: flex;
-            justify-content: space-around;
-            align-items: flex-end;
-            border-top: 3px solid #3498db;
-            padding-top: 15px;
-        }
-        
-        .signature-line {
-            text-align: center;
-            flex: 1;
-            margin: 0 15px;
-        }
-        
-        .signature-line::before {
-            content: '';
-            display: block;
-            width: 180px;
-            height: 1px;
-            background: #2c3e50;
-            margin: 0 auto 5px;
-        }
-        
-        .signature-name {
-            font-size: 13px;
-            font-weight: bold;
-            color: #2c3e50;
-        }
-        
-        .signature-title {
-            font-size: 11px;
-            color: #7f8c8d;
-            font-style: italic;
-        }
-        
-        .verification-code {
-            position: absolute;
-            bottom: 15px;
-            right: 25px;
-            font-size: 10px;
-            color: #95a5a6;
-            text-align: right;
-        }
-        
-        .verification-code-label {
-            font-weight: bold;
-            display: block;
-            margin-bottom: 3px;
-        }
-        
-        .verification-url {
-            font-size: 9px;
-            color: #3498db;
-        }
-        
+        .certificate-title { font-size: 42px; color: #2c3e50; font-weight: bold; text-transform: uppercase; letter-spacing: 4px; margin-bottom: 15px; }
+        .certificate-text { font-size: 16px; color: #34495e; line-height: 1.6; margin-bottom: 10px; }
+        .student-name { font-size: 28px; color: #3498db; font-weight: bold; margin: 15px 0; border-bottom: 2px solid #3498db; display: inline-block; padding: 8px 30px; }
+        .course-name { font-size: 22px; color: #2c3e50; font-weight: bold; margin: 15px 0; }
+        .modules-section { margin: 15px auto; max-width: 90%; }
+        .modules-title { font-size: 14px; font-weight: bold; color: #2c3e50; margin-bottom: 10px; }
+        .modules-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; text-align: left; }
+        .module-item { font-size: 12px; color: #34495e; padding: 5px 10px; background: #f8f9fa; border-radius: 5px; border-left: 3px solid #3498db; }
+        .details { display: flex; justify-content: space-around; margin-top: 15px; font-size: 13px; color: #7f8c8d; }
+        .detail-item { text-align: center; }
+        .detail-label { font-weight: bold; color: #2c3e50; display: block; margin-bottom: 5px; }
+        .footer { display: flex; justify-content: space-around; align-items: flex-end; border-top: 3px solid #3498db; padding-top: 15px; }
+        .signature-line { text-align: center; flex: 1; margin: 0 15px; }
+        .signature-line::before { content: ''; display: block; width: 180px; height: 1px; background: #2c3e50; margin: 0 auto 5px; }
+        .signature-name { font-size: 13px; font-weight: bold; color: #2c3e50; }
+        .signature-title { font-size: 11px; color: #7f8c8d; font-style: italic; }
+        .verification-code { position: absolute; bottom: 15px; right: 25px; font-size: 10px; color: #95a5a6; text-align: right; }
+        .verification-code-label { font-weight: bold; display: block; margin-bottom: 3px; }
+        .verification-url { font-size: 9px; color: #3498db; }
         .watermark {
             position: absolute;
             top: 50%;
@@ -2215,6 +2180,27 @@ app.get('/api/certificates/:id/html', requireAuth, async (c) => {
       }
     }
     
+    // Buscar template do curso (frente e verso)
+    let templateImageUrl: string | undefined
+    let versoImageUrl: string | undefined
+    if (cert.course_id) {
+      try {
+        const tmpl = await db.query('certificate_templates', {
+          select: 'template_data, verso_data',
+          filters: { course_id: cert.course_id },
+          single: true
+        })
+        if (tmpl?.template_data) {
+          templateImageUrl = `${baseUrl}/api/certificate-template/${cert.course_id}/image`
+        }
+        if (tmpl?.verso_data) {
+          versoImageUrl = `${baseUrl}/api/certificate-template/${cert.course_id}/verso`
+        }
+      } catch (e) {
+        console.log('No certificate template found for course', cert.course_id)
+      }
+    }
+
     const html = generateCertificateHTML({
       studentName: cert.user_name,
       courseName: cert.course_title,
@@ -2223,7 +2209,9 @@ app.get('/api/certificates/:id/html', requireAuth, async (c) => {
       issueDate,
       verificationCode: cert.verification_code,
       verificationUrl,
-      modules: modules.length > 0 ? modules : undefined
+      modules: modules.length > 0 ? modules : undefined,
+      templateImageUrl,
+      versoImageUrl
     })
     
     return c.html(html)
