@@ -1782,33 +1782,60 @@ function generateCertificateHTML(data: {
       object-fit: cover;
     }
 
-    /* ── Overlay frente: só carga horária ── */
-    .frente-overlay {
+    /* ── Campos sobrepostos na frente ── */
+
+    /* Nome do aluno: linha em branco abaixo de "Certificamos que" (~50% do topo) */
+    .field-nome {
       position: absolute;
-      inset: 0;
-      display: flex;
-      align-items: flex-end;
-      justify-content: center;
-      padding-bottom: 28mm;
-    }
-    .carga-box {
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
       text-align: center;
-      background: rgba(255,255,255,0.0);
-    }
-    .carga-value {
-      font-family: Georgia, serif;
-      font-size: 22pt;
+      width: 70%;
+      font-family: 'Georgia', serif;
+      font-size: 20pt;
       font-weight: bold;
-      color: #1a2e4a;
+      color: #1a1a1a;
       letter-spacing: 1px;
     }
-    .carga-label {
-      font-family: Georgia, serif;
+
+    /* Carga horária: abaixo do nome do curso (~68% do topo) */
+    .field-carga {
+      position: absolute;
+      left: 50%;
+      top: 68%;
+      transform: translateX(-50%);
+      text-align: center;
+      font-family: 'Georgia', serif;
       font-size: 11pt;
-      color: #1a2e4a;
-      text-transform: uppercase;
-      letter-spacing: 2px;
+      color: #333;
     }
+    .field-carga strong { font-size: 13pt; color: #1a1a1a; }
+
+    /* Data: campo DATA no rodapé esquerdo (~83% do topo, ~17% da esquerda) */
+    .field-data {
+      position: absolute;
+      left: 17%;
+      top: 83%;
+      transform: translateX(-50%);
+      text-align: center;
+      font-family: 'Georgia', serif;
+      font-size: 10pt;
+      color: #1a1a1a;
+    }
+
+    /* Código de verificação: rodapé direito */
+    .field-codigo {
+      position: absolute;
+      right: 6mm;
+      bottom: 4mm;
+      text-align: right;
+      font-family: Arial, sans-serif;
+      font-size: 7pt;
+      color: #555;
+      max-width: 70mm;
+    }
+    .field-codigo a { color: #c00; text-decoration: none; word-break: break-all; }
 
     /* ── Overlay verso: módulos ── */
     .verso-overlay {
@@ -1833,11 +1860,7 @@ function generateCertificateHTML(data: {
       border-bottom: 1px solid rgba(26,46,74,0.15);
       line-height: 1.3;
     }
-    .mod-num {
-      font-weight: bold;
-      margin-right: 4px;
-      color: #2563eb;
-    }
+    .mod-num { font-weight: bold; margin-right: 4px; color: #c00; }
 
     @media print {
       html, body { background: white; }
@@ -1850,12 +1873,18 @@ function generateCertificateHTML(data: {
   <!-- FRENTE -->
   <div class="page frente-page">
     <img class="bg-img" src="${data.templateImageUrl}" alt="Frente do certificado">
-    <div class="frente-overlay">
-      <div class="carga-box">
-        <div class="carga-value">${data.workload} horas</div>
-        <div class="carga-label">Carga Horária</div>
-      </div>
-    </div>
+
+    <div class="field-nome">${data.studentName}</div>
+
+    <div class="field-carga"><strong>${data.workload} horas</strong></div>
+
+    <div class="field-data">${data.completionDate}</div>
+
+    ${data.verificationCode ? `
+    <div class="field-codigo">
+      Cód.: ${data.verificationCode}<br>
+      <a href="${data.verificationUrl}">${data.verificationUrl}</a>
+    </div>` : ''}
   </div>
 
   ${versoPage}
