@@ -1938,18 +1938,18 @@ function generateCertificateHTML(data: {
 
     /* ── Cantos em swoosh curvo ── */
     .corner-tl {
-      position: absolute; top: 0; left: 0; z-index: 10;
-      width: 115mm; height: 78mm; pointer-events: none;
+      position: absolute; top: 0; left: 0; z-index: 1;
+      width: 105mm; height: 65mm; pointer-events: none;
     }
     .corner-br {
-      position: absolute; bottom: 0; right: 0; z-index: 10;
-      width: 115mm; height: 78mm; pointer-events: none;
+      position: absolute; bottom: 0; right: 0; z-index: 1;
+      width: 105mm; height: 65mm; pointer-events: none;
       transform: rotate(180deg);
     }
 
     /* ── Borda ornamental fina ── */
     .cert-border {
-      position: absolute; inset: 5.5mm; z-index: 3;
+      position: absolute; inset: 5.5mm; z-index: 4;
       border: 1px solid #c0c0c0; pointer-events: none;
     }
 
