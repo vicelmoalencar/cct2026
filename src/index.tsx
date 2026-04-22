@@ -1895,12 +1895,30 @@ function generateCertificateHTML(data: {
 
   // ── Fallback: certificado sem imagem de template — design Ensino Plus ───────
 
-  // SVG do logo Ensino Plus (círculo com "e" estilizado + cursor)
-  const epLogoSVG = `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="60" cy="60" r="58" fill="#1a1a2e" stroke="#c0392b" stroke-width="3"/>
-    <text x="60" y="75" font-family="Georgia,serif" font-size="58" font-weight="bold"
-          text-anchor="middle" fill="white">e</text>
-    <polygon points="85,68 92,63 85,58" fill="#c0392b"/>
+  // SVG do ícone para marca d'água (só o "e" redondo)
+  const epIconSVG = `<svg viewBox="0 0 76 76" xmlns="http://www.w3.org/2000/svg">
+    <rect x="0" y="0" width="76" height="76" rx="16" ry="16" fill="#c0392b"/>
+    <text x="26" y="60" font-family="Georgia,serif" font-size="58" font-weight="bold" fill="white" letter-spacing="-4">e</text>
+    <polygon points="58,38 70,44 62,46 65,56 60,57 57,47 50,52" fill="#888" opacity="0.9"/>
+  </svg>`
+
+  // SVG do logo Ensino Plus — fiel ao logo oficial (e vermelho + cursor + texto)
+  const epLogoSVG = `<svg viewBox="0 0 260 80" xmlns="http://www.w3.org/2000/svg">
+    <!-- Ícone: fundo vermelho arredondado -->
+    <rect x="0" y="0" width="76" height="76" rx="16" ry="16" fill="#c0392b"/>
+    <!-- Letra "e" branca em estilo elegante -->
+    <text x="26" y="60" font-family="Georgia,serif" font-size="58" font-weight="bold"
+          fill="white" letter-spacing="-4">e</text>
+    <!-- Cursor cinza (seta estilizada) -->
+    <polygon points="58,38 70,44 62,46 65,56 60,57 57,47 50,52" fill="#888" opacity="0.9"/>
+    <!-- Texto "ensino plus" -->
+    <text x="88" y="42" font-family="Arial,Helvetica,sans-serif" font-size="24"
+          font-weight="bold" fill="#333" letter-spacing="-0.5">ensino plus</text>
+    <!-- Subtítulo "Centro de Aprendizagem" -->
+    <text x="90" y="60" font-family="Arial,Helvetica,sans-serif" font-size="11"
+          fill="#888" letter-spacing="1">Centro de Aprendizagem</text>
+    <!-- Linha separadora entre ícone e texto -->
+    <line x1="82" y1="10" x2="82" y2="66" stroke="#ddd" stroke-width="1.5"/>
   </svg>`
 
   // SVG do selo/medalha central
@@ -1995,16 +2013,23 @@ function generateCertificateHTML(data: {
       padding: 8px 28px 10px;
     }
 
-    /* logo + nome da empresa */
-    .logo-row {
-      display: flex; align-items: center; gap: 12px;
-      align-self: flex-start;
+    /* logo Ensino Plus completo */
+    .logo-row { align-self: flex-start; }
+    .logo-svg { height: 46px; width: auto; display: block; }
+    .company-cnpj { font-size: 8.5px; color: #aaa; margin-top: 2px; font-family: Arial,sans-serif; }
+
+    /* botão de impressão */
+    .print-btn {
+      position: fixed; top: 16px; right: 16px; z-index: 9999;
+      background: #c0392b; color: #fff;
+      border: none; border-radius: 6px;
+      padding: 9px 18px; font-size: 14px; font-weight: bold;
+      cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+      font-family: Arial, sans-serif;
+      display: flex; align-items: center; gap: 7px;
     }
-    .logo-svg { width: 52px; height: 52px; }
-    .company-block { line-height: 1.25; }
-    .company-main { font-size: 13px; font-weight: bold; color: #1a1a2e; text-transform: uppercase; letter-spacing: 0.5px; }
-    .company-sub  { font-size: 10px; color: #555; }
-    .company-cnpj { font-size: 9px;  color: #888; margin-top: 1px; }
+    .print-btn:hover { background: #a93226; }
+    @media print { .print-btn { display: none !important; } }
 
     /* título CERTIFICADO */
     .cert-title-row { text-align: center; }
@@ -2078,16 +2103,12 @@ function generateCertificateHTML(data: {
     <div class="corner-br"></div>
     <div class="outer-border"></div>
     <div class="inner-border"></div>
-    <div class="watermark">${epLogoSVG}</div>
+    <div class="watermark">${epIconSVG}</div>
 
     <div class="content">
       <div class="logo-row">
         <div class="logo-svg">${epLogoSVG}</div>
-        <div class="company-block">
-          <div class="company-main">Ensino Plus</div>
-          <div class="company-sub">Centro de Aprendizagem</div>
-          <div class="company-cnpj">CNPJ: 35.537.045/0001-84</div>
-        </div>
+        <div class="company-cnpj">CNPJ: 35.537.045/0001-84</div>
       </div>
 
       <div class="verso-body">
@@ -2126,23 +2147,24 @@ function generateCertificateHTML(data: {
 </head>
 <body>
 
+  <!-- Botão de impressão (oculto no print) -->
+  <button class="print-btn" onclick="window.print()">
+    🖨️ Imprimir / Salvar PDF
+  </button>
+
   <!-- FRENTE -->
   <div class="page">
     <div class="corner-tl"></div>
     <div class="corner-br"></div>
     <div class="outer-border"></div>
     <div class="inner-border"></div>
-    <div class="watermark">${epLogoSVG}</div>
+    <div class="watermark">${epIconSVG}</div>
 
     <div class="content">
-      <!-- Logo + empresa -->
+      <!-- Logo Ensino Plus -->
       <div class="logo-row">
         <div class="logo-svg">${epLogoSVG}</div>
-        <div class="company-block">
-          <div class="company-main">Ensino Plus</div>
-          <div class="company-sub">Centro de Aprendizagem</div>
-          <div class="company-cnpj">CNPJ: 35.537.045/0001-84</div>
-        </div>
+        <div class="company-cnpj">CNPJ: 35.537.045/0001-84</div>
       </div>
 
       <!-- Título -->
