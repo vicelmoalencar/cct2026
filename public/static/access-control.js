@@ -134,10 +134,15 @@ const accessManager = {
                 <div class="text-sm opacity-90">Você tem acesso apenas às 253 aulas gratuitas. Renove para acesso completo!</div>
               </div>
             </div>
-            <div class="text-right">
-              <button onclick="accessManager.showUpgradeModal()" class="bg-white text-red-600 px-4 py-2 rounded-lg font-bold hover:bg-red-50 transition-colors">
-                <i class="fas fa-shopping-cart mr-2"></i>Renovar Plano
-              </button>
+            <div class="flex items-center gap-2">
+              <a href="https://pay.hotmart.com/I68113150G?off=q7xf5t1z" target="_blank"
+                 class="bg-white text-red-600 px-4 py-2 rounded-lg font-bold hover:bg-red-50 transition-colors text-sm flex items-center gap-1">
+                <i class="fas fa-credit-card"></i> Cartão
+              </a>
+              <a href="https://assinaturas.ensinoplus.com.br" target="_blank"
+                 class="bg-red-800 text-white px-4 py-2 rounded-lg font-bold hover:bg-red-900 transition-colors text-sm flex items-center gap-1 border border-white border-opacity-30">
+                <i class="fas fa-coins"></i> Créditos
+              </a>
             </div>
           </div>
         </div>
@@ -311,10 +316,17 @@ const accessManager = {
           <div class="p-6 text-center">
             ${modalMessage}
             
-            <div class="flex gap-3 justify-center">
-              <button onclick="accessManager.redirectToPayment()" class="bg-gradient-to-r from-green-600 to-green-500 text-white px-8 py-3 rounded-lg font-bold hover:from-green-700 hover:to-green-600 transition-all transform hover:scale-105">
-                <i class="fas fa-crown mr-2"></i>${ctaText}
-              </button>
+            <div class="flex flex-col gap-3 justify-center">
+              <div class="flex gap-3 justify-center">
+                <a href="https://pay.hotmart.com/I68113150G?off=q7xf5t1z" target="_blank"
+                   class="bg-red-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-red-700 transition-all flex items-center gap-2">
+                  <i class="fas fa-credit-card"></i> Renovar com Cartão
+                </a>
+                <a href="https://assinaturas.ensinoplus.com.br" target="_blank"
+                   class="bg-gray-800 text-white px-6 py-3 rounded-lg font-bold hover:bg-gray-900 transition-all flex items-center gap-2">
+                  <i class="fas fa-coins"></i> Renovar com Créditos
+                </a>
+              </div>
               <button onclick="accessManager.closeUpgradeModal()" class="bg-gray-200 text-gray-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-300 transition-colors">
                 Agora Não
               </button>
