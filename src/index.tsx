@@ -1896,227 +1896,196 @@ function generateCertificateHTML(data: {
 
   // ── Fallback: certificado sem imagem de template — design Ensino Plus ───────
 
-  // Logo real em base64 e elemento HTML
-  const epLogoImg = `<img src="${LOGO_ENSINO_PLUS_B64}" style="height:46px;width:auto;display:block;" alt="Ensino Plus"/>`
-
-  // Ícone para marca d'água (só o "e" vermelho, aproximado)
-  const epIconSVG = `<svg viewBox="0 0 76 76" xmlns="http://www.w3.org/2000/svg">
-    <rect x="0" y="0" width="76" height="76" rx="16" ry="16" fill="#c0392b"/>
-    <text x="26" y="60" font-family="Georgia,serif" font-size="58" font-weight="bold" fill="white" letter-spacing="-4">e</text>
+  // SVG dos cantos em swoosh curvo (igual ao template real)
+  const cornerSVG = `<svg viewBox="0 0 115 78" xmlns="http://www.w3.org/2000/svg"
+    preserveAspectRatio="none" style="display:block;width:100%;height:100%;">
+    <path d="M 0 0 L 110 0 C 130 0 114 28 62 58 C 38 72 8 79 0 79 Z" fill="#1a1a2e"/>
+    <path d="M 0 0 L 90 0 C 108 0 93 23 48 50 C 27 63 4 70 0 67 Z" fill="#c0392b"/>
   </svg>`
 
-  // SVG do selo/medalha central
-  const medalSVG = `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="70" height="70">
-    <polygon points="50,5 61,35 95,35 68,57 79,91 50,70 21,91 32,57 5,35 39,35"
-             fill="none" stroke="#c0a84a" stroke-width="3"/>
-    <circle cx="50" cy="50" r="22" fill="#1a1a2e" stroke="#c0a84a" stroke-width="2"/>
-    <text x="50" y="46" font-family="Georgia,serif" font-size="9" font-weight="bold"
-          text-anchor="middle" fill="#c0a84a">ENSINO</text>
-    <text x="50" y="57" font-family="Georgia,serif" font-size="9" font-weight="bold"
-          text-anchor="middle" fill="#c0a84a">PLUS</text>
+  // Selo com fita vermelha
+  const sealSVG = `<svg viewBox="0 0 80 108" xmlns="http://www.w3.org/2000/svg" width="66" height="89">
+    <path d="M 22 72 L 8 108 L 23 95 L 40 104 L 57 95 L 72 108 L 58 72 Z" fill="#c0392b"/>
+    <circle cx="40" cy="38" r="36" fill="#1a1a2e"/>
+    <circle cx="40" cy="38" r="32" fill="none" stroke="#c0a84a" stroke-width="1.5"/>
+    <circle cx="40" cy="38" r="26.5" fill="none" stroke="#c0a84a" stroke-width="0.6"/>
+    <text x="34" y="54" font-family="Georgia,serif" font-size="30" font-weight="bold" fill="white">e</text>
+    <polygon points="56,33 65,38 59,40 62,50 57,51 55,41 49,44" fill="#ccc" opacity="0.75"/>
+  </svg>`
+
+  // Marca d'água (ícone "e" circular, lado direito)
+  const watermarkSVG = `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="50" r="47" fill="none" stroke="#555" stroke-width="5"/>
+    <circle cx="50" cy="50" r="39" fill="none" stroke="#555" stroke-width="1"/>
+    <text x="31" y="70" font-family="Georgia,serif" font-size="58" font-weight="bold" fill="#555">e</text>
+    <polygon points="70,43 80,48 73,51 76,61 71,62 68,52 62,55" fill="#555" opacity="0.6"/>
   </svg>`
 
   const pageCSS = `
     @page { size: A4 landscape; margin: 0; }
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Georgia', 'Times New Roman', serif; background: #fff; }
+    body { font-family: Georgia, 'Times New Roman', serif; background: #ccc; }
 
-    /* ── página (frente ou verso) ── */
+    /* ── Página ── */
     .page {
       width: 297mm; height: 210mm;
       position: relative; overflow: hidden;
-      background: #fff;
-      page-break-after: always;
+      background: #f8f7f5;
+      display: grid;
+      grid-template-rows: 46mm 26mm 1fr 42mm;
     }
-    .page:last-child { page-break-after: auto; }
+    .page:not(:last-child) { page-break-after: always; }
 
-    /* cantos diagonais vermelho/preto */
+    /* ── Cantos em swoosh curvo ── */
     .corner-tl {
-      position: absolute; top: 0; left: 0;
-      width: 0; height: 0;
-      border-style: solid;
-      border-width: 72px 72px 0 0;
-      border-color: #c0392b transparent transparent transparent;
-      z-index: 10;
-    }
-    .corner-tl::after {
-      content: '';
-      position: absolute;
-      top: -72px; left: 0;
-      width: 0; height: 0;
-      border-style: solid;
-      border-width: 52px 52px 0 0;
-      border-color: #1a1a2e transparent transparent transparent;
+      position: absolute; top: 0; left: 0; z-index: 10;
+      width: 115mm; height: 78mm; pointer-events: none;
     }
     .corner-br {
-      position: absolute; bottom: 0; right: 0;
-      width: 0; height: 0;
-      border-style: solid;
-      border-width: 0 0 72px 72px;
-      border-color: transparent transparent #c0392b transparent;
-      z-index: 10;
-    }
-    .corner-br::after {
-      content: '';
-      position: absolute;
-      bottom: -72px; right: 0;
-      width: 0; height: 0;
-      border-style: solid;
-      border-width: 0 0 52px 52px;
-      border-color: transparent transparent #1a1a2e transparent;
+      position: absolute; bottom: 0; right: 0; z-index: 10;
+      width: 115mm; height: 78mm; pointer-events: none;
+      transform: rotate(180deg);
     }
 
-    /* borda ornamental dupla */
-    .outer-border {
-      position: absolute; inset: 12px;
-      border: 2px solid #1a1a2e;
-      z-index: 2;
-    }
-    .inner-border {
-      position: absolute; inset: 16px;
-      border: 1px solid #c0392b;
-      z-index: 2;
+    /* ── Borda ornamental fina ── */
+    .cert-border {
+      position: absolute; inset: 5.5mm; z-index: 3;
+      border: 1px solid #c0c0c0; pointer-events: none;
     }
 
-    /* marca d'água */
+    /* ── Marca d'água ── */
     .watermark {
-      position: absolute; top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
-      opacity: 0.04; z-index: 1;
-      width: 180px; height: 180px;
+      position: absolute; right: 14mm; top: 50%;
+      transform: translateY(-50%); opacity: 0.055; z-index: 1;
+      width: 58mm; height: 58mm; pointer-events: none;
     }
 
-    /* conteúdo */
-    .content {
-      position: absolute; inset: 22px;
-      z-index: 5;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: space-between;
-      padding: 8px 28px 10px;
+    /* ── Logo (centralizado) ── */
+    .logo-section {
+      position: relative; z-index: 5;
+      display: flex; align-items: center; justify-content: center;
+      padding-top: 9mm;
+    }
+    .logo-img { height: 28mm; width: auto; }
+
+    /* ── Título CERTIFICADO ── */
+    .title-section {
+      position: relative; z-index: 5;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 1.5mm;
+    }
+    .title-row {
+      display: flex; align-items: center; gap: 5mm;
+    }
+    .title-line { width: 35mm; height: 1px; background: #999; }
+    .title-ornament-side { font-size: 11px; color: #888; }
+    .cert-title {
+      font-size: 40px; font-weight: bold; color: #1a1a2e;
+      letter-spacing: 7px; font-style: italic;
+    }
+    .title-sub-ornament { font-size: 18px; color: #bbb; letter-spacing: 5px; }
+
+    /* ── Corpo ── */
+    .body-section {
+      position: relative; z-index: 5;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 0 50mm; text-align: center; gap: 2.5mm;
+    }
+    .pre-text { font-size: 13px; color: #666; }
+    .student-name {
+      font-size: 26px; font-weight: bold; color: #1a1a2e;
+      border-bottom: 1px solid #777;
+      padding: 0 18mm 2mm; white-space: nowrap;
+    }
+    .mid-text { font-size: 12px; color: #666; }
+    .course-name { font-size: 26px; font-weight: bold; color: #1a1a2e; line-height: 1.2; }
+    .cert-desc { font-size: 12px; color: #666; line-height: 1.65; max-width: 150mm; }
+
+    /* ── Rodapé ── */
+    .footer-section {
+      position: relative; z-index: 5;
+      display: flex; align-items: flex-end; justify-content: space-between;
+      padding: 3mm 16mm 8mm;
+      border-top: 1px solid #aaa;
+    }
+    .f-left { flex: 1; }
+    .f-center { text-align: center; flex: 0 0 74mm; display: flex; align-items: flex-end; justify-content: center; }
+    .f-right { text-align: right; flex: 1; }
+    .f-line { display: block; height: 1px; background: #999; margin-bottom: 2.5mm; }
+    .f-label { font-size: 8px; text-transform: uppercase; letter-spacing: 1.5px; color: #aaa; font-family: Arial,sans-serif; }
+    .f-value { font-size: 12px; color: #1a1a2e; margin-top: 1mm; }
+    .f-sig-name { font-style: italic; font-size: 15px; color: #1a1a2e; }
+    .f-sig-role { font-size: 8px; text-transform: uppercase; letter-spacing: 2px; color: #aaa; font-family: Arial,sans-serif; margin-top: 1mm; }
+
+    .verif-code {
+      position: absolute; bottom: 2.5mm; left: 0; right: 0;
+      text-align: center; font-size: 7px; color: #ccc; font-family: Arial; z-index: 6;
     }
 
-    /* logo Ensino Plus */
-    .logo-row { align-self: flex-start; }
-    .company-cnpj { font-size: 8.5px; color: #aaa; margin-top: 2px; font-family: Arial,sans-serif; }
-
-    /* botão de impressão */
+    /* ── Botão de impressão ── */
     .print-btn {
-      position: fixed; top: 16px; right: 16px; z-index: 9999;
-      background: #c0392b; color: #fff;
-      border: none; border-radius: 6px;
-      padding: 9px 18px; font-size: 14px; font-weight: bold;
-      cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-      font-family: Arial, sans-serif;
-      display: flex; align-items: center; gap: 7px;
+      position: fixed; top: 14px; right: 14px; z-index: 9999;
+      background: #c0392b; color: #fff; border: none; border-radius: 6px;
+      padding: 10px 22px; font-size: 14px; font-weight: bold;
+      cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,0.25); font-family: Arial;
     }
     .print-btn:hover { background: #a93226; }
-    @media print { .print-btn { display: none !important; } }
-
-    /* título CERTIFICADO */
-    .cert-title-row { text-align: center; }
-    .cert-arrows { font-size: 13px; color: #c0392b; letter-spacing: 4px; }
-    .cert-title {
-      font-size: 30px; font-weight: bold; letter-spacing: 6px;
-      color: #1a1a2e; text-transform: uppercase;
-      border-top: 1.5px solid #1a1a2e;
-      border-bottom: 1.5px solid #1a1a2e;
-      padding: 3px 0;
-      margin: 2px 0;
-    }
-    .cert-ornament { font-size: 11px; color: #888; letter-spacing: 2px; }
-
-    /* corpo */
-    .cert-body { text-align: center; width: 100%; }
-    .cert-text { font-size: 12px; color: #333; margin-bottom: 2px; }
-    .cert-name {
-      font-size: 22px; font-weight: bold; color: #1a1a2e;
-      border-bottom: 1.5px solid #1a1a2e;
-      display: inline-block; padding: 0 40px 2px;
-      margin: 4px 0 8px;
-    }
-    .cert-course {
-      font-size: 14px; font-weight: bold; color: #1a1a2e;
-      margin-bottom: 4px;
-    }
-    .cert-course span { color: #c0392b; }
-    .cert-desc { font-size: 11px; color: #555; line-height: 1.5; max-width: 480px; margin: 0 auto; }
-
-    /* rodapé */
-    .cert-footer {
-      display: flex; align-items: flex-end; justify-content: space-between;
-      width: 100%; gap: 10px;
-    }
-    .footer-left, .footer-right { flex: 1; }
-    .footer-label { font-size: 9px; color: #888; text-transform: uppercase; letter-spacing: 1px; }
-    .footer-value { font-size: 11px; color: #1a1a2e; margin-top: 2px; }
-    .footer-line  { display: block; width: 100%; height: 1px; background: #1a1a2e; margin-bottom: 3px; }
-    .footer-right { text-align: right; }
-    .sig-name  { font-size: 11px; font-weight: bold; color: #1a1a2e; }
-    .sig-title { font-size: 9px;  color: #888; font-style: italic; }
-    .footer-center { text-align: center; }
-
-    .verif-code { font-size: 8px; color: #aaa; text-align: right; margin-top: 2px; }
+    @media print { .print-btn { display: none !important; } body { background: white; } }
 
     /* ── VERSO ── */
-    .verso-body { text-align: center; width: 100%; flex: 1; display: flex; flex-direction: column; }
-    .verso-title { font-size: 18px; font-weight: bold; color: #1a1a2e; text-transform: uppercase; letter-spacing: 3px; margin-bottom: 2px; }
-    .verso-sub   { font-size: 10px; color: #888; font-style: italic; margin-bottom: 10px; }
-    .modules-grid {
-      display: grid; grid-template-columns: repeat(2, 1fr);
-      gap: 5px 20px; text-align: left; flex: 1;
-      overflow: hidden;
+    .verso-body {
+      position: relative; z-index: 5;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 4mm 16mm 0;
     }
-    .mod-item {
-      font-size: 10.5px; color: #1a1a2e;
-      padding: 4px 8px;
-      border-left: 3px solid #c0392b;
-      background: #fafafa;
-      line-height: 1.3;
-    }
+    .verso-title { font-size: 15px; font-weight: bold; color: #1a1a2e; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 2mm; }
+    .verso-sub { font-size: 9.5px; color: #999; font-style: italic; margin-bottom: 5mm; }
+    .modules-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 3px 16px; width: 100%; }
+    .mod-item { font-size: 9.5px; color: #333; padding: 3px 7px; border-left: 3px solid #c0392b; background: #f5f4f2; line-height: 1.3; }
     .mod-num { font-weight: bold; color: #c0392b; margin-right: 3px; }
-
-    @media print { body { background: #fff; } }
   `
 
   const versoPageHTML = hasModules ? `
   <div class="page">
-    <div class="corner-tl"></div>
-    <div class="corner-br"></div>
-    <div class="outer-border"></div>
-    <div class="inner-border"></div>
-    <div class="watermark">${epIconSVG}</div>
+    <div class="corner-tl">${cornerSVG}</div>
+    <div class="corner-br">${cornerSVG}</div>
+    <div class="cert-border"></div>
+    <div class="watermark">${watermarkSVG}</div>
 
-    <div class="content">
-      <div class="logo-row">
-        ${epLogoImg}
-        <div class="company-cnpj">CNPJ: 35.537.045/0001-84</div>
+    <div class="logo-section">
+      <img class="logo-img" src="${LOGO_ENSINO_PLUS_B64}" alt="Ensino Plus"/>
+    </div>
+
+    <div class="title-section">
+      <div class="title-row">
+        <span class="title-line"></span>
+        <span class="title-ornament-side">&#10022;</span>
+        <span style="font-size:14px;color:#888;letter-spacing:3px;">CONTEÚDO PROGRAMÁTICO</span>
+        <span class="title-ornament-side">&#10022;</span>
+        <span class="title-line"></span>
       </div>
+      <div class="title-sub-ornament">&#8764; &#8764; &#8764;</div>
+    </div>
 
-      <div class="verso-body">
-        <div class="verso-title">Conteúdo Programático</div>
-        <div class="verso-sub">${data.studentName} — ${data.courseName}</div>
-        <div class="modules-grid">
-          ${data.modules!.map((m, i) => `
-            <div class="mod-item">
-              <span class="mod-num">${String(i + 1).padStart(2, '0')}.</span>${m}
-            </div>`).join('')}
-        </div>
+    <div class="verso-body">
+      <div class="verso-sub">${data.studentName} &mdash; ${data.courseName}</div>
+      <div class="modules-grid">
+        ${data.modules!.map((m, i) => `
+          <div class="mod-item"><span class="mod-num">${String(i + 1).padStart(2, '0')}.</span>${m}</div>`).join('')}
       </div>
+    </div>
 
-      <div class="cert-footer">
-        <div class="footer-left">
-          <span class="footer-line"></span>
-          <div class="footer-label">Código de Verificação</div>
-          <div class="footer-value">${data.verificationCode}</div>
-        </div>
-        <div class="footer-center">${medalSVG}</div>
-        <div class="footer-right">
-          <span class="footer-line"></span>
-          <div class="sig-name">NÁRGILA DE SOUZA SANTOS</div>
-          <div class="sig-title">DIRETORA</div>
-        </div>
+    <div class="footer-section">
+      <div class="f-left">
+        <div class="f-label">Código de Verificação</div>
+        <div class="f-value">${data.verificationCode}</div>
+      </div>
+      <div class="f-center">${sealSVG}</div>
+      <div class="f-right">
+        <span class="f-line"></span>
+        <div class="f-sig-name">Nárgila de Souza Santos</div>
+        <div class="f-sig-role">DIRETORA</div>
       </div>
     </div>
   </div>` : ''
@@ -2125,68 +2094,66 @@ function generateCertificateHTML(data: {
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Certificado - Ensino Plus</title>
+  <title>Certificado &mdash; Ensino Plus</title>
   <style>${pageCSS}</style>
 </head>
 <body>
 
-  <!-- Botão de impressão (oculto no print) -->
-  <button class="print-btn" onclick="window.print()">
-    🖨️ Imprimir / Salvar PDF
-  </button>
+  <button class="print-btn" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
 
   <!-- FRENTE -->
   <div class="page">
-    <div class="corner-tl"></div>
-    <div class="corner-br"></div>
-    <div class="outer-border"></div>
-    <div class="inner-border"></div>
-    <div class="watermark">${epIconSVG}</div>
+    <div class="corner-tl">${cornerSVG}</div>
+    <div class="corner-br">${cornerSVG}</div>
+    <div class="cert-border"></div>
+    <div class="watermark">${watermarkSVG}</div>
 
-    <div class="content">
-      <!-- Logo Ensino Plus -->
-      <div class="logo-row">
-        ${epLogoImg}
-        <div class="company-cnpj">CNPJ: 35.537.045/0001-84</div>
+    <!-- Logo centralizado grande -->
+    <div class="logo-section">
+      <img class="logo-img" src="${LOGO_ENSINO_PLUS_B64}" alt="Ensino Plus"/>
+    </div>
+
+    <!-- Título CERTIFICADO ornamental -->
+    <div class="title-section">
+      <div class="title-row">
+        <span class="title-line"></span>
+        <span class="title-ornament-side">&#9670;</span>
+        <span class="cert-title">CERTIFICADO</span>
+        <span class="title-ornament-side">&#9670;</span>
+        <span class="title-line"></span>
       </div>
+      <div class="title-sub-ornament">&#8764; &#8764; &#8764;</div>
+    </div>
 
-      <!-- Título -->
-      <div class="cert-title-row">
-        <div class="cert-arrows">&#8592;&#8592;&#8592; &nbsp; &#8593; &nbsp; &#8594;&#8594;&#8594;</div>
-        <div class="cert-title">CERTIFICADO</div>
-        <div class="cert-ornament">~ ~ ~</div>
-      </div>
-
-      <!-- Corpo -->
-      <div class="cert-body">
-        <div class="cert-text">Certificamos que</div>
-        <div class="cert-name">${data.studentName}</div>
-        <div class="cert-text">concluiu com êxito o curso</div>
-        <div class="cert-course"><span>${data.courseName}</span></div>
-        <div class="cert-desc">
-          ministrado pelo Ensino Plus – Centro de Aprendizagem,
-          com carga horária de <strong>${data.workload} horas</strong>,
-          conforme o conteúdo programático.
-        </div>
-      </div>
-
-      <!-- Rodapé -->
-      <div class="cert-footer">
-        <div class="footer-left">
-          <span class="footer-line"></span>
-          <div class="footer-label">DATA</div>
-          <div class="footer-value">${data.completionDate}</div>
-        </div>
-        <div class="footer-center">${medalSVG}</div>
-        <div class="footer-right">
-          <span class="footer-line"></span>
-          <div class="sig-name">NÁRGILA DE SOUZA SANTOS</div>
-          <div class="sig-title">DIRETORA</div>
-        </div>
+    <!-- Corpo -->
+    <div class="body-section">
+      <div class="pre-text">Certificamos que</div>
+      <div class="student-name">${data.studentName}</div>
+      <div class="mid-text">concluiu com êxito o curso</div>
+      <div class="course-name">${data.courseName}</div>
+      <div class="cert-desc">
+        ministrado pelo <strong>Ensino Plus &ndash; Centro de Aprendizagem</strong>,
+        com carga horária de <strong>${data.workload} horas</strong>,
+        conforme o conteúdo programático.
       </div>
     </div>
 
-    <div class="verif-code" style="position:absolute;bottom:20px;right:26px;z-index:9;">
+    <!-- Rodapé -->
+    <div class="footer-section">
+      <div class="f-left">
+        <span class="f-line"></span>
+        <div class="f-label">DATA</div>
+        <div class="f-value">${data.completionDate}</div>
+      </div>
+      <div class="f-center">${sealSVG}</div>
+      <div class="f-right">
+        <span class="f-line"></span>
+        <div class="f-sig-name">Nárgila de Souza Santos</div>
+        <div class="f-sig-role">DIRETORA</div>
+      </div>
+    </div>
+
+    <div class="verif-code">
       Código: ${data.verificationCode} &nbsp;|&nbsp; ${data.verificationUrl}
     </div>
   </div>
