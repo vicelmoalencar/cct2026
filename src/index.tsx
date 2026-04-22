@@ -1865,13 +1865,59 @@ function generateCertificateHTML(data: {
   }
 
   // ── Fallback: certificado gerado sem imagem de template ────────────────────
-  const modulesHTML = hasModules
-    ? `<div class="modules-section">
-        <div class="modules-title">Módulos Concluídos:</div>
-        <div class="modules-grid">
-          ${data.modules!.map(m => `<div class="module-item">✓ ${m}</div>`).join('')}
+  // Módulos ficam apenas no verso (página 2)
+  const versoPageHTML = hasModules
+    ? `
+    <div class="verso-container">
+      <div class="certificate-border"></div>
+      <div class="watermark">ENSINO PLUS</div>
+      <div class="certificate-content">
+        <div class="header">
+          <div class="logo-section">
+            <svg class="logo-image" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+              <defs><linearGradient id="grad2" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#3498db;stop-opacity:1"/>
+                <stop offset="100%" style="stop-color:#2c3e50;stop-opacity:1"/>
+              </linearGradient></defs>
+              <circle cx="50" cy="50" r="45" fill="url(#grad2)"/>
+              <path d="M 30 35 L 50 25 L 70 35 L 70 50 L 50 60 L 30 50 Z" fill="#fff" opacity="0.9"/>
+              <circle cx="50" cy="50" r="8" fill="#fff"/>
+              <text x="50" y="80" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" fill="#fff">EP</text>
+            </svg>
+            <div class="company-info">
+              <div class="company-name">CENTRO DE ENSINO E<br>APRENDIZAGEM PLUS LTDA</div>
+              <div class="company-cnpj">CNPJ: 35.537.045/0001-84</div>
+            </div>
+          </div>
+          <div class="header-right">
+            <div class="cct-logo">CCT 2026</div>
+            <div class="subtitle">Verso do Certificado</div>
+          </div>
         </div>
-      </div>`
+
+        <div class="main-content">
+          <div class="modules-title-big">Módulos Concluídos</div>
+          <div class="student-name-small">${data.studentName} — ${data.courseName}</div>
+          <div class="modules-grid-verso">
+            ${data.modules!.map((m, i) => `
+              <div class="module-item-verso">
+                <span class="mod-num">${String(i + 1).padStart(2, '0')}.</span> ${m}
+              </div>`).join('')}
+          </div>
+        </div>
+
+        <div class="footer">
+          <div class="signature-line">
+            <div class="signature-name">NÁRGILA DE SOUZA SANTOS</div>
+            <div class="signature-title">Diretora</div>
+          </div>
+          <div class="signature-line">
+            <div class="signature-name">Sistema CCT 2026</div>
+            <div class="signature-title">Certificação Digital</div>
+          </div>
+        </div>
+      </div>
+    </div>`
     : ''
 
   return `<!DOCTYPE html>
@@ -1962,10 +2008,6 @@ function generateCertificateHTML(data: {
         .certificate-text { font-size: 16px; color: #34495e; line-height: 1.6; margin-bottom: 10px; }
         .student-name { font-size: 28px; color: #3498db; font-weight: bold; margin: 15px 0; border-bottom: 2px solid #3498db; display: inline-block; padding: 8px 30px; }
         .course-name { font-size: 22px; color: #2c3e50; font-weight: bold; margin: 15px 0; }
-        .modules-section { margin: 15px auto; max-width: 90%; }
-        .modules-title { font-size: 14px; font-weight: bold; color: #2c3e50; margin-bottom: 10px; }
-        .modules-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; text-align: left; }
-        .module-item { font-size: 12px; color: #34495e; padding: 5px 10px; background: #f8f9fa; border-radius: 5px; border-left: 3px solid #3498db; }
         .details { display: flex; justify-content: space-around; margin-top: 15px; font-size: 13px; color: #7f8c8d; }
         .detail-item { text-align: center; }
         .detail-label { font-weight: bold; color: #2c3e50; display: block; margin-bottom: 5px; }
@@ -1977,6 +2019,21 @@ function generateCertificateHTML(data: {
         .verification-code { position: absolute; bottom: 15px; right: 25px; font-size: 10px; color: #95a5a6; text-align: right; }
         .verification-code-label { font-weight: bold; display: block; margin-bottom: 3px; }
         .verification-url { font-size: 9px; color: #3498db; }
+
+        /* Verso (página 2) */
+        .verso-container {
+            width: 100%; height: 100%;
+            background: white; border: 15px solid #2c3e50; border-radius: 20px;
+            position: relative; overflow: hidden;
+            page-break-before: always;
+            display: flex;
+        }
+        .modules-title-big { font-size: 24px; font-weight: bold; color: #2c3e50; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px; }
+        .student-name-small { font-size: 13px; color: #7f8c8d; margin-bottom: 16px; font-style: italic; }
+        .modules-grid-verso { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px 24px; text-align: left; max-width: 95%; margin: 0 auto; }
+        .module-item-verso { font-size: 12px; color: #34495e; padding: 5px 10px; background: #f8f9fa; border-radius: 4px; border-left: 3px solid #3498db; line-height: 1.3; }
+        .mod-num { font-weight: bold; color: #2563eb; margin-right: 4px; }
+
         .watermark {
             position: absolute;
             top: 50%;
@@ -2046,9 +2103,7 @@ function generateCertificateHTML(data: {
                 </div>
                 
                 <div class="course-name">${data.courseName}</div>
-                
-                ${modulesHTML}
-                
+
                 <div class="details">
                     <div class="detail-item">
                         <span class="detail-label">Carga Horária</span>
@@ -2085,6 +2140,8 @@ function generateCertificateHTML(data: {
             </div>
         </div>
     </div>
+
+    ${versoPageHTML}
 </body>
 </html>`
 }
@@ -2145,10 +2202,11 @@ app.get('/api/certificates/:id/html', requireAuth, async (c) => {
     }
     
     // Generate certificate HTML directly (inline template for Cloudflare Workers)
-    const completionDate = new Date(cert.completion_date).toLocaleDateString('pt-BR')
-    const issueDate = new Date(cert.issued_at).toLocaleDateString('pt-BR')
+    const completionDate = cert.completion_date ? new Date(cert.completion_date).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR')
+    const issueDate = cert.issued_at ? new Date(cert.issued_at).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR')
     const baseUrl = new URL(c.req.url).origin
-    const verificationUrl = `${baseUrl}/verificar/${cert.verification_code}`
+    const certCode = cert.certificate_code || cert.verification_code || ''
+    const verificationUrl = certCode ? `${baseUrl}/verificar/${certCode}` : ''
     
     // Buscar módulos do curso se course_id existir
     let modules: string[] = []
@@ -2207,7 +2265,7 @@ app.get('/api/certificates/:id/html', requireAuth, async (c) => {
       workload: cert.carga_horaria || 'N/A',
       completionDate,
       issueDate,
-      verificationCode: cert.verification_code,
+      verificationCode: certCode,
       verificationUrl,
       modules: modules.length > 0 ? modules : undefined,
       templateImageUrl,
