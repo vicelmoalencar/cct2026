@@ -5082,6 +5082,28 @@ app.get('/profile', (c) => {
                 }
                 
                 // Mostrar planos expirados
+                // Card de renovação sempre visível
+                html += \`
+                    <div class="rounded-xl border-2 border-red-200 bg-red-50 p-5 mb-2">
+                        <h4 class="text-base font-bold text-red-700 mb-1 flex items-center gap-2">
+                            <i class="fas fa-sync-alt"></i> Renovar Plano
+                        </h4>
+                        <p class="text-sm text-red-600 mb-4">Escolha como deseja renovar seu acesso:</p>
+                        <div class="flex flex-col sm:flex-row gap-3">
+                            <a href="https://pay.hotmart.com/I68113150G?off=q7xf5t1z" target="_blank"
+                               class="flex-1 flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-5 rounded-lg transition text-sm">
+                                <i class="fas fa-credit-card"></i>
+                                Renovar com Cartão
+                            </a>
+                            <a href="https://assinaturas.ensinoplus.com.br" target="_blank"
+                               class="flex-1 flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-900 text-white font-bold py-3 px-5 rounded-lg transition text-sm">
+                                <i class="fas fa-coins"></i>
+                                Renovar com Créditos
+                            </a>
+                        </div>
+                    </div>
+                \`
+
                 if (expiredPlans.length > 0) {
                     html += \`
                         <div>
@@ -5095,7 +5117,7 @@ app.get('/profile', (c) => {
                         </div>
                     \`
                 }
-                
+
                 container.innerHTML = html
                 
             } catch (error) {
@@ -5172,10 +5194,21 @@ app.get('/profile', (c) => {
                             </div>
                         </div>
                     </div>
+                    \${(!isActive || daysRemaining <= 30) ? \`
+                    <div class="mt-3 pt-3 border-t border-gray-200 flex gap-2">
+                        <a href="https://pay.hotmart.com/I68113150G?off=q7xf5t1z" target="_blank"
+                           class="flex-1 text-center text-xs font-bold py-2 px-3 rounded-lg bg-red-600 hover:bg-red-700 text-white transition">
+                            <i class="fas fa-credit-card mr-1"></i> Cartão
+                        </a>
+                        <a href="https://assinaturas.ensinoplus.com.br" target="_blank"
+                           class="flex-1 text-center text-xs font-bold py-2 px-3 rounded-lg bg-gray-700 hover:bg-gray-800 text-white transition">
+                            <i class="fas fa-coins mr-1"></i> Créditos
+                        </a>
+                    </div>\` : ''}
                 </div>
             \`
         }
-        
+
         // Handle profile form submission
         profileForm.addEventListener('submit', async (e) => {
             e.preventDefault()
