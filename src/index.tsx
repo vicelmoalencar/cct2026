@@ -1730,6 +1730,7 @@ function generateCertificateHTML(data: {
   studentName: string;
   courseName: string;
   workload: string | number;
+  startDate?: string;
   completionDate: string;
   issueDate: string;
   verificationCode: string;
@@ -1828,6 +1829,26 @@ function generateCertificateHTML(data: {
       color: #1a1a1a;
     }
 
+    /* Data de início: ~74% topo, posicionada na linha do início */
+    .field-data-inicio {
+      position: absolute;
+      left: 62%;
+      top: 71.5%;
+      font-family: 'Georgia', serif;
+      font-size: 10pt;
+      color: #1a1a1a;
+    }
+
+    /* Data de final: ~78% topo, posicionada na linha do final */
+    .field-data-final {
+      position: absolute;
+      left: 62%;
+      top: 78%;
+      font-family: 'Georgia', serif;
+      font-size: 10pt;
+      color: #1a1a1a;
+    }
+
     /* Código de verificação: rodapé direito */
     .field-codigo {
       position: absolute;
@@ -1882,6 +1903,8 @@ function generateCertificateHTML(data: {
 
     <div class="field-carga"><strong>${data.workload} horas</strong></div>
 
+    ${data.startDate ? `<div class="field-data-inicio">${data.startDate}</div>` : ''}
+    <div class="field-data-final">${data.completionDate}</div>
     <div class="field-data">${data.completionDate}</div>
 
     ${data.verificationCode ? `
@@ -2001,9 +2024,8 @@ function generateCertificateHTML(data: {
       border-bottom: 1px solid #777;
       padding: 0 18mm 2mm; white-space: nowrap;
     }
-    .mid-text { font-size: 12px; color: #666; }
-    .course-name { font-size: 26px; font-weight: bold; color: #1a1a2e; line-height: 1.2; }
-    .cert-desc { font-size: 12px; color: #666; line-height: 1.65; max-width: 150mm; }
+    .cert-desc { font-size: 12px; color: #444; line-height: 1.7; max-width: 155mm; }
+    .cert-dates { font-size: 11.5px; color: #555; margin-top: 3mm; letter-spacing: 0.2px; }
 
     /* ── Rodapé ── */
     .footer-section {
@@ -2134,14 +2156,18 @@ function generateCertificateHTML(data: {
 
     <!-- Corpo -->
     <div class="body-section">
-      <div class="pre-text">Certificamos que</div>
+      <div class="pre-text">Certificamos que o(a) aluno(a)</div>
       <div class="student-name">${data.studentName}</div>
-      <div class="mid-text">concluiu com êxito o curso</div>
-      <div class="course-name">${data.courseName}</div>
       <div class="cert-desc">
-        ministrado pelo <strong>Ensino Plus &ndash; Centro de Aprendizagem</strong>,
-        com carga horária de <strong>${data.workload} horas</strong>,
-        conforme o conteúdo programático.
+        concluiu a carga horária necessária para obtenção do presente certificado
+        referente ao curso <strong>${data.courseName}</strong>,
+        ministrado pela <strong>Centro de Ensino e Aprendizagem Plus Ltda</strong>
+        &ndash; CNPJ: 35.537.045/0001-84, com carga horária total de <strong>${data.workload} horas</strong>.
+      </div>
+      <div class="cert-dates">
+        <span>Início do curso: <strong>${data.startDate || '&mdash;'}</strong></span>
+        &nbsp;&nbsp;&nbsp;
+        <span>Conclusão: <strong>${data.completionDate}</strong></span>
       </div>
     </div>
 
@@ -2165,7 +2191,9 @@ function generateCertificateHTML(data: {
     </div>
 
     <div class="verif-code">
-      Código: ${data.verificationCode} &nbsp;|&nbsp; ${data.verificationUrl}
+      Centro de Ensino e Aprendizagem Plus Ltda &mdash; CNPJ: 35.537.045/0001-84
+      &nbsp;&nbsp;|&nbsp;&nbsp;
+      Cód.: ${data.verificationCode} &nbsp;|&nbsp; ${data.verificationUrl}
     </div>
   </div>
 
@@ -2233,6 +2261,7 @@ app.get('/api/certificates/:id/html', requireAuth, async (c) => {
     }
     
     // Generate certificate HTML directly (inline template for Cloudflare Workers)
+    const startDate = cert.issued_at ? new Date(cert.issued_at).toLocaleDateString('pt-BR') : undefined
     const completionDate = cert.completion_date ? new Date(cert.completion_date).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR')
     const issueDate = cert.issued_at ? new Date(cert.issued_at).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR')
     const baseUrl = new URL(c.req.url).origin
@@ -2310,6 +2339,7 @@ app.get('/api/certificates/:id/html', requireAuth, async (c) => {
       studentName: cert.user_name,
       courseName: cert.course_title,
       workload: cert.carga_horaria || 'N/A',
+      startDate,
       completionDate,
       issueDate,
       verificationCode: certCode,
@@ -2384,9 +2414,10 @@ app.get('/verificar/:code', async (c) => {
       })
     } catch (_) {}
     
-    const completionDate = new Date(cert.completion_date).toLocaleDateString('pt-BR')
-    const issueDate = new Date(cert.issued_at).toLocaleDateString('pt-BR')
-    
+    const startDate = cert.issued_at ? new Date(cert.issued_at).toLocaleDateString('pt-BR') : undefined
+    const completionDate = cert.completion_date ? new Date(cert.completion_date).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR')
+    const issueDate = cert.issued_at ? new Date(cert.issued_at).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR')
+
     // Buscar módulos do curso
     let modules: string[] = []
     
@@ -2477,6 +2508,14 @@ app.get('/verificar/:code', async (c) => {
                 <span class="text-xs text-gray-500 block mb-1">Data de Conclusão</span>
                 <span class="text-lg font-bold text-blue-600">${completionDate}</span>
               </div>
+              <div class="bg-blue-50 p-4 rounded-lg">
+                <span class="text-xs text-gray-500 block mb-1">Início do Curso</span>
+                <span class="text-lg font-bold text-blue-600">${startDate || '&mdash;'}</span>
+              </div>
+              <div class="bg-blue-50 p-4 rounded-lg">
+                <span class="text-xs text-gray-500 block mb-1">Emissão do Certificado</span>
+                <span class="text-lg font-bold text-blue-600">${issueDate}</span>
+              </div>
             </div>
             
             ${modulesHTML}
@@ -2499,11 +2538,9 @@ app.get('/verificar/:code', async (c) => {
                 <i class="fas fa-eye mr-1"></i>
                 Este certificado foi verificado ${cert.verification_count || 1} vez(es)
               </p>
-              <p class="mb-1">
-                Certificado emitido por <strong>CCT 2026 - Centro de Capacitação Técnica</strong>
-              </p>
               <p class="text-xs">
-                <strong>CENTRO DE ENSINO E APRENDIZAGEM PLUS LTDA</strong><br>
+                Certificado emitido por<br>
+                <strong>Centro de Ensino e Aprendizagem Plus Ltda</strong><br>
                 CNPJ: 35.537.045/0001-84
               </p>
             </div>
