@@ -2375,10 +2375,12 @@ app.get('/verificar/:code', async (c) => {
     
     const cert = certificates[0]
     
-    // Increment verification count
-    await db.update('certificates', { id: cert.id }, {
-      verification_count: (cert.verification_count || 0) + 1
-    })
+    // Increment verification count (coluna opcional)
+    try {
+      await db.update('certificates', { id: cert.id }, {
+        verification_count: (cert.verification_count || 0) + 1
+      })
+    } catch (_) {}
     
     const completionDate = new Date(cert.completion_date).toLocaleDateString('pt-BR')
     const issueDate = new Date(cert.issued_at).toLocaleDateString('pt-BR')
@@ -2537,10 +2539,12 @@ app.get('/api/verify/:code', async (c) => {
     
     const cert = certificates[0]
     
-    // Increment verification count
-    await db.update('certificates', { id: cert.id }, {
-      verification_count: (cert.verification_count || 0) + 1
-    })
+    // Increment verification count (coluna opcional)
+    try {
+      await db.update('certificates', { id: cert.id }, {
+        verification_count: (cert.verification_count || 0) + 1
+      })
+    } catch (_) {}
     
     return c.json({
       valid: true,
