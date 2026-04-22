@@ -4,6 +4,7 @@ import { getCookie, setCookie, deleteCookie } from 'hono/cookie'
 import { SupabaseClient } from './supabase-client'
 import { PostgresClient } from './postgres-client'
 import { LOGO_ENSINO_PLUS_B64 } from './logo-base64'
+import QRCode from 'qrcode'
 
 type Bindings = {
   SUPABASE_URL: string;
@@ -1732,9 +1733,10 @@ function generateCertificateHTML(data: {
   issueDate: string;
   verificationCode: string;
   verificationUrl: string;
+  qrCodeSVG?: string;
   modules?: string[];
-  templateImageUrl?: string;   // URL da frente (ex: /api/certificate-template/5/image)
-  versoImageUrl?: string;      // URL do verso  (ex: /api/certificate-template/5/verso)
+  templateImageUrl?: string;
+  versoImageUrl?: string;
 }) {
   const hasTemplate = !!data.templateImageUrl
   const hasVerso    = !!data.versoImageUrl
@@ -2009,7 +2011,7 @@ function generateCertificateHTML(data: {
       padding: 3mm 16mm 8mm;
       border-top: 1px solid #aaa;
     }
-    .f-left { flex: 1; }
+    .f-left { flex: 1; display: flex; align-items: flex-end; gap: 4mm; }
     .f-center { text-align: center; flex: 0 0 74mm; display: flex; align-items: flex-end; justify-content: center; }
     .f-right { text-align: right; flex: 1; }
     .f-line { display: block; height: 1px; background: #999; margin-bottom: 2.5mm; }
@@ -2017,6 +2019,10 @@ function generateCertificateHTML(data: {
     .f-value { font-size: 12px; color: #1a1a2e; margin-top: 1mm; }
     .f-sig-name { font-style: italic; font-size: 15px; color: #1a1a2e; }
     .f-sig-role { font-size: 8px; text-transform: uppercase; letter-spacing: 2px; color: #aaa; font-family: Arial,sans-serif; margin-top: 1mm; }
+    .qr-wrap { flex-shrink: 0; }
+    .qr-wrap svg { width: 55px !important; height: 55px !important; display: block; }
+    .qr-meta { font-size: 7.5px; color: #aaa; font-family: Arial,sans-serif; }
+    .qr-meta span { display: block; }
 
     .verif-code {
       position: absolute; bottom: 2.5mm; left: 0; right: 0;
@@ -2141,9 +2147,13 @@ function generateCertificateHTML(data: {
     <!-- Rodapé -->
     <div class="footer-section">
       <div class="f-left">
-        <span class="f-line"></span>
-        <div class="f-label">DATA</div>
-        <div class="f-value">${data.completionDate}</div>
+        ${data.qrCodeSVG ? `<div class="qr-wrap">${data.qrCodeSVG}</div>` : ''}
+        <div>
+          <span class="f-line"></span>
+          <div class="f-label">DATA</div>
+          <div class="f-value">${data.completionDate}</div>
+          ${data.qrCodeSVG ? `<div class="qr-meta"><span>Escaneie para verificar</span><span>${data.verificationCode}</span></div>` : ''}
+        </div>
       </div>
       <div class="f-center">${sealSVG}</div>
       <div class="f-right">
@@ -2159,6 +2169,8 @@ function generateCertificateHTML(data: {
   </div>
 
   ${versoPageHTML}
+
+  <script>window.onload=function(){document.querySelectorAll('.qr-wrap svg').forEach(function(s){s.setAttribute('width','60');s.setAttribute('height','60');})}</script>
 
 </body>
 </html>`
@@ -2279,6 +2291,20 @@ app.get('/api/certificates/:id/html', requireAuth, async (c) => {
       }
     }
 
+    // Gerar QR code como SVG inline
+    let qrCodeSVG: string | undefined
+    if (verificationUrl) {
+      try {
+        qrCodeSVG = await QRCode.toString(verificationUrl, {
+          type: 'svg',
+          margin: 1,
+          color: { dark: '#1a1a2e', light: '#f8f7f5' }
+        })
+      } catch (e) {
+        console.log('QR code generation failed:', e)
+      }
+    }
+
     const html = generateCertificateHTML({
       studentName: cert.user_name,
       courseName: cert.course_title,
@@ -2287,6 +2313,7 @@ app.get('/api/certificates/:id/html', requireAuth, async (c) => {
       issueDate,
       verificationCode: certCode,
       verificationUrl,
+      qrCodeSVG,
       modules: modules.length > 0 ? modules : undefined,
       templateImageUrl,
       versoImageUrl
