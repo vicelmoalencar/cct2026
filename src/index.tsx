@@ -2267,21 +2267,23 @@ app.get('/api/certificates/:id/html', requireAuth, async (c) => {
       }
     }
     
-    // Buscar template do curso (frente e verso)
+    // Buscar template do curso — embutir base64 direto no HTML (sem requisição extra)
     let templateImageUrl: string | undefined
     let versoImageUrl: string | undefined
     if (cert.course_id) {
       try {
         const tmpl = await db.query('certificate_templates', {
-          select: 'template_data, verso_data',
+          select: 'template_data, template_mime, verso_data, verso_mime',
           filters: { course_id: cert.course_id },
           single: true
         })
         if (tmpl?.template_data) {
-          templateImageUrl = `${baseUrl}/api/certificate-template/${cert.course_id}/image`
+          const mime = tmpl.template_mime || 'image/jpeg'
+          templateImageUrl = `data:${mime};base64,${tmpl.template_data}`
         }
         if (tmpl?.verso_data) {
-          versoImageUrl = `${baseUrl}/api/certificate-template/${cert.course_id}/verso`
+          const mime = tmpl.verso_mime || 'image/jpeg'
+          versoImageUrl = `data:${mime};base64,${tmpl.verso_data}`
         }
       } catch (e) {
         console.log('No certificate template found for course', cert.course_id)
