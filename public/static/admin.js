@@ -62,12 +62,12 @@ const adminManager = {
     return response.data
   },
   
-  // Certificate template - Upload image directly
-  async uploadCertificateTemplate(courseId, imageData, fileName) {
+  // Certificate template - stored in Postgres (no Supabase Storage needed)
+  async uploadCertificateTemplate(courseId, imageData, versoData) {
     const response = await axios.post('/api/admin/certificate-template', {
       course_id: courseId,
       image_data: imageData,
-      file_name: fileName
+      verso_data: versoData || undefined
     })
     return response.data
   },
@@ -396,6 +396,7 @@ const adminUI = {
         const template = await adminManager.getCertificateTemplate(course.id)
         if (template) {
           certificateUrl = template.template_url
+          course.verso_url = template.verso_url || null
         }
       } catch (error) {
         console.log('No certificate template found')
@@ -488,47 +489,68 @@ const adminUI = {
               Template de Certificado
             </label>
             
-            <!-- Current Template Preview -->
-            <div id="currentTemplatePreview" class="${certificateUrl ? '' : 'hidden'} mb-4">
-              <p class="text-xs text-gray-600 mb-2">Template atual:</p>
-              <img src="${certificateUrl}" 
-                   alt="Template atual" 
-                   class="max-w-full h-auto rounded-lg border-2 border-gray-300 shadow-sm">
-              <p class="text-xs text-gray-500 mt-1">
-                <i class="fas fa-check-circle text-green-500"></i> 
-                Template salvo no Supabase Storage
+            <!-- Frente -->
+            <div class="space-y-3">
+              <p class="text-sm font-semibold text-gray-700">
+                <i class="fas fa-image mr-1 text-yellow-500"></i> Frente do certificado
               </p>
-            </div>
-            
-            <!-- Upload New Template -->
-            <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 bg-gray-50 hover:bg-gray-100 transition-colors">
-              <input type="file" id="certificateTemplateFile" accept="image/*"
-                     class="hidden" onchange="adminUI.handleCertificateImageSelect(event)">
-              <button type="button" onclick="document.getElementById('certificateTemplateFile').click()"
-                      class="w-full px-4 py-3 bg-yellow-100 hover:bg-yellow-200 text-yellow-700 rounded-lg font-semibold transition-colors">
-                <i class="fas fa-cloud-upload-alt mr-2"></i>
-                ${certificateUrl ? 'Alterar Template' : 'Fazer Upload do Template'}
-              </button>
-              <p class="text-xs text-gray-500 mt-2 text-center">
-                <i class="fas fa-info-circle"></i> 
-                Faça upload da imagem do certificado (JPG, PNG). A imagem será armazenada no Supabase Storage.
-              </p>
-              
-              <!-- Preview new upload -->
-              <div id="newTemplatePreview" class="hidden mt-4">
-                <p class="text-xs text-gray-600 mb-2">Nova imagem selecionada:</p>
-                <img id="newTemplateImage" src="" alt="Preview" 
-                     class="max-w-full h-auto rounded-lg border-2 border-blue-300 shadow-sm">
-                <p class="text-xs text-blue-600 mt-1">
-                  <i class="fas fa-info-circle"></i> 
-                  Clique em "Salvar" para fazer upload desta imagem
+              <div id="currentTemplatePreview" class="${certificateUrl ? '' : 'hidden'} mb-2">
+                <p class="text-xs text-gray-500 mb-1">Template atual (frente):</p>
+                <img src="${certificateUrl}" alt="Template atual"
+                     class="max-w-xs h-auto rounded-lg border-2 border-gray-300 shadow-sm">
+                <p class="text-xs text-green-600 mt-1">
+                  <i class="fas fa-check-circle"></i> Salvo no banco de dados
                 </p>
               </div>
+              <div class="border-2 border-dashed border-yellow-300 rounded-lg p-4 bg-yellow-50">
+                <input type="file" id="certificateTemplateFile" accept="image/*"
+                       class="hidden" onchange="adminUI.handleCertificateImageSelect(event, 'frente')">
+                <button type="button" onclick="document.getElementById('certificateTemplateFile').click()"
+                        class="w-full px-4 py-2 bg-yellow-100 hover:bg-yellow-200 text-yellow-700 rounded-lg font-semibold transition-colors">
+                  <i class="fas fa-upload mr-2"></i>
+                  ${certificateUrl ? 'Alterar Frente' : 'Upload da Frente'}
+                </button>
+                <div id="newTemplatePreview" class="hidden mt-3">
+                  <p class="text-xs text-gray-600 mb-1">Nova frente selecionada:</p>
+                  <img id="newTemplateImage" src="" alt="Preview"
+                       class="max-w-xs h-auto rounded-lg border-2 border-blue-300 shadow-sm">
+                </div>
+              </div>
             </div>
-            
+
+            <!-- Verso -->
+            <div class="space-y-3 mt-4">
+              <p class="text-sm font-semibold text-gray-700">
+                <i class="fas fa-clone mr-1 text-purple-500"></i> Verso do certificado
+                <span class="text-xs font-normal text-gray-400">(opcional)</span>
+              </p>
+              <div id="currentVersoPreview" class="${isEdit && course.verso_url ? '' : 'hidden'} mb-2">
+                <p class="text-xs text-gray-500 mb-1">Verso atual:</p>
+                <img src="${isEdit && course.verso_url ? course.verso_url : ''}" alt="Verso atual"
+                     class="max-w-xs h-auto rounded-lg border-2 border-purple-300 shadow-sm">
+                <p class="text-xs text-green-600 mt-1">
+                  <i class="fas fa-check-circle"></i> Verso salvo no banco de dados
+                </p>
+              </div>
+              <div class="border-2 border-dashed border-purple-300 rounded-lg p-4 bg-purple-50">
+                <input type="file" id="certificateVersoFile" accept="image/*"
+                       class="hidden" onchange="adminUI.handleCertificateImageSelect(event, 'verso')">
+                <button type="button" onclick="document.getElementById('certificateVersoFile').click()"
+                        class="w-full px-4 py-2 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg font-semibold transition-colors">
+                  <i class="fas fa-upload mr-2"></i>
+                  ${isEdit && course.verso_url ? 'Alterar Verso' : 'Upload do Verso'}
+                </button>
+                <div id="newVersoPreview" class="hidden mt-3">
+                  <p class="text-xs text-gray-600 mb-1">Novo verso selecionado:</p>
+                  <img id="newVersoImage" src="" alt="Preview verso"
+                       class="max-w-xs h-auto rounded-lg border-2 border-purple-300 shadow-sm">
+                </div>
+              </div>
+            </div>
+
             <p class="text-xs text-gray-500 mt-2">
-              <i class="fas fa-magic text-purple-500"></i> 
-              O certificado será gerado automaticamente quando o aluno completar 100% do curso.
+              <i class="fas fa-magic text-purple-500"></i>
+              Imagens armazenadas no banco de dados. Certificado gerado ao completar 100% do curso.
             </p>
           </div>
           
@@ -573,20 +595,19 @@ const adminUI = {
       }
       
       // Upload certificate template if new image was selected
-      if (this.certificateImageData && this.certificateImageFileName) {
+      if (this.certificateImageData || this.certificateVersoData) {
         try {
           console.log('📤 Fazendo upload do template de certificado...')
           const uploadResult = await adminManager.uploadCertificateTemplate(
-            savedCourseId, 
+            savedCourseId,
             this.certificateImageData,
-            this.certificateImageFileName
+            this.certificateVersoData
           )
           console.log('✅ Template de certificado salvo!', uploadResult)
-          
-          // Clear image data after successful upload
+
           this.certificateImageData = null
-          this.certificateImageFileName = null
-          
+          this.certificateVersoData = null
+
           alert('✅ Curso e template de certificado salvos com sucesso!')
         } catch (certError) {
           console.error('❌ Erro ao salvar template:', certError)
@@ -1460,12 +1481,13 @@ const adminUI = {
   
   // Certificate template image handling
   certificateImageData: null,
-  certificateImageFileName: null,
-  
-  handleCertificateImageSelect(event) {
+  certificateVersoData: null,
+
+  handleCertificateImageSelect(event, side) {
     const file = event.target.files[0]
     if (!file) return
-    
+    const isFrente = side !== 'verso'
+
     // Validate file type
     if (!file.type.startsWith('image/')) {
       alert('❌ Por favor, selecione uma imagem (JPG, PNG, etc.)')
@@ -1479,32 +1501,32 @@ const adminUI = {
       return
     }
     
-    // Store filename
-    this.certificateImageFileName = file.name
-    
     // Convert to base64 for preview and upload
     const reader = new FileReader()
     reader.onload = (e) => {
-      this.certificateImageData = e.target.result
-      
-      // Show preview
-      const previewContainer = document.getElementById('newTemplatePreview')
-      const previewImage = document.getElementById('newTemplateImage')
-      
-      if (previewContainer && previewImage) {
-        previewImage.src = this.certificateImageData
-        previewContainer.classList.remove('hidden')
+      const dataUrl = e.target.result
+
+      if (isFrente) {
+        this.certificateImageData = dataUrl
+        const previewContainer = document.getElementById('newTemplatePreview')
+        const previewImage = document.getElementById('newTemplateImage')
+        if (previewContainer && previewImage) {
+          previewImage.src = dataUrl
+          previewContainer.classList.remove('hidden')
+        }
+      } else {
+        this.certificateVersoData = dataUrl
+        const previewContainer = document.getElementById('newVersoPreview')
+        const previewImage = document.getElementById('newVersoImage')
+        if (previewContainer && previewImage) {
+          previewImage.src = dataUrl
+          previewContainer.classList.remove('hidden')
+        }
       }
-      
-      console.log('✅ Imagem selecionada:', {
-        name: file.name,
-        size: this.formatFileSize(file.size),
-        type: file.type
-      })
+
+      console.log(`✅ Imagem (${side}) selecionada:`, { name: file.name, size: this.formatFileSize(file.size) })
     }
     reader.readAsDataURL(file)
-    
-    // Clear input to allow re-selecting same file
     event.target.value = ''
   },
   

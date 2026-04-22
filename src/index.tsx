@@ -2944,107 +2944,110 @@ app.post('/api/progress/uncomplete', async (c) => {
 app.post('/api/admin/certificate-template', requireAdmin, async (c) => {
   try {
     const body = await c.req.json()
-    const { course_id, image_data, file_name } = body
-    
-    console.log('📜 Certificate template upload:', { 
-      course_id, 
-      has_image: !!image_data,
-      file_name 
-    })
-    
-    if (!course_id || !image_data || !file_name) {
-      return c.json({ 
-        error: 'ID do curso, imagem e nome do arquivo são obrigatórios' 
-      }, 400)
+    const { course_id, image_data, verso_data } = body
+
+    if (!course_id || !image_data) {
+      return c.json({ error: 'ID do curso e imagem da frente são obrigatórios' }, 400)
     }
-    
-    // Convert base64 to binary
-    const base64Data = image_data.split(',')[1] // Remove data:image/xxx;base64, prefix
-    const binaryData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0))
-    
-    // Upload to Supabase Storage
-    const storagePath = `certificate-templates/${course_id}/${file_name}`
-    
-    const uploadResponse = await fetch(
-      `${c.env.SUPABASE_URL}/storage/v1/object/certificate-templates/${course_id}/${file_name}`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${c.env.SUPABASE_ANON_KEY}`,
-          'apikey': c.env.SUPABASE_ANON_KEY,
-          'Content-Type': 'image/jpeg',
-          'x-upsert': 'true' // Overwrite if exists
-        },
-        body: binaryData
-      }
-    )
-    
-    if (!uploadResponse.ok) {
-      const errorText = await uploadResponse.text()
-      let error
-      try {
-        error = JSON.parse(errorText)
-      } catch (e) {
-        error = { message: errorText }
-      }
-      console.error('❌ Storage upload failed:', {
-        status: uploadResponse.status,
-        statusText: uploadResponse.statusText,
-        error,
-        url: `${c.env.SUPABASE_URL}/storage/v1/object/certificate-templates/${course_id}/${file_name}`
-      })
-      return c.json({ 
-        error: 'Erro ao fazer upload da imagem para o Supabase Storage',
-        details: error,
-        status: uploadResponse.status,
-        hint: uploadResponse.status === 404 
-          ? 'Bucket "certificate-templates" não existe. Crie-o no Supabase Dashboard → Storage'
-          : 'Verifique as permissões do bucket no Supabase Storage'
-      }, 400)
+
+    // Extract mime type and raw base64 from data URL
+    const parseMime = (dataUrl: string) => {
+      const match = dataUrl.match(/^data:([^;]+);base64,/)
+      return match ? match[1] : 'image/jpeg'
     }
-    
-    console.log('✅ Image uploaded to Supabase Storage')
-    
-    // Generate public URL
-    const template_url = `${c.env.SUPABASE_URL}/storage/v1/object/public/certificate-templates/${course_id}/${file_name}`
-    
+    const stripPrefix = (dataUrl: string) =>
+      dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl
+
+    const templateMime = parseMime(image_data)
+    const templateBase64 = stripPrefix(image_data)
+    const versoMime = verso_data ? parseMime(verso_data) : null
+    const versoBase64 = verso_data ? stripPrefix(verso_data) : null
+
+    const template_url = `/api/certificate-template/${course_id}/image`
+    const verso_url = verso_data ? `/api/certificate-template/${course_id}/verso` : null
+
     const db = getDB(c)
-    
-    // Check if template already exists for this course
+
     const existing = await db.query('certificate_templates', {
       select: '*',
       filters: { course_id }
     })
-    
+
     if (existing && existing.length > 0) {
-      // Update existing template
-      await db.update('certificate_templates', { id: existing[0].id }, {
+      const updateData: Record<string, any> = {
         template_url,
+        template_data: templateBase64,
+        template_mime: templateMime,
         updated_at: new Date().toISOString()
-      })
-      console.log('✅ Certificate template updated in database')
+      }
+      if (verso_data !== undefined) {
+        updateData.verso_data = versoBase64
+        updateData.verso_mime = versoMime
+      }
+      await db.update('certificate_templates', { id: existing[0].id }, updateData)
     } else {
-      // Insert new template
       await db.insert('certificate_templates', {
         course_id: parseInt(course_id),
         template_url,
+        template_data: templateBase64,
+        template_mime: templateMime,
+        verso_data: versoBase64,
+        verso_mime: versoMime,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
-      console.log('✅ Certificate template created in database')
     }
-    
-    return c.json({ 
+
+    console.log('✅ Certificate template saved to Postgres')
+    return c.json({
       success: true,
       template_url,
+      verso_url,
       message: 'Template de certificado salvo com sucesso!'
     })
   } catch (error: any) {
     console.error('💥 Certificate template error:', error)
-    return c.json({ 
-      error: 'Erro ao salvar template de certificado',
-      details: error.message 
-    }, 500)
+    return c.json({ error: 'Erro ao salvar template de certificado', details: error.message }, 500)
+  }
+})
+
+// Serve certificate template image (frente)
+app.get('/api/certificate-template/:courseId/image', async (c) => {
+  try {
+    const courseId = c.req.param('courseId')
+    const db = getDB(c)
+    const template = await db.query('certificate_templates', {
+      select: 'template_data, template_mime',
+      filters: { course_id: courseId },
+      single: true
+    })
+    if (!template?.template_data) return c.json({ error: 'Imagem não encontrada' }, 404)
+    const binary = Uint8Array.from(atob(template.template_data), ch => ch.charCodeAt(0))
+    return new Response(binary, {
+      headers: { 'Content-Type': template.template_mime || 'image/jpeg', 'Cache-Control': 'public, max-age=86400' }
+    })
+  } catch {
+    return c.json({ error: 'Erro ao buscar imagem' }, 500)
+  }
+})
+
+// Serve certificate template image (verso)
+app.get('/api/certificate-template/:courseId/verso', async (c) => {
+  try {
+    const courseId = c.req.param('courseId')
+    const db = getDB(c)
+    const template = await db.query('certificate_templates', {
+      select: 'verso_data, verso_mime',
+      filters: { course_id: courseId },
+      single: true
+    })
+    if (!template?.verso_data) return c.json({ error: 'Verso não encontrado' }, 404)
+    const binary = Uint8Array.from(atob(template.verso_data), ch => ch.charCodeAt(0))
+    return new Response(binary, {
+      headers: { 'Content-Type': template.verso_mime || 'image/jpeg', 'Cache-Control': 'public, max-age=86400' }
+    })
+  } catch {
+    return c.json({ error: 'Erro ao buscar verso' }, 500)
   }
 })
 
@@ -3052,15 +3055,27 @@ app.post('/api/admin/certificate-template', requireAdmin, async (c) => {
 app.get('/api/certificate-template/:courseId', async (c) => {
   try {
     const courseId = c.req.param('courseId')
-    
     const db = getDB(c)
-    
+
     const template = await db.query('certificate_templates', {
-      select: '*',
+      select: 'id, course_id, template_mime, verso_mime, created_at, updated_at',
       filters: { course_id: courseId },
       single: true
     })
-    
+
+    if (template) {
+      template.template_url = `/api/certificate-template/${courseId}/image`
+      // Check if verso exists via a separate lightweight query
+      const versoCheck = await db.query('certificate_templates', {
+        select: 'verso_data',
+        filters: { course_id: courseId },
+        single: true
+      })
+      template.verso_url = versoCheck?.verso_data
+        ? `/api/certificate-template/${courseId}/verso`
+        : null
+    }
+
     return c.json({ template })
   } catch (error) {
     return c.json({ template: null })
