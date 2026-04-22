@@ -2312,9 +2312,9 @@ app.get('/verificar/:code', async (c) => {
     
     const certificates = await db.query('certificates', {
       select: '*',
-      filters: { verification_code: code }
+      filters: { certificate_code: code }
     })
-    
+
     if (!certificates || certificates.length === 0) {
       return c.html(`
         <!DOCTYPE html>
@@ -2453,7 +2453,7 @@ app.get('/verificar/:code', async (c) => {
               <div class="flex items-center justify-between">
                 <div>
                   <span class="text-xs text-gray-500 block mb-1">Código de Verificação</span>
-                  <span class="text-sm font-mono font-bold text-gray-800">${cert.verification_code}</span>
+                  <span class="text-sm font-mono font-bold text-gray-800">${cert.certificate_code}</span>
                 </div>
                 <div class="text-right">
                   <span class="text-xs text-gray-500 block mb-1">Emitido em</span>
@@ -2501,9 +2501,9 @@ app.get('/api/verify/:code', async (c) => {
     
     const certificates = await db.query('certificates', {
       select: '*',
-      filters: { verification_code: code }
+      filters: { certificate_code: code }
     })
-    
+
     if (!certificates || certificates.length === 0) {
       return c.json({ valid: false, message: 'Certificate not found' }, 404)
     }
@@ -2523,8 +2523,8 @@ app.get('/api/verify/:code', async (c) => {
         workload: cert.carga_horaria,
         completion_date: cert.completion_date,
         issued_at: cert.issued_at,
-        verification_code: cert.verification_code,
-        verification_count: cert.verification_count + 1
+        certificate_code: cert.certificate_code,
+        verification_count: (cert.verification_count || 0) + 1
       }
     })
   } catch (error: any) {
@@ -4455,7 +4455,7 @@ app.get('/certificates', (c) => {
 
             grid.innerHTML = certificates.map(cert => {
                 const completionDate = new Date(cert.completion_date).toLocaleDateString('pt-BR')
-                const verificationUrl = \`\${window.location.origin}/verificar/\${cert.verification_code}\`
+                const verificationUrl = \`\${window.location.origin}/verificar/\${cert.certificate_code}\`
 
                 return \`
                     <div class="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition">
@@ -4485,7 +4485,7 @@ app.get('/certificates', (c) => {
                                 <div class="bg-gray-50 p-4 rounded-lg">
                                     <div class="text-xs text-gray-500 mb-1">Código</div>
                                     <div class="text-sm font-mono font-bold text-gray-800">
-                                        \${cert.verification_code}
+                                        \${cert.certificate_code}
                                     </div>
                                 </div>
                             </div>
