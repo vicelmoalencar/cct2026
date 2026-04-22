@@ -5048,41 +5048,14 @@ app.get('/profile', (c) => {
                 const response = await axios.get('/api/user/subscriptions')
                 const subscriptions = response.data.subscriptions || []
                 
-                if (subscriptions.length === 0) {
-                    container.innerHTML = \`
-                        <div class="text-center py-8 text-gray-500">
-                            <i class="fas fa-inbox text-4xl mb-3 text-gray-300"></i>
-                            <p class="text-lg font-semibold">Nenhum plano encontrado</p>
-                            <p class="text-sm">Você ainda não possui histórico de assinaturas</p>
-                        </div>
-                    \`
-                    return
-                }
-                
                 // Separar planos ativos e expirados
                 const now = new Date()
                 const activePlans = subscriptions.filter(s => new Date(s.data_expiracao) > now)
                 const expiredPlans = subscriptions.filter(s => new Date(s.data_expiracao) <= now)
-                
+
                 let html = ''
-                
-                // Mostrar planos ativos primeiro
-                if (activePlans.length > 0) {
-                    html += \`
-                        <div class="mb-6">
-                            <h4 class="text-sm font-bold text-green-700 mb-3 flex items-center gap-2">
-                                <i class="fas fa-check-circle"></i>
-                                Planos Ativos (\${activePlans.length})
-                            </h4>
-                            <div class="space-y-3">
-                                \${activePlans.map(sub => renderSubscription(sub, true)).join('')}
-                            </div>
-                        </div>
-                    \`
-                }
-                
-                // Mostrar planos expirados
-                // Card de renovação sempre visível
+
+                // Card de renovação sempre visível no topo
                 html += \`
                     <div class="rounded-xl border-2 border-red-200 bg-red-50 p-5 mb-2">
                         <h4 class="text-base font-bold text-red-700 mb-1 flex items-center gap-2">
@@ -5104,6 +5077,22 @@ app.get('/profile', (c) => {
                     </div>
                 \`
 
+                // Planos ativos
+                if (activePlans.length > 0) {
+                    html += \`
+                        <div class="mb-4">
+                            <h4 class="text-sm font-bold text-green-700 mb-3 flex items-center gap-2">
+                                <i class="fas fa-check-circle"></i>
+                                Planos Ativos (\${activePlans.length})
+                            </h4>
+                            <div class="space-y-3">
+                                \${activePlans.map(sub => renderSubscription(sub, true)).join('')}
+                            </div>
+                        </div>
+                    \`
+                }
+
+                // Planos expirados
                 if (expiredPlans.length > 0) {
                     html += \`
                         <div>
@@ -5114,6 +5103,15 @@ app.get('/profile', (c) => {
                             <div class="space-y-3">
                                 \${expiredPlans.map(sub => renderSubscription(sub, false)).join('')}
                             </div>
+                        </div>
+                    \`
+                }
+
+                if (subscriptions.length === 0) {
+                    html += \`
+                        <div class="text-center py-4 text-gray-500">
+                            <i class="fas fa-inbox text-3xl mb-2 text-gray-300"></i>
+                            <p class="text-sm">Nenhum histórico de assinaturas encontrado</p>
                         </div>
                     \`
                 }
