@@ -482,20 +482,33 @@ const app = {
                     const isCompleted = progressMap[lesson.id]
                     const isFree = lesson.teste_gratis || lesson.free_trial || false
                     const isPremium = !isFree
-                    
+
+                    const borderClass = isCompleted ? 'border-green-300 bg-green-50' : 'border-gray-200'
+                    const circleClass = isCompleted ? 'bg-green-500' : 'bg-gray-300'
+                    const circleContent = isCompleted ? '<i class="fas fa-check"></i>' : lessonIdx + 1
+                    const rightIcon = isPremium && !isCompleted
+                      ? '<i class="fas fa-lock text-red-500 text-xl"></i>'
+                      : isCompleted
+                        ? '<i class="fas fa-check-circle text-green-500 text-xl"></i>'
+                        : '<i class="fas fa-play-circle text-blue-600 text-xl"></i>'
+                    const watchedBadge = isCompleted
+                      ? '<span class="inline-flex items-center gap-1 text-xs font-semibold text-green-700 bg-green-100 px-2 py-0.5 rounded-full ml-2">✓ Já assistida</span>'
+                      : ''
+
                     return `
-                      <div class="lesson-item p-3 rounded-lg border ${isCompleted ? 'completed border-green-300' : 'border-gray-200'} flex items-center justify-between cursor-pointer"
+                      <div class="lesson-item p-3 rounded-lg border ${borderClass} flex items-center justify-between cursor-pointer"
                            data-lesson-id="${lesson.id}"
                            data-is-premium="${isPremium}"
                            onclick="app.loadLesson(${lesson.id})">
                         <div class="flex items-center gap-3 flex-1">
-                          <div class="w-8 h-8 ${isCompleted ? 'bg-green-500' : 'bg-gray-300'} text-white rounded-full flex items-center justify-center text-sm">
-                            ${isCompleted ? '<i class="fas fa-check"></i>' : lessonIdx + 1}
+                          <div class="w-8 h-8 ${circleClass} text-white rounded-full flex items-center justify-center text-sm flex-shrink-0">
+                            ${circleContent}
                           </div>
                           <div class="flex-1">
-                            <p class="font-semibold text-gray-800 lesson-title">
+                            <p class="font-semibold text-gray-800 lesson-title flex items-center flex-wrap gap-1">
                               ${lesson.title}
-                              ${isPremium ? '<i class="fas fa-lock text-red-500 ml-2"></i>' : '<i class="fas fa-gift text-green-500 ml-2"></i>'}
+                              ${isPremium ? '<i class="fas fa-lock text-red-500 ml-1"></i>' : '<i class="fas fa-gift text-green-500 ml-1"></i>'}
+                              ${watchedBadge}
                             </p>
                             <p class="text-xs text-gray-500">
                               ${lesson.duration_minutes} minutos
@@ -503,9 +516,7 @@ const app = {
                             </p>
                           </div>
                         </div>
-                        ${isPremium 
-                          ? '<i class="fas fa-lock text-red-500 text-xl"></i>' 
-                          : '<i class="fas fa-play-circle text-blue-600 text-xl"></i>'}
+                        ${rightIcon}
                       </div>
                     `
                   }).join('')}
