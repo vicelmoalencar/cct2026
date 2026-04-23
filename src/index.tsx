@@ -4387,7 +4387,7 @@ app.get('/', (c) => {
         <script defer src="/static/auth.js"></script>
         <script defer src="/static/admin.js"></script>
         <script defer src="/static/access-control.js"></script>
-        <script defer src="/static/app.js?v=2"></script>
+        <script defer src="/static/app.js?v=3"></script>
         <script defer src="/static/search.js"></script>
     </body>
     </html>
