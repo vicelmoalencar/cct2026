@@ -2167,7 +2167,7 @@ function generateCertificateHTML(data: {
       <div class="cert-dates">
         <span>Início do curso: <strong>${data.startDate || '&mdash;'}</strong></span>
         &nbsp;&nbsp;&nbsp;
-        <span>Conclusão: <strong>${data.completionDate}</strong></span>
+        <span>Conclusão: <strong>${data.completionDate || '&mdash;'}</strong></span>
       </div>
     </div>
 
@@ -2261,9 +2261,9 @@ app.get('/api/certificates/:id/html', requireAuth, async (c) => {
     }
     
     // Generate certificate HTML directly (inline template for Cloudflare Workers)
-    const startDate = cert.issued_at ? new Date(cert.issued_at).toLocaleDateString('pt-BR') : undefined
-    const completionDate = cert.completion_date ? new Date(cert.completion_date).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR')
-    const issueDate = cert.issued_at ? new Date(cert.issued_at).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR')
+    const startDate = cert.start_date ? new Date(cert.start_date).toLocaleDateString('pt-BR') : undefined
+    const completionDate = cert.completion_date ? new Date(cert.completion_date).toLocaleDateString('pt-BR') : undefined
+    const issueDate = cert.generated_at ? new Date(cert.generated_at).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR')
     const baseUrl = new URL(c.req.url).origin
     const certCode = cert.certificate_code || cert.verification_code || ''
     const verificationUrl = certCode ? `${baseUrl}/verificar/${certCode}` : ''
@@ -2414,9 +2414,9 @@ app.get('/verificar/:code', async (c) => {
       })
     } catch (_) {}
     
-    const startDate = cert.issued_at ? new Date(cert.issued_at).toLocaleDateString('pt-BR') : undefined
-    const completionDate = cert.completion_date ? new Date(cert.completion_date).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR')
-    const issueDate = cert.issued_at ? new Date(cert.issued_at).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR')
+    const startDate = cert.start_date ? new Date(cert.start_date).toLocaleDateString('pt-BR') : undefined
+    const completionDate = cert.completion_date ? new Date(cert.completion_date).toLocaleDateString('pt-BR') : undefined
+    const issueDate = cert.generated_at ? new Date(cert.generated_at).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR')
 
     // Buscar módulos do curso
     let modules: string[] = []
