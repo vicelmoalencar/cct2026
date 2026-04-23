@@ -1731,7 +1731,7 @@ function generateCertificateHTML(data: {
   courseName: string;
   workload: string | number;
   startDate?: string;
-  completionDate: string;
+  completionDate?: string;
   issueDate: string;
   verificationCode: string;
   verificationUrl: string;
@@ -1904,8 +1904,8 @@ function generateCertificateHTML(data: {
     <div class="field-carga"><strong>${data.workload} horas</strong></div>
 
     ${data.startDate ? `<div class="field-data-inicio">${data.startDate}</div>` : ''}
-    <div class="field-data-final">${data.completionDate}</div>
-    <div class="field-data">${data.completionDate}</div>
+    ${data.completionDate ? `<div class="field-data-final">${data.completionDate}</div>` : ''}
+    <div class="field-data">${data.completionDate || data.startDate || ''}</div>
 
     ${data.verificationCode ? `
     <div class="field-codigo">
@@ -2178,7 +2178,7 @@ function generateCertificateHTML(data: {
         <div>
           <span class="f-line"></span>
           <div class="f-label">DATA</div>
-          <div class="f-value">${data.completionDate}</div>
+          <div class="f-value">${data.completionDate || data.startDate || '&mdash;'}</div>
           ${data.qrCodeSVG ? `<div class="qr-meta"><span>Escaneie para verificar</span><span>${data.verificationCode}</span></div>` : ''}
         </div>
       </div>
@@ -4531,7 +4531,8 @@ app.get('/certificates', (c) => {
             grid.classList.remove('hidden')
 
             grid.innerHTML = certificates.map(cert => {
-                const completionDate = new Date(cert.completion_date).toLocaleDateString('pt-BR')
+                const completionDate = cert.completion_date ? new Date(cert.completion_date).toLocaleDateString('pt-BR') : (cert.start_date ? new Date(cert.start_date).toLocaleDateString('pt-BR') : '—')
+                const startDate = cert.start_date ? new Date(cert.start_date).toLocaleDateString('pt-BR') : '—'
                 const verificationUrl = \`\${window.location.origin}/verificar/\${cert.certificate_code}\`
 
                 return \`
@@ -4546,7 +4547,7 @@ app.get('/certificates', (c) => {
                                         </span>
                                     </div>
                                     <h3 class="text-xl font-bold mb-1">\${cert.course_title}</h3>
-                                    <p class="text-blue-100 text-sm">Concluído em \${completionDate}</p>
+                                    <p class="text-blue-100 text-sm">Início: \${startDate} &nbsp;|&nbsp; Conclusão: \${completionDate}</p>
                                 </div>
                             </div>
                         </div>
