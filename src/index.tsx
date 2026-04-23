@@ -4218,8 +4218,15 @@ app.get('/', (c) => {
                             <span class="hidden sm:inline ml-2">Planos</span>
                         </button>
                         
+                        <!-- Favorites Button -->
+                        <button onclick="window.location.href='/favorites'"
+                                class="px-3 md:px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-xs md:text-sm font-semibold transition-colors">
+                            <i class="fas fa-heart"></i>
+                            <span class="hidden sm:inline ml-2">Favoritos</span>
+                        </button>
+
                         <!-- Certificates Button -->
-                        <button onclick="window.location.href='/certificates'" 
+                        <button onclick="window.location.href='/certificates'"
                                 class="px-3 md:px-4 py-2 bg-yellow-600 hover:bg-yellow-700 rounded-lg text-xs md:text-sm font-semibold transition-colors">
                             <i class="fas fa-certificate"></i>
                             <span class="hidden sm:inline ml-2">Certificados</span>
@@ -4384,6 +4391,276 @@ app.get('/', (c) => {
         <script defer src="/static/search.js"></script>
     </body>
     </html>
+  `)
+})
+
+// ── Favorites APIs ──────────────────────────────────────────────────────────
+
+async function getFavUserEmail(supabaseUrl: string, supabaseKey: string, authHeader: string | undefined): Promise<string | null> {
+  if (!authHeader) return null
+  const token = authHeader.replace('Bearer ', '')
+  const res = await fetch(`${supabaseUrl}/auth/v1/user`, {
+    headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${token}` }
+  })
+  if (!res.ok) return null
+  const u = await res.json() as { email?: string }
+  return u.email || null
+}
+
+// GET /api/favorites — lista os favoritos do usuário logado
+app.get('/api/favorites', async (c) => {
+  const env = c.env as Env
+  const email = await getFavUserEmail(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, c.req.header('Authorization'))
+  if (!email) return c.json({ error: 'Unauthorized' }, 401)
+
+  const db = new PostgresClient(env.DATABASE_CCT)
+  try {
+    const rows = await db.sql`
+      SELECT f.id, f.lesson_id, f.created_at,
+             l.title AS lesson_title,
+             c.title AS course_title,
+             c.id    AS course_id
+      FROM user_favorites f
+      JOIN lessons l ON l.id = f.lesson_id
+      JOIN modules m ON m.id = l.module_id
+      JOIN courses c ON c.id = m.course_id
+      WHERE f.user_email = ${email}
+      ORDER BY f.created_at DESC
+    `
+    return c.json(rows)
+  } finally {
+    await db.end()
+  }
+})
+
+// POST /api/favorites — adiciona favorito { lesson_id }
+app.post('/api/favorites', async (c) => {
+  const env = c.env as Env
+  const email = await getFavUserEmail(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, c.req.header('Authorization'))
+  if (!email) return c.json({ error: 'Unauthorized' }, 401)
+
+  const body = await c.req.json<{ lesson_id: number }>()
+  if (!body.lesson_id) return c.json({ error: 'lesson_id required' }, 400)
+
+  const db = new PostgresClient(env.DATABASE_CCT)
+  try {
+    await db.sql`
+      INSERT INTO user_favorites (user_email, lesson_id)
+      VALUES (${email}, ${body.lesson_id})
+      ON CONFLICT DO NOTHING
+    `
+    return c.json({ ok: true })
+  } finally {
+    await db.end()
+  }
+})
+
+// DELETE /api/favorites/:lessonId — remove favorito
+app.delete('/api/favorites/:lessonId', async (c) => {
+  const env = c.env as Env
+  const email = await getFavUserEmail(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, c.req.header('Authorization'))
+  if (!email) return c.json({ error: 'Unauthorized' }, 401)
+
+  const lessonId = parseInt(c.req.param('lessonId'))
+  const db = new PostgresClient(env.DATABASE_CCT)
+  try {
+    await db.sql`
+      DELETE FROM user_favorites
+      WHERE user_email = ${email} AND lesson_id = ${lessonId}
+    `
+    return c.json({ ok: true })
+  } finally {
+    await db.end()
+  }
+})
+
+// GET /api/favorites/check/:lessonId — verifica se uma aula é favorita
+app.get('/api/favorites/check/:lessonId', async (c) => {
+  const env = c.env as Env
+  const email = await getFavUserEmail(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, c.req.header('Authorization'))
+  if (!email) return c.json({ favorite: false })
+
+  const lessonId = parseInt(c.req.param('lessonId'))
+  const db = new PostgresClient(env.DATABASE_CCT)
+  try {
+    const rows = await db.sql`
+      SELECT id FROM user_favorites
+      WHERE user_email = ${email} AND lesson_id = ${lessonId}
+      LIMIT 1
+    `
+    return c.json({ favorite: rows.length > 0 })
+  } finally {
+    await db.end()
+  }
+})
+
+// ── Favorites page ──────────────────────────────────────────────────────────
+app.get('/favorites', (c) => {
+  return c.html(`
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aulas Favoritas - CCT</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50">
+<div class="min-h-screen">
+    <!-- Header -->
+    <header class="bg-gradient-to-r from-blue-900 to-blue-700 text-white shadow-lg">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <a href="/" class="flex items-center gap-3 hover:opacity-90 transition-opacity">
+                        <div class="w-10 h-10 bg-white rounded-full flex items-center justify-center">
+                            <span class="text-blue-900 font-bold text-sm">CCT</span>
+                        </div>
+                        <div>
+                            <h1 class="text-lg font-bold">CCT</h1>
+                            <p class="text-blue-200 text-xs">Clube do Cálculo Trabalhista</p>
+                        </div>
+                    </a>
+                </div>
+                <nav class="flex items-center gap-4">
+                    <a href="/" class="text-blue-200 hover:text-white text-sm transition-colors">
+                        <i class="fas fa-home mr-1"></i>Início
+                    </a>
+                    <a href="/certificates" class="text-blue-200 hover:text-white text-sm transition-colors">
+                        <i class="fas fa-certificate mr-1"></i>Certificados
+                    </a>
+                    <div id="userInfo" class="flex items-center gap-2">
+                        <span id="userName" class="text-sm text-blue-200"></span>
+                        <button onclick="logout()" class="text-xs bg-blue-800 hover:bg-blue-600 px-3 py-1 rounded transition-colors">Sair</button>
+                    </div>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-8">
+        <div class="flex items-center gap-3 mb-6">
+            <i class="fas fa-heart text-red-500 text-2xl"></i>
+            <h2 class="text-2xl font-bold text-gray-800">Aulas Favoritas</h2>
+        </div>
+
+        <!-- Course filter pills -->
+        <div id="courseFilters" class="flex flex-wrap gap-2 mb-6"></div>
+
+        <!-- Favorites grid -->
+        <div id="favoritesGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div class="col-span-full text-center py-12 text-gray-400">
+                <i class="fas fa-spinner fa-spin text-3xl mb-3"></i>
+                <p>Carregando favoritos...</p>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script defer src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+<script defer src="/static/auth.js"></script>
+<script>
+let allFavorites = []
+let activeFilter = null
+
+async function loadFavorites() {
+    const token = localStorage.getItem('supabase_token') || sessionStorage.getItem('supabase_token')
+    if (!token) { window.location.href = '/login'; return }
+
+    try {
+        const res = await fetch('/api/favorites', { headers: { Authorization: 'Bearer ' + token } })
+        if (res.status === 401) { window.location.href = '/login'; return }
+        allFavorites = await res.json()
+        renderFilters()
+        renderFavorites(allFavorites)
+    } catch (e) {
+        document.getElementById('favoritesGrid').innerHTML =
+            '<div class="col-span-full text-center py-12 text-red-400"><i class="fas fa-exclamation-triangle text-3xl mb-3"></i><p>Erro ao carregar favoritos.</p></div>'
+    }
+}
+
+function renderFilters() {
+    const courses = [...new Map(allFavorites.map(f => [f.course_id, f.course_title])).entries()]
+    const container = document.getElementById('courseFilters')
+    if (courses.length === 0) { container.innerHTML = ''; return }
+
+    const allBtn = document.createElement('button')
+    allBtn.textContent = 'Todos'
+    allBtn.className = 'px-4 py-1.5 rounded-full text-sm font-medium transition-colors ' + (activeFilter === null ? 'bg-blue-700 text-white' : 'bg-white text-gray-600 border hover:bg-gray-100')
+    allBtn.onclick = () => { activeFilter = null; renderFilters(); renderFavorites(allFavorites) }
+    container.innerHTML = ''
+    container.appendChild(allBtn)
+
+    for (const [id, title] of courses) {
+        const btn = document.createElement('button')
+        btn.textContent = title
+        btn.className = 'px-4 py-1.5 rounded-full text-sm font-medium transition-colors ' + (activeFilter === id ? 'bg-blue-700 text-white' : 'bg-white text-gray-600 border hover:bg-gray-100')
+        btn.onclick = () => { activeFilter = id; renderFilters(); renderFavorites(allFavorites.filter(f => f.course_id === id)) }
+        container.appendChild(btn)
+    }
+}
+
+function renderFavorites(list) {
+    const grid = document.getElementById('favoritesGrid')
+    if (list.length === 0) {
+        grid.innerHTML = '<div class="col-span-full text-center py-12 text-gray-400"><i class="fas fa-heart-broken text-3xl mb-3"></i><p>Nenhuma aula favorita encontrada.</p></div>'
+        return
+    }
+    grid.innerHTML = list.map(f => \`
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex flex-col gap-3 hover:shadow-md transition-shadow">
+            <div class="flex-1">
+                <p class="text-xs text-blue-600 font-semibold uppercase tracking-wide mb-1">\${f.course_title}</p>
+                <h3 class="text-gray-800 font-semibold text-sm leading-snug">\${f.lesson_title}</h3>
+            </div>
+            <div class="flex items-center justify-between mt-auto pt-3 border-t border-gray-50">
+                <a href="/course/\${f.course_id}#lesson-\${f.lesson_id}"
+                   class="text-sm text-blue-700 hover:text-blue-900 font-medium transition-colors">
+                    <i class="fas fa-play-circle mr-1"></i>Assistir
+                </a>
+                <button onclick="removeFavorite(\${f.lesson_id}, this)"
+                        class="text-xs text-red-400 hover:text-red-600 transition-colors flex items-center gap-1">
+                    <i class="fas fa-heart-broken"></i> Remover
+                </button>
+            </div>
+        </div>
+    \`).join('')
+}
+
+async function removeFavorite(lessonId, btn) {
+    const token = localStorage.getItem('supabase_token') || sessionStorage.getItem('supabase_token')
+    btn.disabled = true
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'
+    try {
+        await fetch('/api/favorites/' + lessonId, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } })
+        allFavorites = allFavorites.filter(f => f.lesson_id !== lessonId)
+        const filtered = activeFilter ? allFavorites.filter(f => f.course_id === activeFilter) : allFavorites
+        renderFilters()
+        renderFavorites(filtered)
+    } catch(e) {
+        btn.disabled = false
+        btn.innerHTML = '<i class="fas fa-heart-broken"></i> Remover'
+    }
+}
+
+function logout() {
+    localStorage.removeItem('supabase_token')
+    sessionStorage.removeItem('supabase_token')
+    window.location.href = '/login'
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+    const token = localStorage.getItem('supabase_token') || sessionStorage.getItem('supabase_token')
+    if (!token) { window.location.href = '/login'; return }
+    const name = localStorage.getItem('user_name') || ''
+    if (name) document.getElementById('userName').textContent = name
+    loadFavorites()
+})
+</script>
+</body>
+</html>
   `)
 })
 

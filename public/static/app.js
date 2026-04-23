@@ -415,19 +415,28 @@ const app = {
       
       this.currentCourse = courseId
       
-      const [courseResponse, progressResponse] = await Promise.all([
+      const token = localStorage.getItem('supabase_token') || sessionStorage.getItem('supabase_token') || ''
+      const [courseResponse, progressResponse, favResponse] = await Promise.all([
         axios.get(`/api/courses/${courseId}`),
-        axios.get(`/api/progress/${this.currentUser}/${courseId}`)
+        axios.get(`/api/progress/${this.currentUser}/${courseId}`),
+        token ? fetch('/api/favorites', { headers: { Authorization: 'Bearer ' + token } }).then(r => r.ok ? r.json() : []) : Promise.resolve([])
       ])
-      
+
       const { course, modules } = courseResponse.data
       const progress = progressResponse.data.progress
-      
+
       // Create progress map
       const progressMap = {}
       progress.forEach(p => {
         progressMap[p.lesson_id] = p.completed
       })
+
+      // Create favorites map
+      const favoritesMap = {}
+      if (Array.isArray(favResponse)) {
+        favResponse.forEach(f => { favoritesMap[f.lesson_id] = true })
+      }
+      this._favoritesMap = favoritesMap
       
       // Calculate course progress
       const totalLessons = modules.reduce((sum, m) => sum + (m.lessons?.length || 0), 0)
@@ -516,7 +525,16 @@ const app = {
                             </p>
                           </div>
                         </div>
-                        ${rightIcon}
+                        <div class="flex items-center gap-2">
+                          <button class="fav-btn ${favoritesMap[lesson.id] ? 'text-red-500' : 'text-gray-300'} hover:text-red-500 transition-colors p-1"
+                                  data-lesson-id="${lesson.id}"
+                                  data-fav="${favoritesMap[lesson.id] ? '1' : '0'}"
+                                  onclick="event.stopPropagation(); app.toggleFavorite(${lesson.id}, this)"
+                                  title="${favoritesMap[lesson.id] ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}">
+                            <i class="fas fa-heart text-lg"></i>
+                          </button>
+                          ${rightIcon}
+                        </div>
                       </div>
                     `
                   }).join('')}
@@ -628,7 +646,31 @@ const app = {
       </div>
     `
   },
-  
+
+  async toggleFavorite(lessonId, btn) {
+    const token = localStorage.getItem('supabase_token') || sessionStorage.getItem('supabase_token') || ''
+    if (!token) return
+    const isFav = btn.dataset.fav === '1'
+    btn.disabled = true
+    try {
+      if (isFav) {
+        await fetch('/api/favorites/' + lessonId, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } })
+        btn.dataset.fav = '0'
+        btn.className = btn.className.replace('text-red-500', 'text-gray-300')
+        btn.title = 'Adicionar aos favoritos'
+        if (this._favoritesMap) this._favoritesMap[lessonId] = false
+      } else {
+        await fetch('/api/favorites', { method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify({ lesson_id: lessonId }) })
+        btn.dataset.fav = '1'
+        btn.className = btn.className.replace('text-gray-300', 'text-red-500')
+        btn.title = 'Remover dos favoritos'
+        if (this._favoritesMap) this._favoritesMap[lessonId] = true
+      }
+    } finally {
+      btn.disabled = false
+    }
+  },
+
   // Load lesson details
   async loadLesson(lessonId) {
     try {
@@ -652,15 +694,21 @@ const app = {
       const { lesson, comments } = response.data
       
       // Get course info and progress in parallel
-      const [courseResponse, progressResponse] = await Promise.all([
+      const playerToken = localStorage.getItem('supabase_token') || sessionStorage.getItem('supabase_token') || ''
+      const [courseResponse, progressResponse, playerFavResponse] = await Promise.all([
         axios.get(`/api/courses/${lesson.course_id}`),
-        axios.get(`/api/progress/${this.currentUser}/${lesson.course_id}`)
+        axios.get(`/api/progress/${this.currentUser}/${lesson.course_id}`),
+        playerToken ? fetch('/api/favorites', { headers: { Authorization: 'Bearer ' + playerToken } }).then(r => r.ok ? r.json() : []) : Promise.resolve([])
       ])
       const { course, modules } = courseResponse.data
       const lessonProgressMap = {}
       ;(progressResponse.data.progress || []).forEach(p => {
         lessonProgressMap[p.lesson_id] = p.completed
       })
+      const playerFavMap = {}
+      if (Array.isArray(playerFavResponse)) {
+        playerFavResponse.forEach(f => { playerFavMap[f.lesson_id] = true })
+      }
 
       // Find current module and get all lessons
       const currentModule = modules.find(m => m.id === lesson.module_id)
@@ -680,9 +728,7 @@ const app = {
       )
       
       // Check if completed
-      const progressResponse = await axios.get(`/api/progress/${this.currentUser}/${lesson.course_id}`)
-      const progress = progressResponse.data.progress
-      const isCompleted = progress.find(p => p.lesson_id == lessonId)?.completed || false
+      const isCompleted = (progressResponse.data.progress || []).find(p => p.lesson_id == lessonId)?.completed || false
       
       const lessonDetail = document.getElementById('lessonDetail')
       lessonDetail.innerHTML = `
@@ -978,7 +1024,9 @@ const app = {
                         ? '<i class="fas fa-lock text-orange-500 text-sm"></i>'
                         : ''
 
+                  const isFavSidebar = !!playerFavMap[l.id]
                   return `
+                  <div class="relative group">
                   <button onclick="accessManager.navigateToLesson(${l.id}, ${JSON.stringify(l).replace(/"/g, '&quot;')})"
                           data-lesson-id="${l.id}"
                           data-is-premium="${isPremium}"
@@ -987,7 +1035,7 @@ const app = {
                       <div class="w-8 h-8 ${circleClass} rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm">
                         ${circleContent}
                       </div>
-                      <div class="flex-1 min-w-0">
+                      <div class="flex-1 min-w-0 pr-6">
                         <p class="font-semibold text-gray-800 text-sm mb-1 line-clamp-2">
                           ${l.title}
                           ${isPremium && !isWatched ? '<i class="fas fa-lock text-red-500 ml-1 text-xs"></i>' : ''}
@@ -1004,6 +1052,14 @@ const app = {
                       ${rightIcon}
                     </div>
                   </button>
+                  <button class="absolute top-3 right-3 fav-btn ${isFavSidebar ? 'text-red-500' : 'text-gray-300'} hover:text-red-500 transition-colors p-1"
+                          data-lesson-id="${l.id}"
+                          data-fav="${isFavSidebar ? '1' : '0'}"
+                          onclick="event.stopPropagation(); app.toggleFavorite(${l.id}, this)"
+                          title="${isFavSidebar ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}">
+                    <i class="fas fa-heart text-sm"></i>
+                  </button>
+                  </div>
                 `}).join('')}
               </div>
               
