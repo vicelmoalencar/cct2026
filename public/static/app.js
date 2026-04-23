@@ -415,11 +415,10 @@ const app = {
       
       this.currentCourse = courseId
       
-      const token = localStorage.getItem('supabase_token') || sessionStorage.getItem('supabase_token') || ''
       const [courseResponse, progressResponse, favResponse] = await Promise.all([
         axios.get(`/api/courses/${courseId}`),
         axios.get(`/api/progress/${this.currentUser}/${courseId}`),
-        token ? fetch('/api/favorites', { headers: { Authorization: 'Bearer ' + token } }).then(r => r.ok ? r.json() : []) : Promise.resolve([])
+        axios.get('/api/favorites').then(r => r.data).catch(() => [])
       ])
 
       const { course, modules } = courseResponse.data
@@ -648,19 +647,17 @@ const app = {
   },
 
   async toggleFavorite(lessonId, btn) {
-    const token = localStorage.getItem('supabase_token') || sessionStorage.getItem('supabase_token') || ''
-    if (!token) return
     const isFav = btn.dataset.fav === '1'
     btn.disabled = true
     try {
       if (isFav) {
-        await fetch('/api/favorites/' + lessonId, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } })
+        await axios.delete('/api/favorites/' + lessonId)
         btn.dataset.fav = '0'
         btn.className = btn.className.replace('text-red-500', 'text-gray-300')
         btn.title = 'Adicionar aos favoritos'
         if (this._favoritesMap) this._favoritesMap[lessonId] = false
       } else {
-        await fetch('/api/favorites', { method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify({ lesson_id: lessonId }) })
+        await axios.post('/api/favorites', { lesson_id: lessonId })
         btn.dataset.fav = '1'
         btn.className = btn.className.replace('text-gray-300', 'text-red-500')
         btn.title = 'Remover dos favoritos'
@@ -694,11 +691,10 @@ const app = {
       const { lesson, comments } = response.data
       
       // Get course info and progress in parallel
-      const playerToken = localStorage.getItem('supabase_token') || sessionStorage.getItem('supabase_token') || ''
       const [courseResponse, progressResponse, playerFavResponse] = await Promise.all([
         axios.get(`/api/courses/${lesson.course_id}`),
         axios.get(`/api/progress/${this.currentUser}/${lesson.course_id}`),
-        playerToken ? fetch('/api/favorites', { headers: { Authorization: 'Bearer ' + playerToken } }).then(r => r.ok ? r.json() : []) : Promise.resolve([])
+        axios.get('/api/favorites').then(r => r.data).catch(() => [])
       ])
       const { course, modules } = courseResponse.data
       const lessonProgressMap = {}

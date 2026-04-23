@@ -4396,24 +4396,10 @@ app.get('/', (c) => {
 
 // ── Favorites APIs ──────────────────────────────────────────────────────────
 
-async function getFavUserEmail(supabaseUrl: string, supabaseKey: string, authHeader: string | undefined): Promise<string | null> {
-  if (!authHeader) return null
-  const token = authHeader.replace('Bearer ', '')
-  const res = await fetch(`${supabaseUrl}/auth/v1/user`, {
-    headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${token}` }
-  })
-  if (!res.ok) return null
-  const u = await res.json() as { email?: string }
-  return u.email || null
-}
-
 // GET /api/favorites — lista os favoritos do usuário logado
-app.get('/api/favorites', async (c) => {
-  const env = c.env as Env
-  const email = await getFavUserEmail(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, c.req.header('Authorization'))
-  if (!email) return c.json({ error: 'Unauthorized' }, 401)
-
-  const db = new PostgresClient(env.DATABASE_CCT)
+app.get('/api/favorites', requireAuth, async (c) => {
+  const user = c.get('user') as { email: string }
+  const db = getDB(c)
   try {
     const rows = await db.sql`
       SELECT f.id, f.lesson_id, f.created_at,
@@ -4424,7 +4410,7 @@ app.get('/api/favorites', async (c) => {
       JOIN lessons l ON l.id = f.lesson_id
       JOIN modules m ON m.id = l.module_id
       JOIN courses c ON c.id = m.course_id
-      WHERE f.user_email = ${email}
+      WHERE f.user_email = ${user.email}
       ORDER BY f.created_at DESC
     `
     return c.json(rows)
@@ -4434,19 +4420,16 @@ app.get('/api/favorites', async (c) => {
 })
 
 // POST /api/favorites — adiciona favorito { lesson_id }
-app.post('/api/favorites', async (c) => {
-  const env = c.env as Env
-  const email = await getFavUserEmail(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, c.req.header('Authorization'))
-  if (!email) return c.json({ error: 'Unauthorized' }, 401)
-
+app.post('/api/favorites', requireAuth, async (c) => {
+  const user = c.get('user') as { email: string }
   const body = await c.req.json<{ lesson_id: number }>()
   if (!body.lesson_id) return c.json({ error: 'lesson_id required' }, 400)
 
-  const db = new PostgresClient(env.DATABASE_CCT)
+  const db = getDB(c)
   try {
     await db.sql`
       INSERT INTO user_favorites (user_email, lesson_id)
-      VALUES (${email}, ${body.lesson_id})
+      VALUES (${user.email}, ${body.lesson_id})
       ON CONFLICT DO NOTHING
     `
     return c.json({ ok: true })
@@ -4456,17 +4439,14 @@ app.post('/api/favorites', async (c) => {
 })
 
 // DELETE /api/favorites/:lessonId — remove favorito
-app.delete('/api/favorites/:lessonId', async (c) => {
-  const env = c.env as Env
-  const email = await getFavUserEmail(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, c.req.header('Authorization'))
-  if (!email) return c.json({ error: 'Unauthorized' }, 401)
-
+app.delete('/api/favorites/:lessonId', requireAuth, async (c) => {
+  const user = c.get('user') as { email: string }
   const lessonId = parseInt(c.req.param('lessonId'))
-  const db = new PostgresClient(env.DATABASE_CCT)
+  const db = getDB(c)
   try {
     await db.sql`
       DELETE FROM user_favorites
-      WHERE user_email = ${email} AND lesson_id = ${lessonId}
+      WHERE user_email = ${user.email} AND lesson_id = ${lessonId}
     `
     return c.json({ ok: true })
   } finally {
@@ -4475,17 +4455,14 @@ app.delete('/api/favorites/:lessonId', async (c) => {
 })
 
 // GET /api/favorites/check/:lessonId — verifica se uma aula é favorita
-app.get('/api/favorites/check/:lessonId', async (c) => {
-  const env = c.env as Env
-  const email = await getFavUserEmail(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, c.req.header('Authorization'))
-  if (!email) return c.json({ favorite: false })
-
+app.get('/api/favorites/check/:lessonId', requireAuth, async (c) => {
+  const user = c.get('user') as { email: string }
   const lessonId = parseInt(c.req.param('lessonId'))
-  const db = new PostgresClient(env.DATABASE_CCT)
+  const db = getDB(c)
   try {
     const rows = await db.sql`
       SELECT id FROM user_favorites
-      WHERE user_email = ${email} AND lesson_id = ${lessonId}
+      WHERE user_email = ${user.email} AND lesson_id = ${lessonId}
       LIMIT 1
     `
     return c.json({ favorite: rows.length > 0 })
@@ -4566,22 +4543,6 @@ app.get('/favorites', (c) => {
 let allFavorites = []
 let activeFilter = null
 
-async function loadFavorites() {
-    const token = localStorage.getItem('supabase_token') || sessionStorage.getItem('supabase_token')
-    if (!token) { window.location.href = '/login'; return }
-
-    try {
-        const res = await fetch('/api/favorites', { headers: { Authorization: 'Bearer ' + token } })
-        if (res.status === 401) { window.location.href = '/login'; return }
-        allFavorites = await res.json()
-        renderFilters()
-        renderFavorites(allFavorites)
-    } catch (e) {
-        document.getElementById('favoritesGrid').innerHTML =
-            '<div class="col-span-full text-center py-12 text-red-400"><i class="fas fa-exclamation-triangle text-3xl mb-3"></i><p>Erro ao carregar favoritos.</p></div>'
-    }
-}
-
 function renderFilters() {
     const courses = [...new Map(allFavorites.map(f => [f.course_id, f.course_title])).entries()]
     const container = document.getElementById('courseFilters')
@@ -4629,12 +4590,24 @@ function renderFavorites(list) {
     \`).join('')
 }
 
+async function loadFavorites() {
+    try {
+        const res = await axios.get('/api/favorites')
+        allFavorites = res.data
+        renderFilters()
+        renderFavorites(allFavorites)
+    } catch (e) {
+        if (e.response && e.response.status === 401) { window.location.href = '/'; return }
+        document.getElementById('favoritesGrid').innerHTML =
+            '<div class="col-span-full text-center py-12 text-red-400"><i class="fas fa-exclamation-triangle text-3xl mb-3"></i><p>Erro ao carregar favoritos.</p></div>'
+    }
+}
+
 async function removeFavorite(lessonId, btn) {
-    const token = localStorage.getItem('supabase_token') || sessionStorage.getItem('supabase_token')
     btn.disabled = true
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'
     try {
-        await fetch('/api/favorites/' + lessonId, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } })
+        await axios.delete('/api/favorites/' + lessonId)
         allFavorites = allFavorites.filter(f => f.lesson_id !== lessonId)
         const filtered = activeFilter ? allFavorites.filter(f => f.course_id === activeFilter) : allFavorites
         renderFilters()
@@ -4645,16 +4618,10 @@ async function removeFavorite(lessonId, btn) {
     }
 }
 
-function logout() {
-    localStorage.removeItem('supabase_token')
-    sessionStorage.removeItem('supabase_token')
-    window.location.href = '/login'
-}
-
-window.addEventListener('DOMContentLoaded', () => {
-    const token = localStorage.getItem('supabase_token') || sessionStorage.getItem('supabase_token')
-    if (!token) { window.location.href = '/login'; return }
-    const name = localStorage.getItem('user_name') || ''
+window.addEventListener('DOMContentLoaded', async () => {
+    const user = await authManager.init()
+    if (!user) { window.location.href = '/'; return }
+    const name = authManager.getUserName ? authManager.getUserName() : ''
     if (name) document.getElementById('userName').textContent = name
     loadFavorites()
 })
