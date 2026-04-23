@@ -4524,7 +4524,7 @@ app.get('/certificates', (c) => {
             grid.innerHTML = certificates.map(cert => {
                 const completionDate = cert.completion_date ? new Date(cert.completion_date).toLocaleDateString('pt-BR') : (cert.start_date ? new Date(cert.start_date).toLocaleDateString('pt-BR') : '—')
                 const startDate = cert.start_date ? new Date(cert.start_date).toLocaleDateString('pt-BR') : '—'
-                const verificationUrl = \`\${window.location.origin}/verificar/\${cert.certificate_code}\`
+                const verificationUrl = cert.certificate_code ? \`\${window.location.origin}/verificar/\${cert.certificate_code}\` : null
 
                 return \`
                     <div class="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition">
@@ -4554,37 +4554,39 @@ app.get('/certificates', (c) => {
                                 <div class="bg-gray-50 p-4 rounded-lg">
                                     <div class="text-xs text-gray-500 mb-1">Código</div>
                                     <div class="text-sm font-mono font-bold text-gray-800">
-                                        \${cert.certificate_code}
+                                        \${cert.certificate_code || '—'}
                                     </div>
                                 </div>
                             </div>
 
                             <div class="space-y-3">
-                                <button onclick="viewCertificate(\${cert.id})" 
+                                <button onclick="viewCertificate(\${cert.id})"
                                     class="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2">
                                     <i class="fas fa-eye"></i>
                                     Visualizar Certificado
                                 </button>
 
-                                <button onclick="downloadCertificate(\${cert.id})" 
+                                <button onclick="downloadCertificate(\${cert.id})"
                                     class="w-full bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition flex items-center justify-center gap-2">
                                     <i class="fas fa-download"></i>
                                     Baixar PDF
                                 </button>
 
-                                <button onclick="shareCertificate('\${verificationUrl}')" 
+                                \${verificationUrl ? \`
+                                <button onclick="shareCertificate('\${verificationUrl}')"
                                     class="w-full bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 transition flex items-center justify-center gap-2">
                                     <i class="fas fa-share-alt"></i>
                                     Compartilhar Link
-                                </button>
+                                </button>\` : ''}
                             </div>
 
+                            \${verificationUrl ? \`
                             <div class="mt-4 p-3 bg-blue-50 rounded-lg">
                                 <div class="text-xs text-gray-600">
                                     <i class="fas fa-info-circle mr-1"></i>
                                     Verificação: <a href="\${verificationUrl}" target="_blank" class="text-blue-600 hover:underline break-all">\${verificationUrl}</a>
                                 </div>
-                            </div>
+                            </div>\` : ''}
                         </div>
                     </div>
                 \`
