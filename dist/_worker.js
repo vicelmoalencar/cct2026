@@ -1297,7 +1297,7 @@ Minimum version required to store current data is: `+_+`.
         <script defer src="/static/search.js"><\/script>
     </body>
     </html>
-  `));R.get("/api/favorites",ye,async e=>{const t=e.get("user"),r=I(e);try{const s=await r.sql`
+  `));R.get("/api/favorites",ye,async e=>{const t=e.get("user"),r=I(e);try{const s=await r.sql(`
       SELECT f.id, f.lesson_id, f.created_at,
              l.title AS lesson_title,
              c.title AS course_title,
@@ -1306,20 +1306,9 @@ Minimum version required to store current data is: `+_+`.
       JOIN lessons l ON l.id = f.lesson_id
       JOIN modules m ON m.id = l.module_id
       JOIN courses c ON c.id = m.course_id
-      WHERE f.user_email = ${t.email}
+      WHERE f.user_email = $1
       ORDER BY f.created_at DESC
-    `;return e.json(s)}finally{await r.end()}});R.post("/api/favorites",ye,async e=>{const t=e.get("user"),r=await e.req.json();if(!r.lesson_id)return e.json({error:"lesson_id required"},400);const s=I(e);try{return await s.sql`
-      INSERT INTO user_favorites (user_email, lesson_id)
-      VALUES (${t.email}, ${r.lesson_id})
-      ON CONFLICT DO NOTHING
-    `,e.json({ok:!0})}finally{await s.end()}});R.delete("/api/favorites/:lessonId",ye,async e=>{const t=e.get("user"),r=parseInt(e.req.param("lessonId")),s=I(e);try{return await s.sql`
-      DELETE FROM user_favorites
-      WHERE user_email = ${t.email} AND lesson_id = ${r}
-    `,e.json({ok:!0})}finally{await s.end()}});R.get("/api/favorites/check/:lessonId",ye,async e=>{const t=e.get("user"),r=parseInt(e.req.param("lessonId")),s=I(e);try{const n=await s.sql`
-      SELECT id FROM user_favorites
-      WHERE user_email = ${t.email} AND lesson_id = ${r}
-      LIMIT 1
-    `;return e.json({favorite:n.length>0})}finally{await s.end()}});R.get("/favorites",e=>e.html(`
+    `,[t.email]);return e.json(s)}finally{await r.end()}});R.post("/api/favorites",ye,async e=>{const t=e.get("user"),r=await e.req.json();if(!r.lesson_id)return e.json({error:"lesson_id required"},400);const s=I(e);try{return await s.sql("INSERT INTO user_favorites (user_email, lesson_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",[t.email,r.lesson_id]),e.json({ok:!0})}finally{await s.end()}});R.delete("/api/favorites/:lessonId",ye,async e=>{const t=e.get("user"),r=parseInt(e.req.param("lessonId")),s=I(e);try{return await s.sql("DELETE FROM user_favorites WHERE user_email = $1 AND lesson_id = $2",[t.email,r]),e.json({ok:!0})}finally{await s.end()}});R.get("/api/favorites/check/:lessonId",ye,async e=>{const t=e.get("user"),r=parseInt(e.req.param("lessonId")),s=I(e);try{const n=await s.sql("SELECT id FROM user_favorites WHERE user_email = $1 AND lesson_id = $2 LIMIT 1",[t.email,r]);return e.json({favorite:n.length>0})}finally{await s.end()}});R.get("/favorites",e=>e.html(`
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>

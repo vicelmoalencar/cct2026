@@ -4401,7 +4401,7 @@ app.get('/api/favorites', requireAuth, async (c) => {
   const user = c.get('user') as { email: string }
   const db = getDB(c)
   try {
-    const rows = await db.sql`
+    const rows = await db.sql(`
       SELECT f.id, f.lesson_id, f.created_at,
              l.title AS lesson_title,
              c.title AS course_title,
@@ -4410,9 +4410,9 @@ app.get('/api/favorites', requireAuth, async (c) => {
       JOIN lessons l ON l.id = f.lesson_id
       JOIN modules m ON m.id = l.module_id
       JOIN courses c ON c.id = m.course_id
-      WHERE f.user_email = ${user.email}
+      WHERE f.user_email = $1
       ORDER BY f.created_at DESC
-    `
+    `, [user.email])
     return c.json(rows)
   } finally {
     await db.end()
@@ -4427,11 +4427,10 @@ app.post('/api/favorites', requireAuth, async (c) => {
 
   const db = getDB(c)
   try {
-    await db.sql`
-      INSERT INTO user_favorites (user_email, lesson_id)
-      VALUES (${user.email}, ${body.lesson_id})
-      ON CONFLICT DO NOTHING
-    `
+    await db.sql(
+      `INSERT INTO user_favorites (user_email, lesson_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+      [user.email, body.lesson_id]
+    )
     return c.json({ ok: true })
   } finally {
     await db.end()
@@ -4444,10 +4443,10 @@ app.delete('/api/favorites/:lessonId', requireAuth, async (c) => {
   const lessonId = parseInt(c.req.param('lessonId'))
   const db = getDB(c)
   try {
-    await db.sql`
-      DELETE FROM user_favorites
-      WHERE user_email = ${user.email} AND lesson_id = ${lessonId}
-    `
+    await db.sql(
+      `DELETE FROM user_favorites WHERE user_email = $1 AND lesson_id = $2`,
+      [user.email, lessonId]
+    )
     return c.json({ ok: true })
   } finally {
     await db.end()
@@ -4460,11 +4459,10 @@ app.get('/api/favorites/check/:lessonId', requireAuth, async (c) => {
   const lessonId = parseInt(c.req.param('lessonId'))
   const db = getDB(c)
   try {
-    const rows = await db.sql`
-      SELECT id FROM user_favorites
-      WHERE user_email = ${user.email} AND lesson_id = ${lessonId}
-      LIMIT 1
-    `
+    const rows = await db.sql(
+      `SELECT id FROM user_favorites WHERE user_email = $1 AND lesson_id = $2 LIMIT 1`,
+      [user.email, lessonId]
+    )
     return c.json({ favorite: rows.length > 0 })
   } finally {
     await db.end()
