@@ -1,4 +1,4 @@
-// App state
+// App state - v2
 const app = {
   currentUser: null,
   currentCourse: null,
