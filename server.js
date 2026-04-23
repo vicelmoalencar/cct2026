@@ -124,6 +124,17 @@ app.use('/static/*', async (c, next) => {
   await next()
 })
 
+// Serve favicon.svg from public/
+app.get('/favicon.svg', async (c) => {
+  const { readFileSync } = await import('fs')
+  const filePath = join(publicPath, 'favicon.svg')
+  if (existsSync(filePath)) {
+    const content = readFileSync(filePath, 'utf-8')
+    return c.text(content, 200, { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=86400' })
+  }
+  return c.notFound()
+})
+
 // Mount the original worker app to handle all other routes
 app.route('/', workerApp)
 
