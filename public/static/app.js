@@ -651,10 +651,17 @@ const app = {
       
       const { lesson, comments } = response.data
       
-      // Get course info with all modules and lessons
-      const courseResponse = await axios.get(`/api/courses/${lesson.course_id}`)
+      // Get course info and progress in parallel
+      const [courseResponse, progressResponse] = await Promise.all([
+        axios.get(`/api/courses/${lesson.course_id}`),
+        axios.get(`/api/progress/${this.currentUser}/${lesson.course_id}`)
+      ])
       const { course, modules } = courseResponse.data
-      
+      const lessonProgressMap = {}
+      ;(progressResponse.data.progress || []).forEach(p => {
+        lessonProgressMap[p.lesson_id] = p.completed
+      })
+
       // Find current module and get all lessons
       const currentModule = modules.find(m => m.id === lesson.module_id)
       const moduleLessons = currentModule ? currentModule.lessons : []
@@ -942,36 +949,59 @@ const app = {
                 ${moduleLessons.map((l, index) => {
                   const isFree = l.teste_gratis || l.free_trial || false
                   const isPremium = !isFree
-                  
+                  const isWatched = !!lessonProgressMap[l.id]
+                  const isActive = l.id === lessonId
+
+                  const rowBg = isActive
+                    ? 'bg-blue-50 border-l-4 border-l-blue-600'
+                    : isWatched
+                      ? 'bg-green-50 border-l-4 border-l-green-500 hover:bg-green-100'
+                      : 'hover:bg-gray-50'
+
+                  const circleClass = isActive
+                    ? 'bg-blue-600 text-white'
+                    : isWatched
+                      ? 'bg-green-500 text-white'
+                      : isPremium
+                        ? 'bg-orange-100 text-orange-600'
+                        : 'bg-gray-200 text-gray-600'
+
+                  const circleContent = isWatched && !isActive
+                    ? '<i class="fas fa-check"></i>'
+                    : index + 1
+
+                  const rightIcon = isActive
+                    ? '<i class="fas fa-play text-blue-600"></i>'
+                    : isWatched
+                      ? '<i class="fas fa-check-circle text-green-500 text-sm"></i>'
+                      : isPremium
+                        ? '<i class="fas fa-lock text-orange-500 text-sm"></i>'
+                        : ''
+
                   return `
                   <button onclick="accessManager.navigateToLesson(${l.id}, ${JSON.stringify(l).replace(/"/g, '&quot;')})"
                           data-lesson-id="${l.id}"
                           data-is-premium="${isPremium}"
-                          class="w-full text-left p-4 border-b border-gray-100 transition-all ${
-                            l.id === lessonId 
-                              ? 'bg-blue-50 border-l-4 border-l-blue-600' 
-                              : 'hover:bg-gray-50'
-                          } ${isPremium ? 'border-l-2 border-l-orange-200' : ''}">
+                          class="w-full text-left p-4 border-b border-gray-100 transition-all ${rowBg}">
                     <div class="flex items-start gap-3">
-                      <div class="w-8 h-8 ${
-                        l.id === lessonId ? 'bg-blue-600 text-white' : isPremium ? 'bg-orange-100 text-orange-600' : 'bg-gray-200 text-gray-600'
-                      } rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm">
-                        ${index + 1}
+                      <div class="w-8 h-8 ${circleClass} rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm">
+                        ${circleContent}
                       </div>
                       <div class="flex-1 min-w-0">
                         <p class="font-semibold text-gray-800 text-sm mb-1 line-clamp-2">
                           ${l.title}
-                          ${isPremium ? '<i class="fas fa-lock text-red-500 ml-1 text-xs"></i>' : ''}
+                          ${isPremium && !isWatched ? '<i class="fas fa-lock text-red-500 ml-1 text-xs"></i>' : ''}
                         </p>
-                        <div class="flex items-center gap-3 text-xs text-gray-500">
+                        <div class="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
                           <span><i class="fas fa-clock mr-1"></i>${l.duration_minutes}min</span>
-                          ${isFree ? 
-                            '<span class="text-green-600 font-semibold"><i class="fas fa-gift mr-1"></i>Grátis</span>' : 
-                            '<span class="text-orange-600 font-semibold"><i class="fas fa-crown mr-1"></i>Premium</span>'
+                          ${isFree
+                            ? '<span class="text-green-600 font-semibold"><i class="fas fa-gift mr-1"></i>Grátis</span>'
+                            : '<span class="text-orange-600 font-semibold"><i class="fas fa-crown mr-1"></i>Premium</span>'
                           }
+                          ${isWatched ? '<span class="text-green-700 font-semibold bg-green-100 px-1.5 py-0.5 rounded-full">✓ Assistida</span>' : ''}
                         </div>
                       </div>
-                      ${l.id === lessonId ? '<i class="fas fa-play text-blue-600"></i>' : isPremium ? '<i class="fas fa-lock text-orange-500 text-sm"></i>' : ''}
+                      ${rightIcon}
                     </div>
                   </button>
                 `}).join('')}
