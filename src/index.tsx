@@ -2018,14 +2018,14 @@ function generateCertificateHTML(data: {
       align-items: center; justify-content: center;
       padding: 0 50mm; text-align: center; gap: 2.5mm;
     }
-    .pre-text { font-size: 13px; color: #666; }
+    .pre-text { font-size: 15px; color: #666; }
     .student-name {
-      font-size: 26px; font-weight: bold; color: #1a1a2e;
+      font-size: 30px; font-weight: bold; color: #1a1a2e;
       border-bottom: 1px solid #777;
       padding: 0 18mm 2mm; white-space: nowrap;
     }
-    .cert-desc { font-size: 12px; color: #444; line-height: 1.7; max-width: 155mm; }
-    .cert-dates { font-size: 11.5px; color: #555; margin-top: 3mm; letter-spacing: 0.2px; }
+    .cert-desc { font-size: 14px; color: #444; line-height: 1.7; max-width: 155mm; }
+    .cert-dates { font-size: 13.5px; color: #555; margin-top: 3mm; letter-spacing: 0.2px; }
 
     /* ── Rodapé ── */
     .footer-section {
