@@ -2741,36 +2741,20 @@ app.get('/api/courses', async (c) => {
     // Get courses - filter by is_published if not admin
     const filters = userIsAdmin ? {} : { is_published: true }
     
-    const courses = await db.query('courses', {
-      select: '*',
-      filters,
-      order: 'created_at DESC'
-    })
-    
-    // For each course, count modules and lessons
-    const coursesWithCounts = await Promise.all(courses.map(async (course: any) => {
-      const modules = await db.query('modules', {
-        select: 'id',
-        filters: { course_id: course.id }
-      })
-      
-      let lessonsCount = 0
-      for (const module of modules) {
-        const lessons = await db.query('lessons', {
-          select: 'id',
-          filters: { module_id: module.id }
-        })
-        lessonsCount += lessons.length
-      }
-      
-      return {
-        ...course,
-        modules_count: modules.length,
-        lessons_count: lessonsCount
-      }
-    }))
-    
-    return c.json({ courses: coursesWithCounts })
+    const publishedFilter = userIsAdmin ? '' : 'WHERE c.is_published = true'
+    const courses = await db.sql(`
+      SELECT c.*,
+             COUNT(DISTINCT m.id)::int AS modules_count,
+             COUNT(l.id)::int          AS lessons_count
+      FROM courses c
+      LEFT JOIN modules m ON m.course_id = c.id
+      LEFT JOIN lessons l ON l.module_id = m.id
+      ${publishedFilter}
+      GROUP BY c.id
+      ORDER BY c.created_at DESC
+    `)
+
+    return c.json({ courses })
   } catch (error: any) {
     console.error('❌ /api/courses error:', error?.message || error)
     return c.json({ error: error?.message || 'Failed to fetch courses' }, 500)
@@ -2795,23 +2779,30 @@ app.get('/api/courses/:id', async (c) => {
       return c.json({ error: 'Course not found' }, 404)
     }
     
-    // Get modules with lessons
     const modules = await db.query('modules', {
       select: '*',
       filters: { course_id: courseId },
       order: 'order_index'
     })
-    
-    // Get lessons for each module
-    for (const module of modules) {
-      const lessons = await db.query('lessons', {
-        select: '*',
-        filters: { module_id: module.id },
-        order: 'order_index'
-      })
-      module.lessons = lessons
+
+    // Busca todas as aulas do curso em uma única query e agrupa por módulo
+    const allLessons = await db.sql(
+      `SELECT l.* FROM lessons l
+       JOIN modules m ON m.id = l.module_id
+       WHERE m.course_id = $1
+       ORDER BY m.order_index, l.order_index`,
+      [courseId]
+    )
+    const lessonsByModule = new Map<number, any[]>()
+    for (const lesson of allLessons) {
+      const list = lessonsByModule.get(lesson.module_id) || []
+      list.push(lesson)
+      lessonsByModule.set(lesson.module_id, list)
     }
-    
+    for (const module of modules) {
+      module.lessons = lessonsByModule.get(module.id) || []
+    }
+
     return c.json({ course, modules })
   } catch (error: any) {
     console.error('❌ /api/courses/:id error:', error?.message || error)
@@ -4385,12 +4376,12 @@ app.get('/', (c) => {
             </div>
         </main>
 
-        <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
-        <script src="/static/auth.js"></script>
-        <script src="/static/admin.js"></script>
-        <script src="/static/access-control.js"></script>
-        <script src="/static/app.js"></script>
-        <script src="/static/search.js"></script>
+        <script defer src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+        <script defer src="/static/auth.js"></script>
+        <script defer src="/static/admin.js"></script>
+        <script defer src="/static/access-control.js"></script>
+        <script defer src="/static/app.js"></script>
+        <script defer src="/static/search.js"></script>
     </body>
     </html>
   `)
