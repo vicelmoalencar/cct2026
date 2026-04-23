@@ -1,5 +1,6 @@
 # prod
 dist/
+!dist/_worker.js
 
 # dev
 .yarn/
