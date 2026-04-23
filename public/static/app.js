@@ -653,16 +653,29 @@ const app = {
       if (isFav) {
         await axios.delete('/api/favorites/' + lessonId)
         btn.dataset.fav = '0'
-        btn.className = btn.className.replace('text-red-500', 'text-gray-300')
-        btn.title = 'Adicionar aos favoritos'
         if (this._favoritesMap) this._favoritesMap[lessonId] = false
       } else {
         await axios.post('/api/favorites', { lesson_id: lessonId })
         btn.dataset.fav = '1'
-        btn.className = btn.className.replace('text-gray-300', 'text-red-500')
-        btn.title = 'Remover dos favoritos'
         if (this._favoritesMap) this._favoritesMap[lessonId] = true
       }
+      // Atualiza visual de todos os botões desta aula na página
+      document.querySelectorAll(`[data-lesson-id="${lessonId}"].fav-btn, #favBtn-${lessonId}`).forEach(b => {
+        const nowFav = btn.dataset.fav === '1'
+        b.dataset.fav = btn.dataset.fav
+        if (b.id && b.id.startsWith('favBtn-')) {
+          b.className = b.className.replace(
+            nowFav ? /bg-white border-gray-200 text-gray-500 hover:border-red-400 hover:text-red-500/ : /bg-red-50 border-red-400 text-red-600 hover:bg-red-100/,
+            nowFav ? 'bg-red-50 border-red-400 text-red-600 hover:bg-red-100' : 'bg-white border-gray-200 text-gray-500 hover:border-red-400 hover:text-red-500'
+          )
+          b.innerHTML = `<i class="fas fa-heart"></i> ${nowFav ? 'Favoritada' : 'Favoritar'}`
+        } else {
+          b.className = nowFav
+            ? b.className.replace('text-gray-300', 'text-red-500')
+            : b.className.replace('text-red-500', 'text-gray-300')
+          b.title = nowFav ? 'Remover dos favoritos' : 'Adicionar aos favoritos'
+        }
+      })
     } finally {
       btn.disabled = false
     }
@@ -791,12 +804,24 @@ const app = {
                 <div class="flex flex-wrap gap-3 pt-4 border-t border-gray-200">
                   <button onclick="app.toggleComplete(${lessonId}, ${isCompleted})"
                           class="flex-1 px-6 py-3 rounded-lg font-semibold transition-all shadow-md hover:shadow-lg ${
-                            isCompleted 
-                              ? 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white' 
+                            isCompleted
+                              ? 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white'
                               : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white'
                           }">
                     <i class="fas ${isCompleted ? 'fa-check-circle' : 'fa-circle'} mr-2"></i>
                     ${isCompleted ? 'Aula Concluída' : 'Marcar como Concluída'}
+                  </button>
+                  <button id="favBtn-${lessonId}"
+                          data-lesson-id="${lessonId}"
+                          data-fav="${playerFavMap[lessonId] ? '1' : '0'}"
+                          onclick="app.toggleFavorite(${lessonId}, this)"
+                          class="px-6 py-3 rounded-lg font-semibold transition-all border-2 flex items-center gap-2 ${
+                            playerFavMap[lessonId]
+                              ? 'bg-red-50 border-red-400 text-red-600 hover:bg-red-100'
+                              : 'bg-white border-gray-200 text-gray-500 hover:border-red-400 hover:text-red-500'
+                          }">
+                    <i class="fas fa-heart"></i>
+                    ${playerFavMap[lessonId] ? 'Favoritada' : 'Favoritar'}
                   </button>
                   <button onclick="app.loadCourse(${lesson.course_id})"
                           class="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-semibold transition-colors">
