@@ -1021,33 +1021,49 @@ const adminUI = {
   dragState: { el: null },
 
   initDragAndDrop() {
+    const clearIndicators = () => {
+      document.querySelectorAll('.lesson-drag-item').forEach(el => el.style.borderTop = '')
+    }
+
+    // dragstart/dragend on each item
     document.querySelectorAll('.lesson-drag-item').forEach(item => {
       item.addEventListener('dragstart', e => {
         this.dragState.el = item
-        item.classList.add('opacity-50')
         e.dataTransfer.effectAllowed = 'move'
+        e.dataTransfer.setData('text/plain', item.dataset.lessonId)
+        // defer opacity so the drag image captures the original
+        requestAnimationFrame(() => item.classList.add('opacity-40'))
       })
       item.addEventListener('dragend', () => {
-        item.classList.remove('opacity-50')
-        document.querySelectorAll('.lesson-drag-item').forEach(el => el.style.borderTop = '')
+        item.classList.remove('opacity-40')
+        clearIndicators()
         this.dragState.el = null
       })
-      item.addEventListener('dragover', e => {
+    })
+
+    // dragover/drop delegated on each sortable container
+    document.querySelectorAll('.lessons-sortable').forEach(container => {
+      container.addEventListener('dragover', e => {
         e.preventDefault()
-        if (!this.dragState.el || this.dragState.el === item) return
+        if (!this.dragState.el) return
         e.dataTransfer.dropEffect = 'move'
-        document.querySelectorAll('.lesson-drag-item').forEach(el => el.style.borderTop = '')
-        item.style.borderTop = '2px solid #3b82f6'
+        const target = e.target.closest('.lesson-drag-item')
+        if (!target || target === this.dragState.el) return
+        clearIndicators()
+        target.style.borderTop = '3px solid #3b82f6'
       })
-      item.addEventListener('dragleave', () => {
-        item.style.borderTop = ''
+
+      container.addEventListener('dragleave', e => {
+        if (!container.contains(e.relatedTarget)) clearIndicators()
       })
-      item.addEventListener('drop', e => {
+
+      container.addEventListener('drop', e => {
         e.preventDefault()
-        item.style.borderTop = ''
-        if (!this.dragState.el || this.dragState.el === item) return
-        const container = item.parentElement
-        container.insertBefore(this.dragState.el, item)
+        clearIndicators()
+        if (!this.dragState.el) return
+        const target = e.target.closest('.lesson-drag-item')
+        if (!target || target === this.dragState.el) return
+        container.insertBefore(this.dragState.el, target)
         this.saveLessonOrder(container)
       })
     })
