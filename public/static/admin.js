@@ -1083,7 +1083,7 @@ const adminUI = {
     }
 
     try {
-      await axios.put('/api/admin/lessons/reorder', { lessons: updates })
+      await axios.post('/api/admin/lessons-reorder', { lessons: updates })
 
       updates.forEach(({ id, order_index }) => {
         this.courses.forEach(course => {
