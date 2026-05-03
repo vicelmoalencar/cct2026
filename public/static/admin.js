@@ -825,305 +825,283 @@ const adminUI = {
   // Render lessons tab
   async renderLessonsTab() {
     const content = document.getElementById('adminContent')
-    
-    // Show loading state
-    content.innerHTML = `
-      <div class="bg-white rounded-lg shadow-md p-6">
-        <div class="flex items-center justify-center py-12">
-          <div class="text-center">
-            <i class="fas fa-spinner fa-spin text-4xl text-blue-600 mb-4"></i>
-            <p class="text-gray-600">Carregando aulas...</p>
-          </div>
-        </div>
-      </div>
-    `
-    
-    // Load modules with lessons for all courses
-    await this.loadModulesWithLessons()
-    
-    // Now render the full content
     content.innerHTML = `
       <div class="bg-white rounded-lg shadow-md p-6">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <h3 class="text-xl font-bold text-gray-800">
             <i class="fas fa-play-circle mr-2"></i>Gestão de Aulas
           </h3>
-          <button onclick="adminUI.showLessonForm()" 
-                  class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors">
-            <i class="fas fa-plus mr-2"></i>Nova Aula
-          </button>
+          <div class="flex items-center gap-3">
+            <span id="reorderStatus" class="text-sm font-semibold"></span>
+            <button onclick="adminUI.showLessonForm()"
+                    class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors">
+              <i class="fas fa-plus mr-2"></i>Nova Aula
+            </button>
+          </div>
         </div>
-        
-        <!-- Filters and Search -->
-        <div class="mb-6 space-y-4">
+
+        <div class="mb-6 space-y-3">
           <div class="flex flex-col md:flex-row gap-4">
             <div class="flex-1">
-              <label class="block text-sm font-semibold text-gray-700 mb-2">Filtrar por Curso</label>
-              <select id="filterCourse" onchange="adminUI.filterLessons()" 
+              <label class="block text-sm font-semibold text-gray-700 mb-2">Curso</label>
+              <select id="filterCourse" onchange="adminUI.onCourseFilterChange()"
                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="">Todos os cursos</option>
-                ${this.courses.map(c => `
-                  <option value="${c.id}">${c.title}</option>
-                `).join('')}
+                <option value="">Selecione um curso...</option>
+                ${this.courses.map(c => `<option value="${c.id}">${c.title}</option>`).join('')}
               </select>
             </div>
-            
             <div class="flex-1">
-              <label class="block text-sm font-semibold text-gray-700 mb-2">Filtrar por Módulo</label>
-              <select id="filterModule" onchange="adminUI.filterLessons()" 
-                      class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <label class="block text-sm font-semibold text-gray-700 mb-2">Módulo</label>
+              <select id="filterModule" onchange="adminUI.filterLessons()" disabled
+                      class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed">
                 <option value="">Todos os módulos</option>
               </select>
             </div>
-            
             <div class="flex-1">
-              <label class="block text-sm font-semibold text-gray-700 mb-2">Buscar Aula</label>
-              <input type="text" id="searchLesson" oninput="adminUI.filterLessons()" 
-                     placeholder="Digite o nome da aula..."
+              <label class="block text-sm font-semibold text-gray-700 mb-2">Buscar</label>
+              <input type="text" id="searchLesson" oninput="adminUI.filterLessons()"
+                     placeholder="Nome da aula..."
                      class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
             </div>
           </div>
-          
           <div class="flex items-center justify-between text-sm">
-            <span class="text-gray-600">
-              <span id="lessonCount" class="font-semibold">0</span> aulas encontradas
-            </span>
-            <button onclick="adminUI.resetLessonFilters()" 
-                    class="text-blue-600 hover:text-blue-800 font-semibold">
+            <span class="text-gray-600"><span id="lessonCount" class="font-semibold">0</span> aulas encontradas</span>
+            <button onclick="adminUI.resetLessonFilters()" class="text-blue-600 hover:text-blue-800 font-semibold">
               <i class="fas fa-redo mr-1"></i>Limpar Filtros
             </button>
           </div>
         </div>
-        
-        <!-- Lessons List (organized by course and module) -->
-        <div id="lessonsContainer" class="space-y-6">
-          ${this.renderLessonsByCourse()}
+
+        <div id="lessonsContainer">
+          <div class="text-center py-16 text-gray-400">
+            <i class="fas fa-mouse-pointer text-4xl mb-3 block"></i>
+            <p class="font-semibold text-lg">Selecione um curso para ver as aulas</p>
+            <p class="text-sm mt-1">As aulas são carregadas sob demanda para melhor performance</p>
+          </div>
         </div>
       </div>
     `
-    
-    this.updateLessonCount()
   },
-  
-  // Load modules with lessons for all courses (lazy loading)
-  async loadModulesWithLessons() {
-    try {
-      for (const course of this.courses) {
-        if (!course.modules || course.modules.length === 0) {
-          const detailResponse = await axios.get(`/api/courses/${course.id}`)
-          course.modules = detailResponse.data.modules || []
-        }
-      }
-    } catch (error) {
-      console.error('Error loading modules with lessons:', error)
-    }
-  },
-  
-  // Render lessons organized by course and module
-  renderLessonsByCourse() {
-    if (this.courses.length === 0) {
-      return '<p class="text-center text-gray-500 py-8">Nenhum curso cadastrado.</p>'
-    }
-    
-    let hasLessons = false
-    
-    const html = this.courses.map(course => {
-      const modules = course.modules || []
-      const modulesWithLessons = modules.filter(m => (m.lessons || []).length > 0)
-      
-      if (modulesWithLessons.length === 0) return ''
-      
-      hasLessons = true
-      
-      return `
-        <div class="border-2 border-gray-200 rounded-lg overflow-hidden" data-course-id="${course.id}">
-          <div class="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4">
-            <h4 class="text-lg font-bold flex items-center gap-2">
-              <i class="fas fa-book"></i>
-              ${course.title}
-              <span class="text-sm font-normal opacity-90">
-                (${modules.reduce((sum, m) => sum + (m.lessons || []).length, 0)} aulas)
-              </span>
-            </h4>
-          </div>
-          
-          <div class="divide-y divide-gray-200">
-            ${modulesWithLessons.map(module => `
-              <div class="bg-gray-50" data-module-id="${module.id}">
-                <div class="bg-blue-50 p-3 border-b border-blue-100">
-                  <h5 class="font-semibold text-gray-800 flex items-center gap-2">
-                    <i class="fas fa-folder text-blue-600"></i>
-                    ${module.title}
-                    <span class="text-sm font-normal text-gray-600">
-                      (${(module.lessons || []).length} aulas)
-                    </span>
-                  </h5>
-                </div>
-                
-                <div class="divide-y divide-gray-200">
-                  ${(module.lessons || []).map(lesson => `
-                    <div class="p-4 hover:bg-white transition-colors lesson-item" 
-                         data-lesson-id="${lesson.id}"
-                         data-lesson-title="${lesson.title.toLowerCase()}">
-                      <div class="flex items-start justify-between gap-4">
-                        <div class="flex-1 min-w-0">
-                          <div class="flex items-center gap-2 mb-1">
-                            <h6 class="font-semibold text-gray-800">${lesson.title}</h6>
-                            ${(lesson.teste_gratis || lesson.free_trial) ? 
-                              '<span class="text-xs bg-blue-500 text-white px-2 py-1 rounded font-semibold"><i class="fas fa-gift mr-1"></i>GRÁTIS</span>' : 
-                              '<span class="text-xs bg-yellow-500 text-white px-2 py-1 rounded font-semibold"><i class="fas fa-crown mr-1"></i>PREMIUM</span>'
-                            }
-                          </div>
-                          <p class="text-sm text-gray-600 mb-2">${lesson.description || 'Sem descrição'}</p>
-                          <div class="flex flex-wrap items-center gap-3 text-xs text-gray-500">
-                            <span><i class="fas fa-video mr-1"></i>${lesson.video_provider || 'N/A'}</span>
-                            <span><i class="fas fa-clock mr-1"></i>${lesson.duration_minutes} min</span>
-                            <span><i class="fas fa-sort mr-1"></i>Ordem: ${lesson.order_index}</span>
-                            ${lesson.support_text ? '<span class="text-blue-600"><i class="fas fa-file-alt mr-1"></i>Texto apoio</span>' : ''}
-                            ${lesson.transcript ? '<span class="text-purple-600"><i class="fas fa-closed-captioning mr-1"></i>Transcrição</span>' : ''}
-                            ${lesson.attachments && lesson.attachments.length > 0 ? `<span class="text-green-600"><i class="fas fa-paperclip mr-1"></i>${lesson.attachments.length} arquivo(s)</span>` : ''}
-                          </div>
-                        </div>
-                        <div class="flex items-center gap-2 flex-shrink-0">
-                          <button onclick='adminUI.showLessonForm(${JSON.stringify(lesson).replace(/'/g, "&#39;")})' 
-                                  class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm whitespace-nowrap">
-                            <i class="fas fa-edit"></i>
-                            <span class="hidden sm:inline ml-1">Editar</span>
-                          </button>
-                          <button onclick="adminUI.deleteLesson(${lesson.id}, '${lesson.title.replace(/'/g, "\\'")}\')" 
-                                  class="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded text-sm whitespace-nowrap">
-                            <i class="fas fa-trash"></i>
-                            <span class="hidden sm:inline ml-1">Excluir</span>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  `).join('')}
-                </div>
-              </div>
-            `).join('')}
-          </div>
+
+  async onCourseFilterChange() {
+    const courseId = document.getElementById('filterCourse').value
+    const moduleSelect = document.getElementById('filterModule')
+
+    if (!courseId) {
+      moduleSelect.innerHTML = '<option value="">Todos os módulos</option>'
+      moduleSelect.disabled = true
+      document.getElementById('lessonsContainer').innerHTML = `
+        <div class="text-center py-16 text-gray-400">
+          <i class="fas fa-mouse-pointer text-4xl mb-3 block"></i>
+          <p class="font-semibold text-lg">Selecione um curso para ver as aulas</p>
+          <p class="text-sm mt-1">As aulas são carregadas sob demanda para melhor performance</p>
         </div>
       `
-    }).join('')
-    
-    return hasLessons ? html : '<p class="text-center text-gray-500 py-8">Nenhuma aula cadastrada. Crie módulos e aulas primeiro.</p>'
-  },
-  
-  // Filter lessons
-  filterLessons() {
-    const courseId = document.getElementById('filterCourse').value
-    const moduleId = document.getElementById('filterModule').value
-    const searchText = document.getElementById('searchLesson').value.toLowerCase()
-    
-    // Update module dropdown based on selected course
-    if (courseId) {
-      const course = this.courses.find(c => c.id == courseId)
-      const moduleSelect = document.getElementById('filterModule')
-      moduleSelect.innerHTML = '<option value="">Todos os módulos</option>'
-      
-      if (course && course.modules) {
-        course.modules.forEach(m => {
-          moduleSelect.innerHTML += `<option value="${m.id}">${m.title}</option>`
-        })
-      }
-    } else {
-      document.getElementById('filterModule').innerHTML = '<option value="">Todos os módulos</option>'
+      this.updateLessonCount(0)
+      return
     }
-    
-    // Apply filters
-    const allCourseContainers = document.querySelectorAll('[data-course-id]')
-    const allModuleContainers = document.querySelectorAll('[data-module-id]')
-    const allLessonItems = document.querySelectorAll('.lesson-item')
-    
-    // Reset visibility
-    allCourseContainers.forEach(el => el.style.display = 'block')
-    allModuleContainers.forEach(el => el.style.display = 'block')
-    allLessonItems.forEach(el => el.style.display = 'block')
-    
-    let visibleCount = 0
-    
-    // Filter by course
-    if (courseId) {
-      allCourseContainers.forEach(el => {
-        if (el.dataset.courseId != courseId) {
-          el.style.display = 'none'
-        }
+
+    document.getElementById('lessonsContainer').innerHTML = `
+      <div class="flex items-center justify-center py-12 text-gray-500">
+        <i class="fas fa-spinner fa-spin text-2xl mr-3 text-blue-600"></i>
+        <span>Carregando aulas...</span>
+      </div>
+    `
+
+    await this.loadModulesForCourse(courseId)
+
+    const course = this.courses.find(c => c.id == courseId)
+    moduleSelect.innerHTML = '<option value="">Todos os módulos</option>'
+    if (course && course.modules) {
+      course.modules.forEach(m => {
+        moduleSelect.innerHTML += `<option value="${m.id}">${m.title}</option>`
       })
     }
-    
-    // Filter by module
-    if (moduleId) {
-      allModuleContainers.forEach(el => {
-        if (el.dataset.moduleId != moduleId) {
-          el.style.display = 'none'
-        }
-      })
-    }
-    
-    // Filter by search text
-    if (searchText) {
-      allLessonItems.forEach(el => {
-        const title = el.dataset.lessonTitle || ''
-        if (!title.includes(searchText)) {
-          el.style.display = 'none'
-        }
-      })
-    }
-    
-    // Count visible lessons
-    allLessonItems.forEach(el => {
-      if (el.style.display !== 'none') {
-        visibleCount++
-      }
-    })
-    
-    // Hide empty modules and courses
-    allModuleContainers.forEach(moduleEl => {
-      const visibleLessons = Array.from(moduleEl.querySelectorAll('.lesson-item'))
-        .filter(el => el.style.display !== 'none')
-      
-      if (visibleLessons.length === 0) {
-        moduleEl.style.display = 'none'
-      }
-    })
-    
-    allCourseContainers.forEach(courseEl => {
-      const visibleModules = Array.from(courseEl.querySelectorAll('[data-module-id]'))
-        .filter(el => el.style.display !== 'none')
-      
-      if (visibleModules.length === 0) {
-        courseEl.style.display = 'none'
-      }
-    })
-    
-    this.updateLessonCount(visibleCount)
-  },
-  
-  // Reset lesson filters
-  resetLessonFilters() {
-    document.getElementById('filterCourse').value = ''
-    document.getElementById('filterModule').value = ''
-    document.getElementById('searchLesson').value = ''
+    moduleSelect.disabled = false
+
     this.filterLessons()
   },
-  
-  // Update lesson count
-  updateLessonCount(count = null) {
-    if (count === null) {
-      // Count all lessons
-      count = 0
-      this.courses.forEach(course => {
-        (course.modules || []).forEach(module => {
-          count += (module.lessons || []).length
+
+  async loadModulesForCourse(courseId) {
+    const course = this.courses.find(c => c.id == courseId)
+    if (!course || (course.modules && course.modules.length > 0)) return
+    try {
+      const res = await axios.get(`/api/courses/${courseId}`)
+      course.modules = res.data.modules || []
+    } catch (error) {
+      console.error('Error loading course modules:', error)
+      course.modules = []
+    }
+  },
+
+  filterLessons() {
+    const courseId = document.getElementById('filterCourse').value
+    if (!courseId) return
+
+    const moduleId = document.getElementById('filterModule').value
+    const searchText = document.getElementById('searchLesson').value.toLowerCase()
+    const course = this.courses.find(c => c.id == courseId)
+    if (!course) return
+
+    let modules = course.modules || []
+    if (moduleId) modules = modules.filter(m => m.id == moduleId)
+
+    const filtered = modules.map(m => ({
+      ...m,
+      filteredLessons: (m.lessons || [])
+        .filter(l => !searchText || l.title.toLowerCase().includes(searchText))
+        .sort((a, b) => a.order_index - b.order_index)
+    })).filter(m => m.filteredLessons.length > 0)
+
+    const total = filtered.reduce((sum, m) => sum + m.filteredLessons.length, 0)
+    document.getElementById('lessonsContainer').innerHTML = this.renderModulesWithLessons(filtered)
+    this.updateLessonCount(total)
+    this.initDragAndDrop()
+  },
+
+  renderModulesWithLessons(modules) {
+    if (modules.length === 0) {
+      return '<p class="text-center text-gray-500 py-10">Nenhuma aula encontrada.</p>'
+    }
+    return modules.map(module => `
+      <div class="border border-gray-200 rounded-lg overflow-hidden mb-4">
+        <div class="bg-blue-50 px-4 py-3 border-b border-blue-100 flex items-center justify-between">
+          <h5 class="font-semibold text-gray-800 flex items-center gap-2">
+            <i class="fas fa-folder text-blue-600"></i>
+            ${module.title}
+            <span class="text-sm font-normal text-gray-500">(${module.filteredLessons.length} aulas)</span>
+          </h5>
+          <span class="text-xs text-gray-400 hidden sm:flex items-center gap-1">
+            <i class="fas fa-grip-vertical"></i>Arraste para reordenar
+          </span>
+        </div>
+        <div class="lessons-sortable" data-module-id="${module.id}">
+          ${module.filteredLessons.map(lesson => `
+            <div class="flex items-start gap-3 p-4 bg-white hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0 lesson-drag-item select-none"
+                 draggable="true"
+                 data-lesson-id="${lesson.id}"
+                 data-lesson-title="${lesson.title.toLowerCase()}">
+              <div class="flex-shrink-0 text-gray-300 pt-1 cursor-grab active:cursor-grabbing">
+                <i class="fas fa-grip-vertical text-lg"></i>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-1">
+                  <h6 class="font-semibold text-gray-800">${lesson.title}</h6>
+                  ${(lesson.teste_gratis || lesson.free_trial) ?
+                    '<span class="text-xs bg-blue-500 text-white px-2 py-0.5 rounded font-semibold"><i class="fas fa-gift mr-1"></i>GRÁTIS</span>' :
+                    '<span class="text-xs bg-yellow-500 text-white px-2 py-0.5 rounded font-semibold"><i class="fas fa-crown mr-1"></i>PREMIUM</span>'
+                  }
+                </div>
+                <p class="text-sm text-gray-500 mb-1 truncate">${lesson.description || 'Sem descrição'}</p>
+                <div class="flex flex-wrap items-center gap-3 text-xs text-gray-400">
+                  <span><i class="fas fa-video mr-1"></i>${lesson.video_provider || 'N/A'}</span>
+                  <span><i class="fas fa-clock mr-1"></i>${lesson.duration_minutes} min</span>
+                  ${lesson.support_text ? '<span class="text-blue-500"><i class="fas fa-file-alt mr-1"></i>Texto apoio</span>' : ''}
+                  ${lesson.transcript ? '<span class="text-purple-500"><i class="fas fa-closed-captioning mr-1"></i>Transcrição</span>' : ''}
+                  ${lesson.attachments && lesson.attachments.length > 0 ? `<span class="text-green-500"><i class="fas fa-paperclip mr-1"></i>${lesson.attachments.length} arquivo(s)</span>` : ''}
+                </div>
+              </div>
+              <div class="flex items-center gap-2 flex-shrink-0">
+                <button onclick='adminUI.showLessonForm(${JSON.stringify(lesson).replace(/'/g, "&#39;")})'
+                        class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm">
+                  <i class="fas fa-edit"></i><span class="hidden sm:inline ml-1">Editar</span>
+                </button>
+                <button onclick="adminUI.deleteLesson(${lesson.id}, '${lesson.title.replace(/'/g, "\\'")}')"
+                        class="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded text-sm">
+                  <i class="fas fa-trash"></i><span class="hidden sm:inline ml-1">Excluir</span>
+                </button>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `).join('')
+  },
+
+  dragState: { el: null },
+
+  initDragAndDrop() {
+    document.querySelectorAll('.lesson-drag-item').forEach(item => {
+      item.addEventListener('dragstart', e => {
+        this.dragState.el = item
+        item.classList.add('opacity-50')
+        e.dataTransfer.effectAllowed = 'move'
+      })
+      item.addEventListener('dragend', () => {
+        item.classList.remove('opacity-50')
+        document.querySelectorAll('.lesson-drag-item').forEach(el => el.style.borderTop = '')
+        this.dragState.el = null
+      })
+      item.addEventListener('dragover', e => {
+        e.preventDefault()
+        if (!this.dragState.el || this.dragState.el === item) return
+        e.dataTransfer.dropEffect = 'move'
+        document.querySelectorAll('.lesson-drag-item').forEach(el => el.style.borderTop = '')
+        item.style.borderTop = '2px solid #3b82f6'
+      })
+      item.addEventListener('dragleave', () => {
+        item.style.borderTop = ''
+      })
+      item.addEventListener('drop', e => {
+        e.preventDefault()
+        item.style.borderTop = ''
+        if (!this.dragState.el || this.dragState.el === item) return
+        const container = item.parentElement
+        container.insertBefore(this.dragState.el, item)
+        this.saveLessonOrder(container)
+      })
+    })
+  },
+
+  async saveLessonOrder(container) {
+    const items = container.querySelectorAll('.lesson-drag-item')
+    const updates = Array.from(items).map((el, idx) => ({
+      id: parseInt(el.dataset.lessonId),
+      order_index: idx
+    }))
+
+    const statusEl = document.getElementById('reorderStatus')
+    if (statusEl) {
+      statusEl.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Salvando...'
+      statusEl.className = 'text-gray-500 text-sm font-semibold'
+    }
+
+    try {
+      await axios.put('/api/admin/lessons/reorder', { lessons: updates })
+
+      updates.forEach(({ id, order_index }) => {
+        this.courses.forEach(course => {
+          ;(course.modules || []).forEach(module => {
+            const lesson = (module.lessons || []).find(l => l.id == id)
+            if (lesson) lesson.order_index = order_index
+          })
         })
       })
+
+      if (statusEl) {
+        statusEl.innerHTML = '<i class="fas fa-check mr-1"></i>Ordem salva'
+        statusEl.className = 'text-green-600 text-sm font-semibold'
+        setTimeout(() => { if (statusEl) statusEl.innerHTML = '' }, 2000)
+      }
+    } catch (error) {
+      console.error('Error saving lesson order:', error)
+      if (statusEl) {
+        statusEl.innerHTML = '<i class="fas fa-times mr-1"></i>Erro ao salvar'
+        statusEl.className = 'text-red-600 text-sm font-semibold'
+      }
     }
-    
-    const countElement = document.getElementById('lessonCount')
-    if (countElement) {
-      countElement.textContent = count
-    }
+  },
+
+  resetLessonFilters() {
+    document.getElementById('filterCourse').value = ''
+    document.getElementById('filterModule').disabled = true
+    document.getElementById('searchLesson').value = ''
+    this.onCourseFilterChange()
+  },
+
+  updateLessonCount(count = 0) {
+    const el = document.getElementById('lessonCount')
+    if (el) el.textContent = count
   },
   
   // Show lesson form

@@ -1342,6 +1342,22 @@ app.post('/api/admin/lessons', requireAdmin, async (c) => {
   }
 })
 
+// Reorder lessons in bulk (admin only)
+app.put('/api/admin/lessons/reorder', requireAdmin, async (c) => {
+  try {
+    const { lessons } = await c.req.json()
+    if (!Array.isArray(lessons)) return c.json({ error: 'lessons must be an array' }, 400)
+    const db = getDB(c)
+    for (const { id, order_index } of lessons) {
+      await db.update('lessons', { id }, { order_index })
+    }
+    return c.json({ success: true })
+  } catch (error: any) {
+    console.error('Reorder lessons error:', error)
+    return c.json({ error: error.message || 'Failed to reorder lessons' }, 500)
+  }
+})
+
 // Update lesson (admin only)
 app.put('/api/admin/lessons/:id', requireAdmin, async (c) => {
   try {
