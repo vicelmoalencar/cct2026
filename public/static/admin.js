@@ -1211,7 +1211,7 @@ const adminUI = {
           
           <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <label class="flex items-center cursor-pointer">
-              <input type="checkbox" id="lessonFreeTrial" 
+              <input type="checkbox" id="lessonFreeTrial"
                      ${isEdit && (lesson.teste_gratis || lesson.free_trial) ? 'checked' : ''}
                      class="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
               <span class="ml-3">
@@ -1223,6 +1223,33 @@ const adminUI = {
                 </span>
               </span>
             </label>
+          </div>
+
+          <div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
+            <label class="flex items-center cursor-pointer mb-3">
+              <input type="checkbox" id="lessonRentable"
+                     ${isEdit && lesson.rentable ? 'checked' : ''}
+                     onchange="adminUI.toggleRentalSection()"
+                     class="w-5 h-5 text-amber-600 border-gray-300 rounded focus:ring-amber-500">
+              <span class="ml-3">
+                <span class="text-sm font-semibold text-gray-800">
+                  <i class="fas fa-shopping-cart mr-2 text-amber-600"></i>Disponível para Aluguel
+                </span>
+                <span class="block text-xs text-gray-600 mt-1">
+                  Usuários sem assinatura ativa podem alugar esta aula por créditos (30 dias de acesso)
+                </span>
+              </span>
+            </label>
+            <div id="rentalSection" class="${isEdit && lesson.rentable ? '' : 'hidden'}">
+              <label class="block text-sm font-semibold text-gray-700 mb-2">
+                <i class="fas fa-coins mr-1 text-amber-500"></i>Créditos para Aluguel
+              </label>
+              <input type="number" id="lessonRentalCredits" min="1"
+                     value="${isEdit ? (lesson.rental_credits || '') : ''}"
+                     placeholder="Ex: 50"
+                     class="w-full px-4 py-2 border border-amber-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500">
+              <p class="text-xs text-gray-500 mt-1">Quantidade de créditos que o usuário pagará para ter 30 dias de acesso</p>
+            </div>
           </div>
           
           <div>
@@ -1314,6 +1341,12 @@ const adminUI = {
     }
   },
   
+  toggleRentalSection() {
+    const checked = document.getElementById('lessonRentable').checked
+    const section = document.getElementById('rentalSection')
+    if (section) section.classList.toggle('hidden', !checked)
+  },
+
   // Save lesson
   async saveLesson(event, lessonId) {
     event.preventDefault()
@@ -1327,6 +1360,8 @@ const adminUI = {
       duration_minutes: parseInt(document.getElementById('lessonDuration').value),
       order_index: parseInt(document.getElementById('lessonOrder').value),
       free_trial: document.getElementById('lessonFreeTrial').checked,
+      rentable: document.getElementById('lessonRentable').checked,
+      rental_credits: parseInt(document.getElementById('lessonRentalCredits').value) || 0,
       support_text: document.getElementById('lessonSupportText').value || null,
       transcript: document.getElementById('lessonTranscript').value || null,
       attachments: this.currentAttachments || []

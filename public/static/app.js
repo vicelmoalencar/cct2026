@@ -1156,7 +1156,24 @@ const app = {
       
       // Check if it's an access denied error (403)
       if (error.response && error.response.status === 403) {
-        // Show upgrade modal
+        const data = error.response.data || {}
+        // If lesson is rentable, check subscription status before showing rent modal
+        if (data.rentable && data.rental_credits) {
+          try {
+            const subRes = await axios.get('/api/subscriptions/current')
+            const sub = subRes.data.subscription
+            const hasActiveSub = sub && sub.status === 'active'
+            if (!hasActiveSub) {
+              this.showRentModal(lessonId, data.lesson_title || 'esta aula', data.rental_credits)
+              return
+            }
+          } catch (subErr) {
+            // No subscription — show rent modal
+            this.showRentModal(lessonId, data.lesson_title || 'esta aula', data.rental_credits)
+            return
+          }
+        }
+        // Not rentable or user has subscription — show upgrade modal
         if (typeof accessManager !== 'undefined') {
           accessManager.showUpgradeModal()
         } else {
@@ -1543,6 +1560,68 @@ const app = {
     }
   },
   
+  showRentModal(lessonId, lessonTitle, credits) {
+    const existing = document.getElementById('rentModal')
+    if (existing) existing.remove()
+
+    const modal = document.createElement('div')
+    modal.id = 'rentModal'
+    modal.className = 'fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4'
+    modal.innerHTML = `
+      <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+        <div class="text-center mb-6">
+          <div class="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i class="fas fa-shopping-cart text-amber-600 text-2xl"></i>
+          </div>
+          <h2 class="text-xl font-bold text-gray-800 mb-2">Alugar Aula</h2>
+          <p class="text-gray-600 text-sm">${lessonTitle}</p>
+        </div>
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-semibold text-gray-700">Custo do aluguel:</span>
+            <span class="text-lg font-bold text-amber-600">
+              <i class="fas fa-coins mr-1"></i>${credits} créditos
+            </span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-sm font-semibold text-gray-700">Período de acesso:</span>
+            <span class="text-sm font-bold text-green-600">30 dias</span>
+          </div>
+        </div>
+        <p class="text-xs text-gray-500 text-center mb-6">
+          Após confirmar, os créditos serão debitados da sua conta e você terá acesso à aula por 30 dias.
+        </p>
+        <div class="flex gap-3">
+          <button onclick="document.getElementById('rentModal').remove(); app.showCourses()"
+                  class="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold transition-colors">
+            Cancelar
+          </button>
+          <button id="confirmRentBtn" onclick="app.rentLesson(${lessonId}, ${credits})"
+                  class="flex-1 px-4 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-semibold transition-colors">
+            <i class="fas fa-lock-open mr-2"></i>Confirmar Aluguel
+          </button>
+        </div>
+      </div>
+    `
+    document.body.appendChild(modal)
+  },
+
+  async rentLesson(lessonId, credits) {
+    const btn = document.getElementById('confirmRentBtn')
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Processando...' }
+    try {
+      await axios.post(`/api/lessons/${lessonId}/rent`, { credits })
+      const modal = document.getElementById('rentModal')
+      if (modal) modal.remove()
+      alert('✅ Aula alugada com sucesso! Você tem acesso por 30 dias.')
+      this.loadLesson(lessonId)
+    } catch (error) {
+      const msg = error.response?.data?.error || 'Erro ao alugar aula'
+      alert('❌ ' + msg)
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-lock-open mr-2"></i>Confirmar Aluguel' }
+    }
+  },
+
   selectPlan(planId, planName, price) {
     alert(`
       🚧 Funcionalidade em Desenvolvimento

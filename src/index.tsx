@@ -18,10 +18,31 @@ const app = new Hono<{ Bindings: Bindings }>()
 // Helper: retorna cliente PostgreSQL para dados do CCT
 function getDB(c: any): PostgresClient {
   const connStr = c.env.DATABASE_CCT
-  if (!connStr) {
-    throw new Error('DATABASE_CCT não configurado nas variáveis de ambiente')
-  }
+  if (!connStr) throw new Error('DATABASE_CCT não configurado nas variáveis de ambiente')
   return new PostgresClient(connStr)
+}
+
+// Helper: retorna cliente PostgreSQL para o banco de créditos (SUITE PLUS)
+function getCreditsDB(c: any): PostgresClient {
+  const connStr = c.env.DATABASE_URL_CREDITOS
+  if (!connStr) throw new Error('DATABASE_URL_CREDITOS não configurado')
+  return new PostgresClient(connStr)
+}
+
+async function getUserCreditBalance(credDb: PostgresClient, email: string): Promise<number> {
+  const rows = await credDb.sql('SELECT credits_balance FROM users_credits WHERE user_email = $1', [email])
+  return rows.length > 0 ? parseInt(rows[0].credits_balance) : 0
+}
+
+async function deductCredits(credDb: PostgresClient, email: string, amount: number): Promise<void> {
+  await credDb.sql(
+    `UPDATE users_credits
+     SET credits_balance = credits_balance - $1,
+         total_credits_used = COALESCE(total_credits_used, 0) + $1,
+         updated_at = NOW()
+     WHERE user_email = $2`,
+    [amount, email]
+  )
 }
 
 // Consulta a data de expiração do usuário no sistema suiteplus (produto ID 4)
@@ -1302,8 +1323,8 @@ app.get('/api/admin/modules/find', requireAdmin, async (c) => {
 // Create lesson (admin only)
 app.post('/api/admin/lessons', requireAdmin, async (c) => {
   try {
-    const { module_id, title, description, video_provider, video_id, duration_minutes, order_index, free_trial, support_text, transcript, attachments } = await c.req.json()
-    
+    const { module_id, title, description, video_provider, video_id, duration_minutes, order_index, free_trial, support_text, transcript, attachments, rentable, rental_credits } = await c.req.json()
+
     // Build video_url from provider and id
     let video_url = null
     if (video_provider && video_id) {
@@ -1312,10 +1333,10 @@ app.post('/api/admin/lessons', requireAdmin, async (c) => {
       } else if (video_provider === 'vimeo') {
         video_url = `https://vimeo.com/${video_id}`
       } else {
-        video_url = video_id // For 'url' type, video_id contains the full URL
+        video_url = video_id
       }
     }
-    
+
     const db = getDB(c)
     const result = await db.insert('lessons', {
       module_id,
@@ -1329,7 +1350,9 @@ app.post('/api/admin/lessons', requireAdmin, async (c) => {
       teste_gratis: free_trial || false,
       support_text: support_text || null,
       transcript: transcript || null,
-      attachments: JSON.stringify(attachments || [])
+      attachments: JSON.stringify(attachments || []),
+      rentable: rentable || false,
+      rental_credits: rental_credits || 0
     })
 
     return c.json({
@@ -1362,7 +1385,7 @@ app.post('/api/admin/lessons-reorder', requireAdmin, async (c) => {
 app.put('/api/admin/lessons/:id', requireAdmin, async (c) => {
   try {
     const lessonId = c.req.param('id')
-    const { title, description, video_provider, video_id, duration_minutes, order_index, free_trial, support_text, transcript, attachments } = await c.req.json()
+    const { title, description, video_provider, video_id, duration_minutes, order_index, free_trial, support_text, transcript, attachments, rentable, rental_credits } = await c.req.json()
     
     // Build video_url from provider and id
     let video_url = null
@@ -1388,9 +1411,11 @@ app.put('/api/admin/lessons/:id', requireAdmin, async (c) => {
       teste_gratis: free_trial !== undefined ? free_trial : false,
       support_text: support_text || null,
       transcript: transcript || null,
-      attachments: JSON.stringify(attachments || [])
+      attachments: JSON.stringify(attachments || []),
+      rentable: rentable || false,
+      rental_credits: rental_credits || 0
     })
-    
+
     return c.json({ success: true })
   } catch (error: any) {
     console.error('Update lesson error:', error)
@@ -1409,6 +1434,90 @@ app.delete('/api/admin/lessons/:id', requireAdmin, async (c) => {
     return c.json({ success: true })
   } catch (error) {
     return c.json({ error: 'Failed to delete lesson' }, 500)
+  }
+})
+
+// Rent a lesson (authenticated users without active subscription)
+app.post('/api/lessons/:id/rent', requireAuth, async (c) => {
+  try {
+    const lessonId = parseInt(c.req.param('id'))
+    const user = c.get('user')
+    const userEmail = user.email
+
+    const db = getDB(c)
+
+    // Get lesson rental info
+    const rows = await db.sql(
+      'SELECT id, title, rentable, rental_credits FROM lessons WHERE id = $1',
+      [lessonId]
+    )
+    if (!rows.length || !rows[0].rentable) {
+      return c.json({ error: 'Esta aula não está disponível para aluguel' }, 400)
+    }
+    const lesson = rows[0]
+    const cost = parseInt(lesson.rental_credits)
+
+    // Check for existing active rental
+    const existing = await db.sql(
+      'SELECT expires_at FROM lesson_rentals WHERE user_email = $1 AND lesson_id = $2 AND expires_at > NOW()',
+      [userEmail, lessonId]
+    )
+    if (existing.length > 0) {
+      return c.json({ error: 'Você já possui acesso ativo a esta aula', expires_at: existing[0].expires_at }, 400)
+    }
+
+    // Check credit balance
+    const credDb = getCreditsDB(c)
+    const balance = await getUserCreditBalance(credDb, userEmail)
+    if (balance < cost) {
+      return c.json({ error: 'Créditos insuficientes', available: balance, required: cost }, 400)
+    }
+
+    // Deduct credits
+    await deductCredits(credDb, userEmail, cost)
+
+    // Create rental (upsert — renews if expired)
+    await db.sql(
+      `INSERT INTO lesson_rentals (user_email, lesson_id, credits_paid, rented_at, expires_at)
+       VALUES ($1, $2, $3, NOW(), NOW() + INTERVAL '30 days')
+       ON CONFLICT (user_email, lesson_id)
+       DO UPDATE SET credits_paid = $3, rented_at = NOW(), expires_at = NOW() + INTERVAL '30 days'`,
+      [userEmail, lessonId, cost]
+    )
+
+    return c.json({ success: true, message: 'Aula alugada com sucesso! Acesso liberado por 30 dias.' })
+  } catch (error: any) {
+    console.error('Rent lesson error:', error)
+    return c.json({ error: error.message || 'Erro ao processar aluguel' }, 500)
+  }
+})
+
+// Get user's rented lessons
+app.get('/api/user/rentals', requireAuth, async (c) => {
+  try {
+    const user = c.get('user')
+    const db = getDB(c)
+
+    const rentals = await db.sql(
+      `SELECT lr.id, lr.lesson_id, lr.credits_paid, lr.rented_at, lr.expires_at,
+              lr.expires_at > NOW() AS is_active,
+              l.title AS lesson_title, l.description AS lesson_description,
+              l.duration_minutes, l.video_provider,
+              m.title AS module_title,
+              co.title AS course_title, co.id AS course_id
+       FROM lesson_rentals lr
+       JOIN lessons l ON l.id = lr.lesson_id
+       JOIN modules m ON m.id = l.module_id
+       JOIN courses co ON co.id = m.course_id
+       WHERE lr.user_email = $1
+       ORDER BY lr.expires_at DESC`,
+      [user.email]
+    )
+
+    return c.json({ rentals })
+  } catch (error: any) {
+    console.error('Get rentals error:', error)
+    return c.json({ error: error.message || 'Erro ao buscar aluguéis' }, 500)
   }
 })
 
@@ -2873,12 +2982,28 @@ app.get('/api/lessons/:id', async (c) => {
         console.log('Has access:', hasAccess, 'User:', userEmail, 'Lesson:', lessonId)
         
         if (!hasAccess) {
-          console.log('❌ Access denied for user:', userEmail, 'lesson:', lessonId)
-          return c.json({ 
-            error: 'Access denied',
-            message: 'Você não tem permissão para acessar esta aula. Faça upgrade do seu plano!',
-            needsUpgrade: true
-          }, 403)
+          // Check for active rental before denying
+          const rental = await db.sql(
+            'SELECT expires_at FROM lesson_rentals WHERE user_email = $1 AND lesson_id = $2 AND expires_at > NOW()',
+            [userEmail, parseInt(lessonId)]
+          )
+          if (rental.length > 0) {
+            hasAccess = true
+          } else {
+            const lessonMeta = await db.sql(
+              'SELECT rentable, rental_credits, title FROM lessons WHERE id = $1',
+              [parseInt(lessonId)]
+            )
+            console.log('❌ Access denied for user:', userEmail, 'lesson:', lessonId)
+            return c.json({
+              error: 'Access denied',
+              message: 'Você não tem permissão para acessar esta aula.',
+              needsUpgrade: true,
+              rentable: lessonMeta[0]?.rentable || false,
+              rental_credits: lessonMeta[0]?.rental_credits || 0,
+              lesson_title: lessonMeta[0]?.title || ''
+            }, 403)
+          }
         }
         
         console.log('✅ Access granted for user:', userEmail, 'lesson:', lessonId)
@@ -5190,6 +5315,24 @@ app.get('/profile', (c) => {
                 </div>
             </div>
 
+            <!-- Rented Lessons -->
+            <div class="bg-white rounded-xl shadow-md overflow-hidden mb-6">
+                <div class="bg-gradient-to-r from-amber-500 to-amber-400 px-6 py-4">
+                    <h3 class="text-white font-bold text-lg">
+                        <i class="fas fa-shopping-cart mr-2"></i>
+                        Minhas Aulas Alugadas
+                    </h3>
+                </div>
+                <div class="p-6">
+                    <div id="rentalsContainer">
+                        <div class="text-center py-8 text-gray-500">
+                            <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                            <p>Carregando aluguéis...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Change Password -->
             <div class="bg-white rounded-xl shadow-md overflow-hidden">
                 <div class="bg-gradient-to-r from-purple-600 to-purple-500 px-6 py-4">
@@ -5319,8 +5462,9 @@ app.get('/profile', (c) => {
                     document.getElementById('profileEmail').value = user.email || ''
                 }
                 
-                // Load subscription history
+                // Load subscription history and rentals
                 loadSubscriptionHistory(user.email)
+                loadRentals()
             } catch (error) {
                 console.error('Error loading profile:', error)
                 window.location.href = '/'
@@ -5515,6 +5659,80 @@ app.get('/profile', (c) => {
                     </div>\` : ''}
                 </div>
             \`
+        }
+
+        // Load rented lessons
+        async function loadRentals() {
+            const container = document.getElementById('rentalsContainer')
+            try {
+                const response = await axios.get('/api/user/rentals')
+                const rentals = response.data.rentals || []
+
+                if (rentals.length === 0) {
+                    container.innerHTML = \`
+                        <div class="text-center py-6 text-gray-500">
+                            <i class="fas fa-shopping-cart text-3xl mb-2 text-gray-300"></i>
+                            <p class="text-sm">Nenhuma aula alugada ainda</p>
+                            <p class="text-xs text-gray-400 mt-1">Aulas disponíveis para aluguel aparecem na plataforma</p>
+                        </div>
+                    \`
+                    return
+                }
+
+                const now = new Date()
+                const activeRentals = rentals.filter(r => new Date(r.expires_at) > now)
+                const expiredRentals = rentals.filter(r => new Date(r.expires_at) <= now)
+
+                const renderRental = (r, active) => {
+                    const exp = new Date(r.expires_at)
+                    const formatted = exp.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+                    const daysLeft = Math.ceil((exp - now) / (1000 * 60 * 60 * 24))
+                    const borderClass = active
+                        ? (daysLeft <= 3 ? 'border-l-4 border-red-400 bg-red-50' : 'border-l-4 border-amber-400 bg-amber-50')
+                        : 'border-l-4 border-gray-300 bg-gray-50'
+                    return \`
+                        <div class="p-4 rounded-lg border \${borderClass} mb-3">
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="flex-1">
+                                    <p class="text-xs text-gray-500 mb-1">
+                                        \${r.course_title ? r.course_title + ' › ' : ''}\${r.module_title || ''}
+                                    </p>
+                                    <h5 class="font-bold text-gray-800 mb-1">\${r.lesson_title}</h5>
+                                    <div class="text-sm text-gray-600 space-y-1">
+                                        <p><i class="fas fa-coins text-amber-500 mr-1"></i><strong>Créditos pagos:</strong> \${r.credits_paid}</p>
+                                        <p><i class="fas fa-calendar-alt text-gray-400 mr-1"></i><strong>Expira em:</strong> \${formatted}</p>
+                                        \${active ? \`<p class="\${daysLeft <= 3 ? 'text-red-600 font-semibold' : 'text-amber-700'}">
+                                            <i class="fas fa-clock mr-1"></i><strong>Tempo restante:</strong> \${daysLeft} dia(s)
+                                        </p>\` : '<p class="text-gray-500"><i class="fas fa-times-circle mr-1"></i>Expirado</p>'}
+                                    </div>
+                                </div>
+                                \${active ? \`<a href="/" onclick="localStorage.setItem('openLesson', '\${r.lesson_id}')"
+                                    class="px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-lg transition">
+                                    <i class="fas fa-play mr-1"></i>Assistir
+                                </a>\` : ''}
+                            </div>
+                        </div>
+                    \`
+                }
+
+                let html = ''
+                if (activeRentals.length > 0) {
+                    html += \`<h4 class="text-sm font-bold text-amber-700 mb-3 flex items-center gap-2">
+                        <i class="fas fa-clock"></i> Aluguéis Ativos (\${activeRentals.length})</h4>\`
+                    html += activeRentals.map(r => renderRental(r, true)).join('')
+                }
+                if (expiredRentals.length > 0) {
+                    html += \`<h4 class="text-sm font-bold text-gray-500 mb-3 mt-4 flex items-center gap-2">
+                        <i class="fas fa-history"></i> Aluguéis Anteriores (\${expiredRentals.length})</h4>\`
+                    html += expiredRentals.map(r => renderRental(r, false)).join('')
+                }
+                container.innerHTML = html
+            } catch (error) {
+                console.error('Error loading rentals:', error)
+                container.innerHTML = \`<div class="text-center py-4 text-gray-400 text-sm">
+                    <i class="fas fa-exclamation-circle mr-1"></i>Erro ao carregar aluguéis
+                </div>\`
+            }
         }
 
         // Handle profile form submission
