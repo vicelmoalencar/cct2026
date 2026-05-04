@@ -1400,21 +1400,40 @@ app.put('/api/admin/lessons/:id', requireAdmin, async (c) => {
     }
     
     const db = getDB(c)
-    await db.update('lessons', { id: lessonId }, {
-      title,
-      description: description || null,
-      video_url,
-      video_provider: video_provider || null,
-      video_id: video_id || null,
-      duration_minutes,
-      order_index,
-      teste_gratis: free_trial !== undefined ? free_trial : false,
-      support_text: support_text || null,
-      transcript: transcript || null,
-      attachments: JSON.stringify(attachments || []),
-      rentable: rentable || false,
-      rental_credits: rental_credits || 0
-    })
+    const id = parseInt(lessonId)
+    await db.sql(
+      `UPDATE lessons SET
+        title = $1,
+        description = $2,
+        video_url = $3,
+        video_provider = $4,
+        video_id = $5,
+        duration_minutes = $6,
+        order_index = $7,
+        teste_gratis = $8,
+        support_text = $9,
+        transcript = $10,
+        attachments = $11::jsonb,
+        rentable = $12,
+        rental_credits = $13
+       WHERE id = $14`,
+      [
+        title,
+        description || null,
+        video_url,
+        video_provider || null,
+        video_id || null,
+        parseInt(duration_minutes) || 0,
+        parseInt(order_index) || 0,
+        free_trial === true || free_trial === 'true',
+        support_text || null,
+        transcript || null,
+        JSON.stringify(attachments || []),
+        rentable === true || rentable === 'true',
+        parseInt(rental_credits) || 0,
+        id
+      ]
+    )
 
     return c.json({ success: true })
   } catch (error: any) {
