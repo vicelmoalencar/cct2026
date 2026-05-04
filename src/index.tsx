@@ -4219,6 +4219,17 @@ app.get('/', (c) => {
                                 <p class="font-semibold text-sm" id="userName">Aluno</p>
                             </div>
                         </div>
+
+                        <!-- Credits Badge -->
+                        <div id="creditsDisplay" class="hidden items-center gap-2 bg-green-600/30 border border-green-500/40 rounded-xl px-3 py-2">
+                            <i class="fas fa-coins text-yellow-300 text-sm"></i>
+                            <div>
+                                <p class="text-xs text-green-200 leading-none mb-0.5">Créditos</p>
+                                <p class="text-sm font-bold text-white leading-none" id="userCredits">
+                                    <span class="inline-block w-8 h-3 bg-white/20 rounded animate-pulse"></span>
+                                </p>
+                            </div>
+                        </div>
                         
                         <!-- Search Button -->
                         <button onclick="app.showSearch(this)" 

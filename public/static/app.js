@@ -22,7 +22,10 @@ const app = {
     if (userNameEl) {
       userNameEl.textContent = authManager.getUserName()
     }
-    
+
+    // Load credits balance
+    this.loadUserCredits()
+
     // Check if in impersonation mode
     this.checkImpersonationMode()
     
@@ -37,7 +40,39 @@ const app = {
     
     this.loadCourses()
   },
-  
+
+  async loadUserCredits() {
+    try {
+      const email = authManager.getUserEmail()
+      if (!email) return
+
+      const display = document.getElementById('creditsDisplay')
+      if (display) display.classList.replace('hidden', 'flex')
+
+      const response = await fetch('https://suiteplus.ensinoplus.com.br/api/credits/get', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer EP-API-c4f8a2d9e1b6350782c5f3a0d7e2b4c8'
+        },
+        body: JSON.stringify({ email })
+      })
+
+      const data = await response.json()
+      const el = document.getElementById('userCredits')
+      if (el) {
+        if (data.success && data.credits !== undefined) {
+          el.textContent = Number(data.credits).toLocaleString('pt-BR')
+        } else {
+          el.textContent = '—'
+        }
+      }
+    } catch (error) {
+      const el = document.getElementById('userCredits')
+      if (el) el.textContent = '—'
+    }
+  },
+
   // Check and show impersonation banner
   checkImpersonationMode() {
     const isImpersonating = sessionStorage.getItem('impersonation_mode') === 'true'
