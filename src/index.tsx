@@ -11,6 +11,7 @@ type Bindings = {
   SUPABASE_ANON_KEY: string;
   DATABASE_CCT: string;
   DATABASE_SUITEPLUS: string;
+  DATABASE_URL_CREDITOS?: string;
 }
 
 const app = new Hono<{ Bindings: Bindings }>()
@@ -24,25 +25,46 @@ function getDB(c: any): PostgresClient {
 
 // Helper: retorna cliente PostgreSQL para o banco de créditos (SUITE PLUS)
 function getCreditsDB(c: any): PostgresClient {
-  const connStr = c.env.DATABASE_URL_CREDITOS
-  if (!connStr) throw new Error('DATABASE_URL_CREDITOS não configurado')
+  const connStr = c.env.DATABASE_URL_CREDITOS || c.env.DATABASE_SUITEPLUS
+  if (!connStr) throw new Error('Banco de créditos não configurado')
   return new PostgresClient(connStr)
 }
 
 async function getUserCreditBalance(credDb: PostgresClient, email: string): Promise<number> {
-  const rows = await credDb.sql('SELECT credits_balance FROM users_credits WHERE user_email = $1', [email])
+  const rows = await credDb.sql('SELECT credits_balance FROM users_credits WHERE lower(user_email) = lower($1)', [email])
   return rows.length > 0 ? parseInt(rows[0].credits_balance) : 0
 }
 
-async function deductCredits(credDb: PostgresClient, email: string, amount: number): Promise<void> {
-  await credDb.sql(
+async function deductCredits(credDb: PostgresClient, email: string, amount: number): Promise<boolean> {
+  const rows = await credDb.sql(
     `UPDATE users_credits
      SET credits_balance = credits_balance - $1,
          total_credits_used = COALESCE(total_credits_used, 0) + $1,
          updated_at = NOW()
-     WHERE user_email = $2`,
+     WHERE lower(user_email) = lower($2)
+       AND credits_balance >= $1
+     RETURNING credits_balance`,
     [amount, email]
   )
+  return rows.length > 0
+}
+
+async function ensureLessonRentalSchema(db: PostgresClient): Promise<void> {
+  await db.sql(`ALTER TABLE lessons ADD COLUMN IF NOT EXISTS rentable BOOLEAN DEFAULT FALSE`)
+  await db.sql(`ALTER TABLE lessons ADD COLUMN IF NOT EXISTS rental_credits INTEGER DEFAULT 0`)
+  await db.sql(`
+    CREATE TABLE IF NOT EXISTS lesson_rentals (
+      id SERIAL PRIMARY KEY,
+      user_email VARCHAR(255) NOT NULL,
+      lesson_id INTEGER NOT NULL,
+      credits_paid INTEGER NOT NULL,
+      rented_at TIMESTAMPTZ DEFAULT NOW(),
+      expires_at TIMESTAMPTZ NOT NULL,
+      UNIQUE(user_email, lesson_id)
+    )
+  `)
+  await db.sql(`CREATE INDEX IF NOT EXISTS idx_lesson_rentals_email ON lesson_rentals(user_email)`)
+  await db.sql(`CREATE INDEX IF NOT EXISTS idx_lesson_rentals_lesson ON lesson_rentals(lesson_id)`)
 }
 
 // Consulta a data de expiração do usuário no sistema suiteplus (produto ID 4)
@@ -163,6 +185,18 @@ async function requireAuth(c: any, next: any) {
   c.set('user', user)
   await next()
 }
+
+app.get('/api/user/credits', requireAuth, async (c) => {
+  try {
+    const user = c.get('user')
+    const credDb = getCreditsDB(c)
+    const credits = await getUserCreditBalance(credDb, user.email)
+    return c.json({ success: true, credits })
+  } catch (error: any) {
+    console.error('Get credits error:', error)
+    return c.json({ error: error.message || 'Erro ao buscar créditos' }, 500)
+  }
+})
 
 // ============================================
 // API ROUTES - AUTH
@@ -1459,6 +1493,7 @@ app.post('/api/lessons/:id/rent', requireAuth, async (c) => {
     const userEmail = user.email
 
     const db = getDB(c)
+    await ensureLessonRentalSchema(db)
 
     // Get lesson rental info
     const rows = await db.sql(
@@ -1470,6 +1505,9 @@ app.post('/api/lessons/:id/rent', requireAuth, async (c) => {
     }
     const lesson = rows[0]
     const cost = parseInt(lesson.rental_credits)
+    if (!Number.isFinite(cost) || cost <= 0) {
+      return c.json({ error: 'Créditos de aluguel inválidos para esta aula' }, 400)
+    }
 
     // Check for existing active rental
     const existing = await db.sql(
@@ -1487,8 +1525,12 @@ app.post('/api/lessons/:id/rent', requireAuth, async (c) => {
       return c.json({ error: 'Créditos insuficientes', available: balance, required: cost }, 400)
     }
 
-    // Deduct credits
-    await deductCredits(credDb, userEmail, cost)
+    // Deduct credits with a balance guard to avoid double-spending.
+    const debited = await deductCredits(credDb, userEmail, cost)
+    if (!debited) {
+      const currentBalance = await getUserCreditBalance(credDb, userEmail)
+      return c.json({ error: 'Créditos insuficientes', available: currentBalance, required: cost }, 400)
+    }
 
     // Create rental (upsert — renews if expired)
     await db.sql(
@@ -1511,6 +1553,7 @@ app.get('/api/user/rentals', requireAuth, async (c) => {
   try {
     const user = c.get('user')
     const db = getDB(c)
+    await ensureLessonRentalSchema(db)
 
     const rentals = await db.sql(
       `SELECT lr.id, lr.lesson_id, lr.credits_paid, lr.rented_at, lr.expires_at,
@@ -1573,21 +1616,7 @@ app.post('/api/admin/run-migration-lesson-fields', requireAdmin, async (c) => {
     await db.sql(`ALTER TABLE lessons ADD COLUMN IF NOT EXISTS support_text TEXT`)
     await db.sql(`ALTER TABLE lessons ADD COLUMN IF NOT EXISTS transcript TEXT`)
     await db.sql(`ALTER TABLE lessons ADD COLUMN IF NOT EXISTS attachments JSONB DEFAULT '[]'::jsonb`)
-    await db.sql(`ALTER TABLE lessons ADD COLUMN IF NOT EXISTS rentable BOOLEAN DEFAULT FALSE`)
-    await db.sql(`ALTER TABLE lessons ADD COLUMN IF NOT EXISTS rental_credits INTEGER DEFAULT 0`)
-    await db.sql(`
-      CREATE TABLE IF NOT EXISTS lesson_rentals (
-        id SERIAL PRIMARY KEY,
-        user_email VARCHAR(255) NOT NULL,
-        lesson_id INTEGER NOT NULL,
-        credits_paid INTEGER NOT NULL,
-        rented_at TIMESTAMPTZ DEFAULT NOW(),
-        expires_at TIMESTAMPTZ NOT NULL,
-        UNIQUE(user_email, lesson_id)
-      )
-    `)
-    await db.sql(`CREATE INDEX IF NOT EXISTS idx_lesson_rentals_email ON lesson_rentals(user_email)`)
-    await db.sql(`CREATE INDEX IF NOT EXISTS idx_lesson_rentals_lesson ON lesson_rentals(lesson_id)`)
+    await ensureLessonRentalSchema(db)
     return c.json({ success: true, message: 'Migration applied successfully' })
   } catch (error: any) {
     console.error('Migration error:', error)

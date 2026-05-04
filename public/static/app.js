@@ -67,16 +67,8 @@ const app = {
         }
       }
 
-      const response = await fetch('https://suiteplus.ensinoplus.com.br/api/credits/get', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer EP-API-c4f8a2d9e1b6350782c5f3a0d7e2b4c8'
-        },
-        body: JSON.stringify({ email })
-      })
-
-      const data = await response.json()
+      const response = await axios.get('/api/user/credits')
+      const data = response.data
       const el = document.getElementById('userCredits')
       if (el) {
         el.textContent = (data.success && data.credits !== undefined)
@@ -1583,6 +1575,12 @@ const app = {
               <i class="fas fa-coins mr-1"></i>${credits} créditos
             </span>
           </div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-semibold text-gray-700">Saldo:</span>
+            <span id="rentCreditsBalance" class="text-sm font-bold text-gray-600">
+              <i class="fas fa-spinner fa-spin mr-1"></i>Carregando...
+            </span>
+          </div>
           <div class="flex items-center justify-between">
             <span class="text-sm font-semibold text-gray-700">Período de acesso:</span>
             <span class="text-sm font-bold text-green-600">30 dias</span>
@@ -1604,6 +1602,32 @@ const app = {
       </div>
     `
     document.body.appendChild(modal)
+    this.updateRentModalBalance(credits)
+  },
+
+  async updateRentModalBalance(requiredCredits) {
+    const balanceEl = document.getElementById('rentCreditsBalance')
+    const confirmBtn = document.getElementById('confirmRentBtn')
+    try {
+      const response = await axios.get('/api/user/credits')
+      const credits = Number(response.data.credits || 0)
+      if (balanceEl) {
+        balanceEl.textContent = `${credits.toLocaleString('pt-BR')} creditos`
+        balanceEl.className = credits >= requiredCredits
+          ? 'text-sm font-bold text-green-600'
+          : 'text-sm font-bold text-red-600'
+      }
+      if (confirmBtn && credits < requiredCredits) {
+        confirmBtn.disabled = true
+        confirmBtn.classList.add('opacity-60', 'cursor-not-allowed')
+        confirmBtn.innerHTML = '<i class="fas fa-coins mr-2"></i>Creditos insuficientes'
+      }
+    } catch (error) {
+      if (balanceEl) {
+        balanceEl.textContent = 'Nao foi possivel consultar'
+        balanceEl.className = 'text-sm font-bold text-red-600'
+      }
+    }
   },
 
   async rentLesson(lessonId, credits) {
@@ -1611,6 +1635,7 @@ const app = {
     if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Processando...' }
     try {
       await axios.post(`/api/lessons/${lessonId}/rent`, { credits })
+      this.loadUserCredits()
       const modal = document.getElementById('rentModal')
       if (modal) modal.remove()
       alert('✅ Aula alugada com sucesso! Você tem acesso por 30 dias.')
