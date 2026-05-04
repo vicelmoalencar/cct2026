@@ -1401,38 +1401,33 @@ app.put('/api/admin/lessons/:id', requireAdmin, async (c) => {
     
     const db = getDB(c)
     const id = parseInt(lessonId)
+
+    // Update core fields (always present)
+    await db.update('lessons', { id }, {
+      title,
+      description: description || null,
+      video_url,
+      video_provider: video_provider || null,
+      video_id: video_id || null,
+      duration_minutes: parseInt(duration_minutes) || 0,
+      order_index: parseInt(order_index) || 0,
+      teste_gratis: free_trial === true || free_trial === 'true',
+    })
+
+    // Update extra fields (added via migration — use individual try/catch to avoid blocking)
+    try {
+      await db.sql(
+        `UPDATE lessons SET support_text = $1, transcript = $2, attachments = $3::jsonb WHERE id = $4`,
+        [support_text || null, transcript || null, JSON.stringify(attachments || []), id]
+      )
+    } catch (e: any) {
+      console.warn('support_text/transcript/attachments columns may not exist:', e.message)
+    }
+
+    // Update rental fields — always in a dedicated targeted query
     await db.sql(
-      `UPDATE lessons SET
-        title = $1,
-        description = $2,
-        video_url = $3,
-        video_provider = $4,
-        video_id = $5,
-        duration_minutes = $6,
-        order_index = $7,
-        teste_gratis = $8,
-        support_text = $9,
-        transcript = $10,
-        attachments = $11::jsonb,
-        rentable = $12,
-        rental_credits = $13
-       WHERE id = $14`,
-      [
-        title,
-        description || null,
-        video_url,
-        video_provider || null,
-        video_id || null,
-        parseInt(duration_minutes) || 0,
-        parseInt(order_index) || 0,
-        free_trial === true || free_trial === 'true',
-        support_text || null,
-        transcript || null,
-        JSON.stringify(attachments || []),
-        rentable === true || rentable === 'true',
-        parseInt(rental_credits) || 0,
-        id
-      ]
+      `UPDATE lessons SET rentable = $1, rental_credits = $2 WHERE id = $3`,
+      [rentable === true || rentable === 'true', parseInt(rental_credits) || 0, id]
     )
 
     return c.json({ success: true })
