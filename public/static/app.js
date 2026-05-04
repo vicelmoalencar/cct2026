@@ -46,8 +46,26 @@ const app = {
       const email = authManager.getUserEmail()
       if (!email) return
 
-      const display = document.getElementById('creditsDisplay')
-      if (display) display.classList.replace('hidden', 'flex')
+      // Create badge dynamically if it doesn't exist yet (before rebuild)
+      let display = document.getElementById('creditsDisplay')
+      if (!display) {
+        const userInfoDiv = document.getElementById('userName')?.closest('div')?.parentElement
+        if (userInfoDiv) {
+          display = document.createElement('div')
+          display.id = 'creditsDisplay'
+          display.className = 'flex items-center gap-2 rounded-xl px-3 py-2 border border-green-500/40'
+          display.style.cssText = 'background: rgba(22,163,74,0.25)'
+          display.innerHTML = `
+            <i class="fas fa-coins" style="color:#fde68a;font-size:14px"></i>
+            <div>
+              <p style="font-size:10px;color:#bbf7d0;line-height:1;margin-bottom:2px">Créditos</p>
+              <p id="userCredits" style="font-size:14px;font-weight:700;color:#fff;line-height:1">
+                <span style="display:inline-block;width:32px;height:12px;background:rgba(255,255,255,0.2);border-radius:4px"></span>
+              </p>
+            </div>`
+          userInfoDiv.insertAdjacentElement('afterend', display)
+        }
+      }
 
       const response = await fetch('https://suiteplus.ensinoplus.com.br/api/credits/get', {
         method: 'POST',
@@ -61,11 +79,9 @@ const app = {
       const data = await response.json()
       const el = document.getElementById('userCredits')
       if (el) {
-        if (data.success && data.credits !== undefined) {
-          el.textContent = Number(data.credits).toLocaleString('pt-BR')
-        } else {
-          el.textContent = '—'
-        }
+        el.textContent = (data.success && data.credits !== undefined)
+          ? Number(data.credits).toLocaleString('pt-BR')
+          : '—'
       }
     } catch (error) {
       const el = document.getElementById('userCredits')
