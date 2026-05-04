@@ -1573,6 +1573,21 @@ app.post('/api/admin/run-migration-lesson-fields', requireAdmin, async (c) => {
     await db.sql(`ALTER TABLE lessons ADD COLUMN IF NOT EXISTS support_text TEXT`)
     await db.sql(`ALTER TABLE lessons ADD COLUMN IF NOT EXISTS transcript TEXT`)
     await db.sql(`ALTER TABLE lessons ADD COLUMN IF NOT EXISTS attachments JSONB DEFAULT '[]'::jsonb`)
+    await db.sql(`ALTER TABLE lessons ADD COLUMN IF NOT EXISTS rentable BOOLEAN DEFAULT FALSE`)
+    await db.sql(`ALTER TABLE lessons ADD COLUMN IF NOT EXISTS rental_credits INTEGER DEFAULT 0`)
+    await db.sql(`
+      CREATE TABLE IF NOT EXISTS lesson_rentals (
+        id SERIAL PRIMARY KEY,
+        user_email VARCHAR(255) NOT NULL,
+        lesson_id INTEGER NOT NULL,
+        credits_paid INTEGER NOT NULL,
+        rented_at TIMESTAMPTZ DEFAULT NOW(),
+        expires_at TIMESTAMPTZ NOT NULL,
+        UNIQUE(user_email, lesson_id)
+      )
+    `)
+    await db.sql(`CREATE INDEX IF NOT EXISTS idx_lesson_rentals_email ON lesson_rentals(user_email)`)
+    await db.sql(`CREATE INDEX IF NOT EXISTS idx_lesson_rentals_lesson ON lesson_rentals(lesson_id)`)
     return c.json({ success: true, message: 'Migration applied successfully' })
   } catch (error: any) {
     console.error('Migration error:', error)
