@@ -27,23 +27,28 @@ const accessManager = {
   // Safe navigation to lesson - checks access before loading
   async navigateToLesson(lessonId, lesson = null) {
     console.log('🔍 Attempting to navigate to lesson:', lessonId)
-    
-    // If we don't have lesson data, we need to check via API
+
+    // If we don't have lesson data, try to load directly (backend blocks if no access)
     if (!lesson) {
-      // Try to load the lesson - backend will block if no access
       if (typeof app !== 'undefined') {
         app.loadLesson(lessonId)
       }
       return
     }
-    
+
     // Check if user can access this lesson
     if (!this.canAccessLesson(lesson)) {
-      console.log('🚫 Access denied - showing upgrade modal')
-      this.showUpgradeModal()
+      const isRentable = lesson.rentable && lesson.rental_credits > 0
+      if (isRentable && typeof app !== 'undefined' && app.showRentModal) {
+        console.log('🛒 Access denied - showing rent modal for lesson', lessonId)
+        app.showRentModal(lessonId, lesson.title || 'esta aula', lesson.rental_credits)
+      } else {
+        console.log('🚫 Access denied - showing upgrade modal')
+        this.showUpgradeModal()
+      }
       return
     }
-    
+
     console.log('✅ Access granted - loading lesson')
     if (typeof app !== 'undefined') {
       app.loadLesson(lessonId)
@@ -172,40 +177,48 @@ const accessManager = {
     // Wait for lessons to be loaded
     setTimeout(() => {
       const lessonItems = document.querySelectorAll('.lesson-item')
-      
+
       console.log('🔍 Attaching click handlers to', lessonItems.length, 'lessons')
       console.log('👤 User access status:', this.userAccessStatus)
-      
+
       for (const item of lessonItems) {
         const isPremium = item.dataset.isPremium === 'true'
         const lessonId = item.dataset.lessonId
-        
+        const isRentable = item.dataset.rentable === 'true'
+        const rentalCredits = parseInt(item.dataset.rentalCredits || '0')
+        const lessonTitle = item.dataset.lessonTitle || 'esta aula'
+
         if (!lessonId) continue
-        
-        console.log(`Lesson ${lessonId}: isPremium=${isPremium}, accessType=${this.userAccessStatus?.accessType}`)
-        
+
+        console.log(`Lesson ${lessonId}: isPremium=${isPremium}, rentable=${isRentable}, accessType=${this.userAccessStatus?.accessType}`)
+
         // If premium lesson and user doesn't have full access
         if (isPremium && this.userAccessStatus?.accessType !== 'COMPLETO') {
           console.log(`🔒 BLOCKING lesson ${lessonId}`)
-          
+
           // Add visual styling
-          item.style.opacity = '0.7'
+          if (!isRentable) item.style.opacity = '0.7'
           item.classList.add('premium-locked')
-          
+
           // Override click handler - IMPORTANT: Use onclick attribute AND addEventListener
           item.onclick = null // Remove inline onclick
           item.removeAttribute('onclick')
-          
+
           // Remove any existing listeners by cloning
           const newItem = item.cloneNode(true)
           item.parentNode.replaceChild(newItem, item)
-          
-          // Add new click handler that shows modal
+
+          // Add new click handler — rent modal for rentable lessons, upgrade otherwise
           newItem.addEventListener('click', (e) => {
             e.preventDefault()
             e.stopPropagation()
-            console.log('🚫 Blocked click on premium lesson', lessonId)
-            this.showUpgradeModal()
+            if (isRentable && typeof app !== 'undefined' && app.showRentModal) {
+              console.log('🛒 Showing rent modal for lesson', lessonId)
+              app.showRentModal(parseInt(lessonId), lessonTitle, rentalCredits)
+            } else {
+              console.log('🚫 Blocked click on premium lesson', lessonId)
+              this.showUpgradeModal()
+            }
             return false
           }, true) // Use capture phase
         } else {
