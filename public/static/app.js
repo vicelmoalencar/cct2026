@@ -1133,7 +1133,7 @@ const app = {
                           ${isFree
                             ? '<span class="text-green-600 font-semibold"><i class="fas fa-gift mr-1"></i>Grátis</span>'
                             : isRentableSidebar && !isWatched
-                              ? \`<span class="text-amber-600 font-semibold"><i class="fas fa-coins mr-1"></i>${l.rental_credits} créditos</span>\`
+                              ? '<span class="text-amber-600 font-semibold"><i class="fas fa-coins mr-1"></i>' + l.rental_credits + ' créditos</span>'
                               : '<span class="text-orange-600 font-semibold"><i class="fas fa-crown mr-1"></i>Premium</span>'
                           }
                           ${isWatched ? '<span class="text-green-700 font-semibold bg-green-100 px-1.5 py-0.5 rounded-full">✓ Assistida</span>' : ''}
