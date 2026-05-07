@@ -118,7 +118,7 @@ app.use('/static/*', async (c, next) => {
     else if (fileName.endsWith('.css')) contentType = 'text/css'
     else if (fileName.endsWith('.html')) contentType = 'text/html'
     
-    return c.text(content, 200, { 'Content-Type': contentType })
+    return c.text(content, 200, { 'Content-Type': contentType, 'Cache-Control': 'no-cache' })
   }
   
   console.log('❌ File not found:', filePath)
