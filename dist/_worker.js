@@ -1333,8 +1333,8 @@ Minimum version required to store current data is: `+P+`.
         <script defer src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"><\/script>
         <script defer src="/static/auth.js"><\/script>
         <script defer src="/static/admin.js?v=3"><\/script>
-        <script defer src="/static/access-control.js"><\/script>
-        <script defer src="/static/app.js?v=3"><\/script>
+        <script defer src="/static/access-control.js?v=2"><\/script>
+        <script defer src="/static/app.js?v=4"><\/script>
         <script defer src="/static/search.js"><\/script>
     </body>
     </html>
