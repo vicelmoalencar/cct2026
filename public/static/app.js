@@ -3,6 +3,7 @@ const app = {
   currentUser: null,
   currentCourse: null,
   currentLesson: null,
+  activeRentals: new Set(), // lesson IDs with active rentals
   
   // Initialize app
   async init() {
@@ -462,11 +463,18 @@ const app = {
       
       this.currentCourse = courseId
       
-      const [courseResponse, progressResponse, favResponse] = await Promise.all([
+      const [courseResponse, progressResponse, favResponse, rentalsResponse] = await Promise.all([
         axios.get(`/api/courses/${courseId}`),
         axios.get(`/api/progress/${this.currentUser}/${courseId}`),
-        axios.get('/api/favorites').then(r => r.data).catch(() => [])
+        axios.get('/api/favorites').then(r => r.data).catch(() => []),
+        axios.get('/api/user/rentals').then(r => r.data).catch(() => ({ rentals: [] }))
       ])
+      const now = new Date()
+      this.activeRentals = new Set(
+        (rentalsResponse.rentals || [])
+          .filter(r => new Date(r.expires_at) > now)
+          .map(r => r.lesson_id)
+      )
 
       const { course, modules } = courseResponse.data
       const progress = progressResponse.data.progress
@@ -537,22 +545,27 @@ const app = {
                     const isCompleted = progressMap[lesson.id]
                     const isFree = lesson.teste_gratis || lesson.free_trial || false
                     const isPremium = !isFree
-                    const isRentable = !isFree && lesson.rentable && lesson.rental_credits > 0
+                    const isRented = app.activeRentals.has(lesson.id)
+                    const isRentable = !isFree && !isRented && lesson.rentable && lesson.rental_credits > 0
 
-                    const borderClass = isCompleted ? 'border-green-300 bg-green-50' : isRentable ? 'border-amber-200' : 'border-gray-200'
-                    const circleClass = isCompleted ? 'bg-green-500' : isRentable ? 'bg-amber-400' : 'bg-gray-300'
+                    const borderClass = isCompleted ? 'border-green-300 bg-green-50' : isRented ? 'border-teal-300 bg-teal-50' : isRentable ? 'border-amber-200' : 'border-gray-200'
+                    const circleClass = isCompleted ? 'bg-green-500' : isRented ? 'bg-teal-500' : isRentable ? 'bg-amber-400' : 'bg-gray-300'
                     const circleContent = isCompleted ? '<i class="fas fa-check"></i>' : lessonIdx + 1
-                    const rightIcon = isPremium && !isCompleted
-                      ? (isRentable ? '<i class="fas fa-shopping-cart text-amber-500 text-xl"></i>' : '<i class="fas fa-lock text-red-500 text-xl"></i>')
-                      : isCompleted
-                        ? '<i class="fas fa-check-circle text-green-500 text-xl"></i>'
-                        : '<i class="fas fa-play-circle text-blue-600 text-xl"></i>'
+                    const rightIcon = isCompleted
+                      ? '<i class="fas fa-check-circle text-green-500 text-xl"></i>'
+                      : isRented
+                        ? '<i class="fas fa-play-circle text-teal-500 text-xl"></i>'
+                        : isPremium
+                          ? (isRentable ? '<i class="fas fa-shopping-cart text-amber-500 text-xl"></i>' : '<i class="fas fa-lock text-red-500 text-xl"></i>')
+                          : '<i class="fas fa-play-circle text-blue-600 text-xl"></i>'
                     const watchedBadge = isCompleted
                       ? '<span class="inline-flex items-center gap-1 text-xs font-semibold text-green-700 bg-green-100 px-2 py-0.5 rounded-full ml-2">✓ Já assistida</span>'
                       : ''
-                    const rentBadge = isRentable && !isCompleted
-                      ? `<span class="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full ml-1"><i class="fas fa-coins"></i> ${lesson.rental_credits} créditos</span>`
-                      : ''
+                    const rentBadge = isRented
+                      ? '<span class="inline-flex items-center gap-1 text-xs font-semibold text-teal-700 bg-teal-100 px-2 py-0.5 rounded-full ml-1"><i class="fas fa-key mr-1"></i>Alugada</span>'
+                      : isRentable
+                        ? '<span class="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full ml-1"><i class="fas fa-coins"></i> ' + lesson.rental_credits + ' créditos</span>'
+                        : ''
 
                     return `
                       <div class="lesson-item p-3 rounded-lg border ${borderClass} flex items-center justify-between cursor-pointer"
@@ -561,6 +574,7 @@ const app = {
                            data-rentable="${isRentable}"
                            data-rental-credits="${lesson.rental_credits || 0}"
                            data-lesson-title="${lesson.title.replace(/"/g, '&quot;')}"
+                           data-is-rented="${isRented}"
                            onclick="app.loadLesson(${lesson.id})">
                         <div class="flex items-center gap-3 flex-1">
                           <div class="w-8 h-8 ${circleClass} text-white rounded-full flex items-center justify-center text-sm flex-shrink-0">
@@ -1076,7 +1090,8 @@ const app = {
                 ${moduleLessons.map((l, index) => {
                   const isFree = l.teste_gratis || l.free_trial || false
                   const isPremium = !isFree
-                  const isRentableSidebar = !isFree && l.rentable && l.rental_credits > 0
+                  const isRentedSidebar = app.activeRentals.has(l.id)
+                  const isRentableSidebar = !isFree && !isRentedSidebar && l.rentable && l.rental_credits > 0
                   const isWatched = !!lessonProgressMap[l.id]
                   const isActive = l.id === lessonId
 
@@ -1084,19 +1099,23 @@ const app = {
                     ? 'bg-blue-50 border-l-4 border-l-blue-600'
                     : isWatched
                       ? 'bg-green-50 border-l-4 border-l-green-500 hover:bg-green-100'
-                      : isRentableSidebar
-                        ? 'bg-amber-50 border-l-4 border-l-amber-400 hover:bg-amber-100'
-                        : 'hover:bg-gray-50'
+                      : isRentedSidebar
+                        ? 'bg-teal-50 border-l-4 border-l-teal-500 hover:bg-teal-100'
+                        : isRentableSidebar
+                          ? 'bg-amber-50 border-l-4 border-l-amber-400 hover:bg-amber-100'
+                          : 'hover:bg-gray-50'
 
                   const circleClass = isActive
                     ? 'bg-blue-600 text-white'
                     : isWatched
                       ? 'bg-green-500 text-white'
-                      : isRentableSidebar
-                        ? 'bg-amber-400 text-white'
-                        : isPremium
-                          ? 'bg-orange-100 text-orange-600'
-                          : 'bg-gray-200 text-gray-600'
+                      : isRentedSidebar
+                        ? 'bg-teal-500 text-white'
+                        : isRentableSidebar
+                          ? 'bg-amber-400 text-white'
+                          : isPremium
+                            ? 'bg-orange-100 text-orange-600'
+                            : 'bg-gray-200 text-gray-600'
 
                   const circleContent = isWatched && !isActive
                     ? '<i class="fas fa-check"></i>'
@@ -1106,11 +1125,13 @@ const app = {
                     ? '<i class="fas fa-play text-blue-600"></i>'
                     : isWatched
                       ? '<i class="fas fa-check-circle text-green-500 text-sm"></i>'
-                      : isRentableSidebar
-                        ? '<i class="fas fa-shopping-cart text-amber-500 text-sm"></i>'
-                        : isPremium
-                          ? '<i class="fas fa-lock text-orange-500 text-sm"></i>'
-                          : ''
+                      : isRentedSidebar
+                        ? '<i class="fas fa-key text-teal-500 text-sm"></i>'
+                        : isRentableSidebar
+                          ? '<i class="fas fa-shopping-cart text-amber-500 text-sm"></i>'
+                          : isPremium
+                            ? '<i class="fas fa-lock text-orange-500 text-sm"></i>'
+                            : ''
 
                   const isFavSidebar = !!playerFavMap[l.id]
                   return `
@@ -1119,6 +1140,7 @@ const app = {
                           data-lesson-id="${l.id}"
                           data-is-premium="${isPremium}"
                           data-rentable="${isRentableSidebar}"
+                          data-is-rented="${isRentedSidebar}"
                           data-rental-credits="${l.rental_credits || 0}"
                           data-lesson-title="${l.title.replace(/"/g, '&quot;')}"
                           class="w-full text-left p-4 border-b border-gray-100 transition-all ${rowBg}">
@@ -1129,16 +1151,19 @@ const app = {
                       <div class="flex-1 min-w-0 pr-6">
                         <p class="font-semibold text-gray-800 text-sm mb-1 line-clamp-2">
                           ${l.title}
-                          ${isPremium && !isWatched && !isRentableSidebar ? '<i class="fas fa-lock text-red-500 ml-1 text-xs"></i>' : ''}
+                          ${isRentedSidebar ? '<i class="fas fa-key text-teal-500 ml-1 text-xs"></i>' : ''}
+                          ${isPremium && !isWatched && !isRentableSidebar && !isRentedSidebar ? '<i class="fas fa-lock text-red-500 ml-1 text-xs"></i>' : ''}
                           ${isRentableSidebar && !isWatched ? '<i class="fas fa-shopping-cart text-amber-500 ml-1 text-xs"></i>' : ''}
                         </p>
                         <div class="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
                           <span><i class="fas fa-clock mr-1"></i>${l.duration_minutes}min</span>
                           ${isFree
                             ? '<span class="text-green-600 font-semibold"><i class="fas fa-gift mr-1"></i>Grátis</span>'
-                            : isRentableSidebar && !isWatched
-                              ? '<span class="text-amber-600 font-semibold"><i class="fas fa-coins mr-1"></i>' + l.rental_credits + ' créditos</span>'
-                              : '<span class="text-orange-600 font-semibold"><i class="fas fa-crown mr-1"></i>Premium</span>'
+                            : isRentedSidebar
+                              ? '<span class="text-teal-600 font-semibold"><i class="fas fa-key mr-1"></i>Alugada</span>'
+                              : isRentableSidebar && !isWatched
+                                ? '<span class="text-amber-600 font-semibold"><i class="fas fa-coins mr-1"></i>' + l.rental_credits + ' créditos</span>'
+                                : '<span class="text-orange-600 font-semibold"><i class="fas fa-crown mr-1"></i>Premium</span>'
                           }
                           ${isWatched ? '<span class="text-green-700 font-semibold bg-green-100 px-1.5 py-0.5 rounded-full">✓ Assistida</span>' : ''}
                         </div>
@@ -1673,10 +1698,11 @@ const app = {
     if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Processando...' }
     try {
       await axios.post(`/api/lessons/${lessonId}/rent`, { credits })
+      this.activeRentals.add(lessonId)
       this.loadUserCredits()
       const modal = document.getElementById('rentModal')
       if (modal) modal.remove()
-      alert('✅ Aula alugada com sucesso! Você tem acesso por 30 dias.')
+      this.showSuccessMessage('Aula alugada com sucesso! Você tem acesso por 30 dias.')
       this.loadLesson(lessonId)
     } catch (error) {
       const msg = error.response?.data?.error || 'Erro ao alugar aula'
@@ -1685,13 +1711,143 @@ const app = {
     }
   },
 
+  async showRentals() {
+    document.getElementById('coursesView').classList.add('hidden')
+    document.getElementById('courseView').classList.add('hidden')
+    document.getElementById('lessonView').classList.add('hidden')
+    document.getElementById('searchView')?.classList.add('hidden')
+    document.getElementById('plansView')?.classList.add('hidden')
+
+    let view = document.getElementById('rentalsView')
+    if (!view) {
+      view = document.createElement('div')
+      view.id = 'rentalsView'
+      view.className = 'container mx-auto px-4 py-8'
+      document.querySelector('main').appendChild(view)
+    }
+    view.classList.remove('hidden')
+    view.innerHTML = '<div class="text-center py-16"><i class="fas fa-spinner fa-spin text-4xl text-teal-500"></i><p class="mt-4 text-gray-500">Carregando aulas alugadas...</p></div>'
+
+    try {
+      const res = await axios.get('/api/user/rentals')
+      const rentals = res.data.rentals || []
+      const now = new Date()
+
+      if (rentals.length === 0) {
+        view.innerHTML = `
+          <div class="max-w-2xl mx-auto">
+            <div class="flex items-center gap-3 mb-8">
+              <button onclick="app.showCourses()" class="text-teal-600 hover:text-teal-800 font-semibold">
+                <i class="fas fa-arrow-left mr-2"></i>Voltar
+              </button>
+              <h1 class="text-2xl font-bold text-gray-800"><i class="fas fa-key mr-2 text-teal-500"></i>Minhas Aulas Alugadas</h1>
+            </div>
+            <div class="text-center py-16 bg-white rounded-xl shadow">
+              <i class="fas fa-box-open text-5xl text-gray-300 mb-4"></i>
+              <p class="text-gray-500 text-lg">Você ainda não alugou nenhuma aula.</p>
+              <button onclick="app.showCourses()" class="mt-6 bg-teal-600 text-white px-6 py-2 rounded-lg hover:bg-teal-700">
+                <i class="fas fa-search mr-2"></i>Explorar Aulas
+              </button>
+            </div>
+          </div>
+        `
+        return
+      }
+
+      const activeRentals = rentals.filter(r => new Date(r.expires_at) > now)
+      const expiredRentals = rentals.filter(r => new Date(r.expires_at) <= now)
+
+      const renderCard = (r, isActive) => {
+        const expDate = new Date(r.expires_at)
+        const daysLeft = Math.ceil((expDate - now) / (1000 * 60 * 60 * 24))
+        const rentDate = new Date(r.rented_at)
+        const expStr = expDate.toLocaleDateString('pt-BR')
+
+        if (isActive) {
+          return `
+            <div class="bg-white rounded-xl shadow border border-teal-200 p-5 flex flex-col gap-3">
+              <div class="flex items-start justify-between gap-3">
+                <div class="flex-1">
+                  <span class="text-xs font-semibold text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full">
+                    <i class="fas fa-key mr-1"></i>Alugada
+                  </span>
+                  <h3 class="font-bold text-gray-800 mt-2 text-base">${r.lesson_title}</h3>
+                  <p class="text-sm text-gray-500 mt-0.5">${r.course_title} • ${r.module_title}</p>
+                </div>
+                <div class="text-right flex-shrink-0">
+                  <div class="text-2xl font-bold text-teal-600">${daysLeft}</div>
+                  <div class="text-xs text-gray-500">dias restantes</div>
+                </div>
+              </div>
+              <div class="flex items-center gap-4 text-xs text-gray-500">
+                <span><i class="fas fa-clock mr-1"></i>${r.duration_minutes}min</span>
+                <span><i class="fas fa-coins mr-1"></i>${r.credits_paid} créditos pagos</span>
+                <span><i class="fas fa-calendar mr-1"></i>Expira em ${expStr}</span>
+              </div>
+              <button onclick="app.loadLesson(${r.lesson_id})"
+                      class="w-full py-2.5 bg-teal-500 hover:bg-teal-600 text-white rounded-lg font-semibold transition-colors flex items-center justify-center gap-2">
+                <i class="fas fa-play"></i> Assistir Aula
+              </button>
+            </div>
+          `
+        } else {
+          return `
+            <div class="bg-gray-50 rounded-xl border border-gray-200 p-5 flex flex-col gap-3 opacity-70">
+              <div class="flex items-start justify-between gap-3">
+                <div class="flex-1">
+                  <span class="text-xs font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
+                    <i class="fas fa-times-circle mr-1"></i>Expirada
+                  </span>
+                  <h3 class="font-bold text-gray-700 mt-2 text-base">${r.lesson_title}</h3>
+                  <p class="text-sm text-gray-400 mt-0.5">${r.course_title} • ${r.module_title}</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-4 text-xs text-gray-400">
+                <span><i class="fas fa-clock mr-1"></i>${r.duration_minutes}min</span>
+                <span><i class="fas fa-coins mr-1"></i>${r.credits_paid} créditos pagos</span>
+                <span><i class="fas fa-calendar mr-1"></i>Expirou em ${expStr}</span>
+              </div>
+            </div>
+          `
+        }
+      }
+
+      view.innerHTML = `
+        <div class="max-w-3xl mx-auto">
+          <div class="flex items-center gap-3 mb-8">
+            <button onclick="app.showCourses()" class="text-teal-600 hover:text-teal-800 font-semibold">
+              <i class="fas fa-arrow-left mr-2"></i>Voltar
+            </button>
+            <h1 class="text-2xl font-bold text-gray-800"><i class="fas fa-key mr-2 text-teal-500"></i>Minhas Aulas Alugadas</h1>
+          </div>
+
+          ${activeRentals.length > 0 ? `
+            <h2 class="text-lg font-semibold text-teal-700 mb-4"><i class="fas fa-check-circle mr-2"></i>Ativas (${activeRentals.length})</h2>
+            <div class="grid gap-4 mb-8">
+              ${activeRentals.map(r => renderCard(r, true)).join('')}
+            </div>
+          ` : ''}
+
+          ${expiredRentals.length > 0 ? `
+            <h2 class="text-lg font-semibold text-gray-500 mb-4"><i class="fas fa-history mr-2"></i>Expiradas (${expiredRentals.length})</h2>
+            <div class="grid gap-4">
+              ${expiredRentals.map(r => renderCard(r, false)).join('')}
+            </div>
+          ` : ''}
+        </div>
+      `
+    } catch (error) {
+      view.innerHTML = `<div class="text-center py-16 text-red-500"><i class="fas fa-exclamation-triangle text-4xl mb-4"></i><p>Erro ao carregar aulas alugadas.</p></div>`
+    }
+  },
+
   selectPlan(planId, planName, price) {
     alert(`
       🚧 Funcionalidade em Desenvolvimento
-      
+
       Plano selecionado: ${planName}
       Valor: R$ ${price.toFixed(2)}
-      
+
       Em breve você poderá completar a assinatura aqui!
       Por enquanto, entre em contato com o administrador.
     `)

@@ -4462,6 +4462,13 @@ app.get('/', (c) => {
                             <span class="hidden sm:inline ml-2">Planos</span>
                         </button>
                         
+                        <!-- Rentals Button -->
+                        <button onclick="app.showRentals()"
+                                class="px-3 md:px-4 py-2 bg-teal-600 hover:bg-teal-700 rounded-lg text-xs md:text-sm font-semibold transition-colors">
+                            <i class="fas fa-key"></i>
+                            <span class="hidden sm:inline ml-2">Alugadas</span>
+                        </button>
+
                         <!-- Favorites Button -->
                         <button onclick="window.location.href='/favorites'"
                                 class="px-3 md:px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-xs md:text-sm font-semibold transition-colors">
@@ -4630,8 +4637,8 @@ app.get('/', (c) => {
         <script defer src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
         <script defer src="/static/auth.js"></script>
         <script defer src="/static/admin.js?v=3"></script>
-        <script defer src="/static/access-control.js?v=2"></script>
-        <script defer src="/static/app.js?v=4"></script>
+        <script defer src="/static/access-control.js?v=3"></script>
+        <script defer src="/static/app.js?v=5"></script>
         <script defer src="/static/search.js"></script>
     </body>
     </html>

@@ -28,6 +28,13 @@ const accessManager = {
   async navigateToLesson(lessonId, lesson = null) {
     console.log('🔍 Attempting to navigate to lesson:', lessonId)
 
+    // If lesson is already rented, allow direct access
+    if (typeof app !== 'undefined' && app.activeRentals && app.activeRentals.has(lessonId)) {
+      console.log('🔑 Rented lesson - direct access granted')
+      app.loadLesson(lessonId)
+      return
+    }
+
     // If we don't have lesson data, try to load directly (backend blocks if no access)
     if (!lesson) {
       if (typeof app !== 'undefined') {
@@ -185,15 +192,16 @@ const accessManager = {
         const isPremium = item.dataset.isPremium === 'true'
         const lessonId = item.dataset.lessonId
         const isRentable = item.dataset.rentable === 'true'
+        const isRented = item.dataset.isRented === 'true'
         const rentalCredits = parseInt(item.dataset.rentalCredits || '0')
         const lessonTitle = item.dataset.lessonTitle || 'esta aula'
 
         if (!lessonId) continue
 
-        console.log(`Lesson ${lessonId}: isPremium=${isPremium}, rentable=${isRentable}, accessType=${this.userAccessStatus?.accessType}`)
+        console.log(`Lesson ${lessonId}: isPremium=${isPremium}, rentable=${isRentable}, isRented=${isRented}, accessType=${this.userAccessStatus?.accessType}`)
 
-        // If premium lesson and user doesn't have full access
-        if (isPremium && this.userAccessStatus?.accessType !== 'COMPLETO') {
+        // If premium lesson and user doesn't have full access (skip rented lessons)
+        if (isPremium && !isRented && this.userAccessStatus?.accessType !== 'COMPLETO') {
           console.log(`🔒 BLOCKING lesson ${lessonId}`)
 
           // Add visual styling
