@@ -1937,6 +1937,8 @@ const app = {
       const res = await axios.get(`/api/trails/${trailId}`)
       const { trail, lessons } = res.data
 
+      const hasFullAccess = accessManager?.userAccessStatus?.accessType === 'COMPLETO'
+
       const total = lessons.length
       const completed = lessons.filter(l => l.is_completed).length
       const pct = total > 0 ? Math.round((completed / total) * 100) : 0
@@ -1969,12 +1971,24 @@ const app = {
             ${lessons.map((l, i) => {
               const isFree = l.teste_gratis
               const isRented = this.activeRentals.has(l.lesson_id)
+              const canAccess = isFree || isRented || hasFullAccess
+              const isBlocked = !canAccess
+              const isRentable = l.rentable && l.rental_credits > 0
+
+              const clickAction = isBlocked
+                ? (isRentable
+                    ? `app.showRentModal(${l.lesson_id}, '${(l.title || '').replace(/'/g, "\\'")}', ${l.rental_credits})`
+                    : `accessManager.showUpgradeModal()`)
+                : `app.loadLesson(${l.lesson_id})`
+
               return `
-                <div class="bg-white rounded-xl shadow-sm border ${l.is_completed ? 'border-green-200' : 'border-gray-200'} p-4 flex items-center gap-4 hover:shadow-md transition-all cursor-pointer"
-                     onclick="app.loadLesson(${l.lesson_id})">
+                <div class="bg-white rounded-xl shadow-sm border ${
+                  isBlocked ? 'border-red-200 opacity-80' : l.is_completed ? 'border-green-200' : 'border-gray-200'
+                } p-4 flex items-center gap-4 hover:shadow-md transition-all cursor-pointer"
+                     onclick="${clickAction}">
                   <div class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm
-                    ${l.is_completed ? 'bg-green-500 text-white' : 'bg-indigo-100 text-indigo-600'}">
-                    ${l.is_completed ? '<i class="fas fa-check"></i>' : (i + 1)}
+                    ${isBlocked ? 'bg-red-100 text-red-500' : l.is_completed ? 'bg-green-500 text-white' : 'bg-indigo-100 text-indigo-600'}">
+                    ${isBlocked ? '<i class="fas fa-lock"></i>' : l.is_completed ? '<i class="fas fa-check"></i>' : (i + 1)}
                   </div>
                   <div class="flex-1 min-w-0">
                     <p class="font-semibold text-gray-800 text-sm">${l.title}</p>
@@ -1983,12 +1997,17 @@ const app = {
                       <span class="mx-1">›</span>${l.module_title}
                       <span class="mx-1">•</span><i class="fas fa-clock mr-1"></i>${l.duration_minutes}min
                     </p>
+                    ${isBlocked ? `<p class="text-xs text-red-500 mt-1">
+                      ${isRentable ? `<i class="fas fa-coins mr-1"></i>Disponível por ${l.rental_credits} crédito${l.rental_credits !== 1 ? 's' : ''}` : '<i class="fas fa-lock mr-1"></i>Requer assinatura ativa'}
+                    </p>` : ''}
                   </div>
                   <div class="flex items-center gap-2 flex-shrink-0">
-                    ${l.is_completed ? '<span class="text-xs text-green-600 font-semibold bg-green-50 px-2 py-1 rounded-full">✓ Concluída</span>' : ''}
-                    ${isFree ? '<span class="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full"><i class="fas fa-gift mr-1"></i>Grátis</span>' : ''}
+                    ${l.is_completed && !isBlocked ? '<span class="text-xs text-green-600 font-semibold bg-green-50 px-2 py-1 rounded-full">✓ Concluída</span>' : ''}
+                    ${isFree && !isBlocked ? '<span class="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full"><i class="fas fa-gift mr-1"></i>Grátis</span>' : ''}
                     ${isRented ? '<span class="text-xs text-teal-600 bg-teal-50 px-2 py-1 rounded-full"><i class="fas fa-key mr-1"></i>Alugada</span>' : ''}
-                    <i class="fas fa-play-circle text-indigo-300 text-xl"></i>
+                    ${isBlocked && isRentable ? '<span class="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded-full font-semibold"><i class="fas fa-coins mr-1"></i>Alugar</span>' : ''}
+                    ${isBlocked && !isRentable ? '<span class="text-xs text-red-600 bg-red-50 px-2 py-1 rounded-full font-semibold"><i class="fas fa-crown mr-1"></i>Premium</span>' : ''}
+                    <i class="fas ${isBlocked ? 'fa-lock text-red-300' : 'fa-play-circle text-indigo-300'} text-xl"></i>
                   </div>
                 </div>
               `
