@@ -23,10 +23,10 @@ function getDB(c: any): PostgresClient {
   return new PostgresClient(connStr)
 }
 
-// Helper: retorna cliente PostgreSQL para créditos — usa banco dedicado ou cai no CCT
+// Helper: retorna cliente PostgreSQL para créditos (Creditos_Ensinoplus)
 function getCreditsDB(c: any): PostgresClient {
-  const connStr = c.env.DATABASE_URL_CREDITOS || c.env.DATABASE_SUITEPLUS || c.env.DATABASE_CCT
-  if (!connStr) throw new Error('Nenhum banco de dados configurado')
+  const connStr = c.env.DATABASE_URL_CREDITOS || c.env.DATABASE_SUITEPLUS
+  if (!connStr) throw new Error('DATABASE_URL_CREDITOS não configurado')
   return new PostgresClient(connStr)
 }
 
@@ -1551,6 +1551,8 @@ app.post('/api/lessons/:id/rent', requireAuth, async (c) => {
     }
 
     // Check credit balance
+    const credConnStr = c.env.DATABASE_URL_CREDITOS || c.env.DATABASE_SUITEPLUS
+    console.log('Credits DB configured:', !!credConnStr, '| prefix:', credConnStr?.substring(0, 30))
     const credDb = getCreditsDB(c)
     const balance = await getUserCreditBalance(credDb, userEmail)
     if (balance < cost) {
