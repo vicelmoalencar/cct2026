@@ -1612,6 +1612,257 @@ app.get('/api/user/rentals', requireAuth, async (c) => {
   }
 })
 
+// ============================================
+// TRAILS (LEARNING PATHS)
+// ============================================
+
+async function ensureTrailsSchema(db: PostgresClient): Promise<void> {
+  await db.sql(`
+    CREATE TABLE IF NOT EXISTS trails (
+      id SERIAL PRIMARY KEY,
+      title VARCHAR(255) NOT NULL,
+      description TEXT,
+      is_published BOOLEAN DEFAULT FALSE,
+      order_index INTEGER DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `)
+  await db.sql(`
+    CREATE TABLE IF NOT EXISTS trail_lessons (
+      id SERIAL PRIMARY KEY,
+      trail_id INTEGER NOT NULL REFERENCES trails(id) ON DELETE CASCADE,
+      lesson_id INTEGER NOT NULL REFERENCES lessons(id) ON DELETE CASCADE,
+      order_index INTEGER DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(trail_id, lesson_id)
+    )
+  `)
+  await db.sql(`CREATE INDEX IF NOT EXISTS idx_trail_lessons_trail ON trail_lessons(trail_id)`)
+  await db.sql(`CREATE INDEX IF NOT EXISTS idx_trail_lessons_lesson ON trail_lessons(lesson_id)`)
+}
+
+// List published trails (user)
+app.get('/api/trails', requireAuth, async (c) => {
+  try {
+    const user = c.get('user')
+    const db = getDB(c)
+    await ensureTrailsSchema(db)
+
+    const trails = await db.sql(`
+      SELECT t.*,
+             COUNT(tl.id)::int AS lessons_count,
+             COUNT(up.id)::int AS completed_count
+      FROM trails t
+      LEFT JOIN trail_lessons tl ON tl.trail_id = t.id
+      LEFT JOIN lessons l ON l.id = tl.lesson_id
+      LEFT JOIN user_progress up ON up.lesson_id = tl.lesson_id AND up.user_email = $1 AND up.completed = true
+      WHERE t.is_published = true
+      GROUP BY t.id
+      ORDER BY t.order_index ASC, t.created_at DESC
+    `, [user.email])
+
+    return c.json({ trails })
+  } catch (error: any) {
+    console.error('Get trails error:', error)
+    return c.json({ error: error.message || 'Erro ao buscar trilhas' }, 500)
+  }
+})
+
+// Get single trail with lessons and progress (user)
+app.get('/api/trails/:id', requireAuth, async (c) => {
+  try {
+    const trailId = c.req.param('id')
+    const user = c.get('user')
+    const db = getDB(c)
+    await ensureTrailsSchema(db)
+
+    const trailRows = await db.sql(`SELECT * FROM trails WHERE id = $1`, [trailId])
+    if (!trailRows.length) return c.json({ error: 'Trilha não encontrada' }, 404)
+    const trail = trailRows[0]
+
+    const lessons = await db.sql(`
+      SELECT tl.order_index, tl.lesson_id,
+             l.title, l.description, l.duration_minutes, l.video_provider, l.teste_gratis, l.rentable, l.rental_credits,
+             m.title AS module_title,
+             co.id AS course_id, co.title AS course_title,
+             CASE WHEN up.completed = true THEN true ELSE false END AS is_completed
+      FROM trail_lessons tl
+      JOIN lessons l ON l.id = tl.lesson_id
+      JOIN modules m ON m.id = l.module_id
+      JOIN courses co ON co.id = m.course_id
+      LEFT JOIN user_progress up ON up.lesson_id = tl.lesson_id AND up.user_email = $2 AND up.completed = true
+      WHERE tl.trail_id = $1
+      ORDER BY tl.order_index ASC
+    `, [trailId, user.email])
+
+    return c.json({ trail, lessons })
+  } catch (error: any) {
+    console.error('Get trail error:', error)
+    return c.json({ error: error.message || 'Erro ao buscar trilha' }, 500)
+  }
+})
+
+// Admin: list all trails
+app.get('/api/admin/trails', requireAdmin, async (c) => {
+  try {
+    const db = getDB(c)
+    await ensureTrailsSchema(db)
+
+    const trails = await db.sql(`
+      SELECT t.*, COUNT(tl.id)::int AS lessons_count
+      FROM trails t
+      LEFT JOIN trail_lessons tl ON tl.trail_id = t.id
+      GROUP BY t.id
+      ORDER BY t.order_index ASC, t.created_at DESC
+    `)
+
+    return c.json({ trails })
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500)
+  }
+})
+
+// Admin: create trail
+app.post('/api/admin/trails', requireAdmin, async (c) => {
+  try {
+    const { title, description, is_published, order_index } = await c.req.json()
+    if (!title) return c.json({ error: 'title is required' }, 400)
+    const db = getDB(c)
+    await ensureTrailsSchema(db)
+
+    const rows = await db.insert('trails', {
+      title,
+      description: description || null,
+      is_published: is_published ?? false,
+      order_index: order_index ?? 0,
+    })
+    return c.json({ success: true, trail_id: rows[0].id, trail: rows[0] })
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500)
+  }
+})
+
+// Admin: update trail
+app.put('/api/admin/trails/:id', requireAdmin, async (c) => {
+  try {
+    const id = parseInt(c.req.param('id'))
+    const body = await c.req.json()
+    const db = getDB(c)
+    await ensureTrailsSchema(db)
+
+    const allowed = ['title', 'description', 'is_published', 'order_index']
+    const data: Record<string, any> = { updated_at: new Date().toISOString() }
+    for (const k of allowed) if (k in body) data[k] = body[k]
+
+    await db.update('trails', { id }, data)
+    return c.json({ success: true })
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500)
+  }
+})
+
+// Admin: delete trail
+app.delete('/api/admin/trails/:id', requireAdmin, async (c) => {
+  try {
+    const id = parseInt(c.req.param('id'))
+    const db = getDB(c)
+    await ensureTrailsSchema(db)
+    await db.delete('trails', { id })
+    return c.json({ success: true })
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500)
+  }
+})
+
+// Admin: add lesson to trail
+app.post('/api/admin/trails/:id/lessons', requireAdmin, async (c) => {
+  try {
+    const trail_id = parseInt(c.req.param('id'))
+    const { lesson_id } = await c.req.json()
+    if (!lesson_id) return c.json({ error: 'lesson_id required' }, 400)
+    const db = getDB(c)
+    await ensureTrailsSchema(db)
+
+    // Auto order_index = max + 1
+    const maxRows = await db.sql(
+      `SELECT COALESCE(MAX(order_index), -1) AS max_idx FROM trail_lessons WHERE trail_id = $1`,
+      [trail_id]
+    )
+    const order_index = (maxRows[0]?.max_idx ?? -1) + 1
+
+    await db.sql(
+      `INSERT INTO trail_lessons (trail_id, lesson_id, order_index) VALUES ($1, $2, $3) ON CONFLICT (trail_id, lesson_id) DO NOTHING`,
+      [trail_id, lesson_id, order_index]
+    )
+    return c.json({ success: true })
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500)
+  }
+})
+
+// Admin: remove lesson from trail
+app.delete('/api/admin/trails/:id/lessons/:lessonId', requireAdmin, async (c) => {
+  try {
+    const trail_id = parseInt(c.req.param('id'))
+    const lesson_id = parseInt(c.req.param('lessonId'))
+    const db = getDB(c)
+    await db.sql(`DELETE FROM trail_lessons WHERE trail_id = $1 AND lesson_id = $2`, [trail_id, lesson_id])
+    return c.json({ success: true })
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500)
+  }
+})
+
+// Admin: reorder lessons in trail
+app.post('/api/admin/trails/:id/reorder', requireAdmin, async (c) => {
+  try {
+    const trail_id = parseInt(c.req.param('id'))
+    const { lessons } = await c.req.json() // [{lesson_id, order_index}]
+    if (!Array.isArray(lessons)) return c.json({ error: 'lessons array required' }, 400)
+    const db = getDB(c)
+
+    for (const item of lessons) {
+      await db.sql(
+        `UPDATE trail_lessons SET order_index = $1 WHERE trail_id = $2 AND lesson_id = $3`,
+        [item.order_index, trail_id, item.lesson_id]
+      )
+    }
+    return c.json({ success: true })
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500)
+  }
+})
+
+// Admin: search lessons across all courses (for trail builder)
+app.get('/api/admin/trails/search-lessons', requireAdmin, async (c) => {
+  try {
+    const q = c.req.query('q') || ''
+    const courseId = c.req.query('course_id')
+    const db = getDB(c)
+
+    const courseFilter = courseId ? `AND co.id = ${parseInt(courseId)}` : ''
+    const textFilter = q ? `AND (l.title ILIKE $1)` : ''
+    const values: any[] = q ? [`%${q}%`] : []
+
+    const lessons = await db.sql(`
+      SELECT l.id, l.title, l.duration_minutes, l.teste_gratis, l.rentable, l.rental_credits,
+             m.title AS module_title,
+             co.id AS course_id, co.title AS course_title
+      FROM lessons l
+      JOIN modules m ON m.id = l.module_id
+      JOIN courses co ON co.id = m.course_id
+      WHERE 1=1 ${courseFilter} ${textFilter}
+      ORDER BY co.title ASC, m.order_index ASC, l.order_index ASC
+      LIMIT 50
+    `, values)
+
+    return c.json({ lessons })
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500)
+  }
+})
+
 // Find lesson by title (admin only - for duplicate checking)
 app.get('/api/admin/lessons/find', requireAdmin, async (c) => {
   try {
@@ -4456,10 +4707,17 @@ app.get('/', (c) => {
                         </button>
                         
                         <!-- Plans Button -->
-                        <button onclick="app.showPlans()" 
+                        <button onclick="app.showPlans()"
                                 class="px-3 md:px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-xs md:text-sm font-semibold transition-colors">
                             <i class="fas fa-crown"></i>
                             <span class="hidden sm:inline ml-2">Planos</span>
+                        </button>
+
+                        <!-- Trails Button -->
+                        <button onclick="app.showTrails()"
+                                class="px-3 md:px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-xs md:text-sm font-semibold transition-colors">
+                            <i class="fas fa-route"></i>
+                            <span class="hidden sm:inline ml-2">Trilhas</span>
                         </button>
                         
                         <!-- Rentals Button -->
@@ -4636,9 +4894,9 @@ app.get('/', (c) => {
 
         <script defer src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
         <script defer src="/static/auth.js"></script>
-        <script defer src="/static/admin.js?v=3"></script>
+        <script defer src="/static/admin.js?v=4"></script>
         <script defer src="/static/access-control.js?v=3"></script>
-        <script defer src="/static/app.js?v=5"></script>
+        <script defer src="/static/app.js?v=6"></script>
         <script defer src="/static/search.js?v=2"></script>
     </body>
     </html>

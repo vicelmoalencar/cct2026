@@ -1400,8 +1400,8 @@ const app = {
     document.getElementById('coursesView').classList.remove('hidden')
     document.getElementById('courseView').classList.add('hidden')
     document.getElementById('lessonView').classList.add('hidden')
-    const searchView = document.getElementById('searchView')
-    if (searchView) searchView.classList.add('hidden')
+    document.getElementById('searchView')?.classList.add('hidden')
+    document.getElementById('trailsView')?.classList.add('hidden')
     this.loadCourses()
   },
   
@@ -1838,6 +1838,167 @@ const app = {
       `
     } catch (error) {
       view.innerHTML = `<div class="text-center py-16 text-red-500"><i class="fas fa-exclamation-triangle text-4xl mb-4"></i><p>Erro ao carregar aulas alugadas.</p></div>`
+    }
+  },
+
+  async showTrails() {
+    document.getElementById('coursesView').classList.add('hidden')
+    document.getElementById('courseView').classList.add('hidden')
+    document.getElementById('lessonView').classList.add('hidden')
+    document.getElementById('searchView')?.classList.add('hidden')
+    document.getElementById('plansView')?.classList.add('hidden')
+    document.getElementById('rentalsView')?.classList.add('hidden')
+
+    let view = document.getElementById('trailsView')
+    if (!view) {
+      view = document.createElement('div')
+      view.id = 'trailsView'
+      view.className = 'container mx-auto px-4 py-8'
+      document.querySelector('main').appendChild(view)
+    }
+    view.classList.remove('hidden')
+    view.innerHTML = '<div class="text-center py-16"><i class="fas fa-spinner fa-spin text-4xl text-indigo-500"></i><p class="mt-4 text-gray-500">Carregando trilhas...</p></div>'
+
+    try {
+      const res = await axios.get('/api/trails')
+      const trails = res.data.trails || []
+
+      if (trails.length === 0) {
+        view.innerHTML = `
+          <div class="max-w-2xl mx-auto text-center py-16">
+            <i class="fas fa-route text-6xl text-gray-200 mb-4"></i>
+            <h2 class="text-2xl font-bold text-gray-700 mb-2">Nenhuma Trilha Disponível</h2>
+            <p class="text-gray-500">As trilhas de aprendizado serão exibidas aqui quando forem publicadas.</p>
+            <button onclick="app.showCourses()" class="mt-6 bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700">
+              <i class="fas fa-book mr-2"></i>Ver Cursos
+            </button>
+          </div>
+        `
+        return
+      }
+
+      view.innerHTML = `
+        <div class="max-w-5xl mx-auto">
+          <div class="flex items-center gap-3 mb-8">
+            <button onclick="app.showCourses()" class="text-indigo-600 hover:text-indigo-800 font-semibold">
+              <i class="fas fa-arrow-left mr-2"></i>Voltar
+            </button>
+            <h1 class="text-2xl font-bold text-gray-800"><i class="fas fa-route mr-2 text-indigo-500"></i>Trilhas de Aprendizado</h1>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            ${trails.map(t => {
+              const pct = t.lessons_count > 0 ? Math.round((t.completed_count / t.lessons_count) * 100) : 0
+              return `
+                <div class="bg-white rounded-xl shadow-md hover:shadow-lg transition-all border border-gray-100 overflow-hidden cursor-pointer group"
+                     onclick="app.showTrail(${t.id})">
+                  <div class="bg-gradient-to-br from-indigo-500 to-purple-600 h-3"></div>
+                  <div class="p-5">
+                    <div class="flex items-start justify-between mb-3">
+                      <div class="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-route text-indigo-600"></i>
+                      </div>
+                      <span class="text-xs text-indigo-600 font-semibold bg-indigo-50 px-2 py-1 rounded-full">
+                        ${t.lessons_count} aulas
+                      </span>
+                    </div>
+                    <h3 class="font-bold text-gray-800 text-base mb-1 group-hover:text-indigo-600 transition-colors">${t.title}</h3>
+                    ${t.description ? `<p class="text-sm text-gray-500 mb-3 line-clamp-2">${t.description}</p>` : '<div class="mb-3"></div>'}
+                    <div class="mt-2">
+                      <div class="flex justify-between text-xs text-gray-500 mb-1">
+                        <span>Progresso</span>
+                        <span>${t.completed_count}/${t.lessons_count} aulas • ${pct}%</span>
+                      </div>
+                      <div class="w-full bg-gray-100 rounded-full h-2">
+                        <div class="bg-indigo-500 h-2 rounded-full transition-all" style="width:${pct}%"></div>
+                      </div>
+                    </div>
+                    <button class="mt-4 w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold transition-colors">
+                      ${pct > 0 ? '<i class="fas fa-play mr-2"></i>Continuar' : '<i class="fas fa-play mr-2"></i>Começar'}
+                    </button>
+                  </div>
+                </div>
+              `
+            }).join('')}
+          </div>
+        </div>
+      `
+    } catch (error) {
+      view.innerHTML = '<div class="text-center py-16 text-red-500"><i class="fas fa-exclamation-triangle text-4xl mb-4"></i><p>Erro ao carregar trilhas.</p></div>'
+    }
+  },
+
+  async showTrail(trailId) {
+    const view = document.getElementById('trailsView')
+    if (view) {
+      view.innerHTML = '<div class="text-center py-16"><i class="fas fa-spinner fa-spin text-4xl text-indigo-500"></i></div>'
+    }
+    try {
+      const res = await axios.get(`/api/trails/${trailId}`)
+      const { trail, lessons } = res.data
+
+      const total = lessons.length
+      const completed = lessons.filter(l => l.is_completed).length
+      const pct = total > 0 ? Math.round((completed / total) * 100) : 0
+
+      const html = `
+        <div class="max-w-4xl mx-auto">
+          <div class="flex items-center gap-3 mb-6">
+            <button onclick="app.showTrails()" class="text-indigo-600 hover:text-indigo-800 font-semibold">
+              <i class="fas fa-arrow-left mr-2"></i>Trilhas
+            </button>
+          </div>
+
+          <div class="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl p-6 text-white mb-6">
+            <div class="flex items-start justify-between">
+              <div>
+                <h1 class="text-2xl font-bold mb-1">${trail.title}</h1>
+                ${trail.description ? `<p class="text-indigo-100 text-sm">${trail.description}</p>` : ''}
+              </div>
+              <div class="text-right flex-shrink-0 ml-4">
+                <div class="text-3xl font-bold">${pct}%</div>
+                <div class="text-indigo-200 text-xs">${completed}/${total} concluídas</div>
+              </div>
+            </div>
+            <div class="mt-4 bg-indigo-800 bg-opacity-40 rounded-full h-3">
+              <div class="bg-white h-3 rounded-full transition-all" style="width:${pct}%"></div>
+            </div>
+          </div>
+
+          <div class="space-y-3">
+            ${lessons.map((l, i) => {
+              const isFree = l.teste_gratis
+              const isRented = this.activeRentals.has(l.lesson_id)
+              return `
+                <div class="bg-white rounded-xl shadow-sm border ${l.is_completed ? 'border-green-200' : 'border-gray-200'} p-4 flex items-center gap-4 hover:shadow-md transition-all cursor-pointer"
+                     onclick="app.loadLesson(${l.lesson_id})">
+                  <div class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm
+                    ${l.is_completed ? 'bg-green-500 text-white' : 'bg-indigo-100 text-indigo-600'}">
+                    ${l.is_completed ? '<i class="fas fa-check"></i>' : (i + 1)}
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <p class="font-semibold text-gray-800 text-sm">${l.title}</p>
+                    <p class="text-xs text-gray-400 mt-0.5">
+                      <i class="fas fa-book mr-1"></i>${l.course_title}
+                      <span class="mx-1">›</span>${l.module_title}
+                      <span class="mx-1">•</span><i class="fas fa-clock mr-1"></i>${l.duration_minutes}min
+                    </p>
+                  </div>
+                  <div class="flex items-center gap-2 flex-shrink-0">
+                    ${l.is_completed ? '<span class="text-xs text-green-600 font-semibold bg-green-50 px-2 py-1 rounded-full">✓ Concluída</span>' : ''}
+                    ${isFree ? '<span class="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full"><i class="fas fa-gift mr-1"></i>Grátis</span>' : ''}
+                    ${isRented ? '<span class="text-xs text-teal-600 bg-teal-50 px-2 py-1 rounded-full"><i class="fas fa-key mr-1"></i>Alugada</span>' : ''}
+                    <i class="fas fa-play-circle text-indigo-300 text-xl"></i>
+                  </div>
+                </div>
+              `
+            }).join('')}
+          </div>
+        </div>
+      `
+      if (view) view.innerHTML = html
+    } catch (error) {
+      if (view) view.innerHTML = '<div class="text-center py-16 text-red-500"><i class="fas fa-exclamation-triangle text-4xl mb-4"></i><p>Erro ao carregar trilha.</p></div>'
     }
   },
 
