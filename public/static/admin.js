@@ -327,7 +327,7 @@ const adminUI = {
     if (tab === 'certificates') this.renderCertificatesTab()
     if (tab === 'users') this.renderUsersTab()
     if (tab === 'import') this.renderImportTab()
-    if (tab === 'trails') await this.renderTrailsTab()
+    if (tab === 'trails') await adminUI.renderTrailsTab()
   },
   
   // Render courses tab
@@ -4856,12 +4856,13 @@ const csvImport = {
     this.certificatesData = null
     document.getElementById('certificateCsvPreviewArea').classList.add('hidden')
     document.getElementById('certificateCsvFileInput').value = ''
-  },
+  }
+}
 
-  // ============================================================
-  // TRAILS TAB
-  // ============================================================
-  async renderTrailsTab() {
+// ============================================================
+// TRAILS TAB — defined outside adminUI to avoid object literal issues
+// ============================================================
+adminUI.renderTrailsTab = async function() {
     const content = document.getElementById('adminContent')
     content.innerHTML = '<div class="text-center py-12"><i class="fas fa-spinner fa-spin text-3xl text-indigo-500"></i></div>'
     try {
@@ -4916,300 +4917,212 @@ const csvImport = {
     } catch (e) {
       content.innerHTML = '<p class="text-red-500 text-center py-8">Erro ao carregar trilhas.</p>'
     }
-  },
+}
 
-  showTrailForm(trail = null) {
-    const area = document.getElementById('trailFormArea')
-    if (!area) return
+adminUI.showTrailForm = function(trail) {
+  trail = trail || null
+  const area = document.getElementById('trailFormArea')
+  if (!area) return
+  const isEdit = !!trail
+  area.innerHTML = '<div class="border-2 border-indigo-200 rounded-lg p-6 mb-6 bg-indigo-50">'
+    + '<h4 class="text-lg font-bold text-indigo-800 mb-4">'
+    + '<i class="fas fa-' + (isEdit ? 'edit' : 'plus') + ' mr-2"></i>' + (isEdit ? 'Editar Trilha' : 'Nova Trilha')
+    + '</h4>'
+    + '<form onsubmit="adminUI.saveTrail(event, ' + (trail ? trail.id : 'null') + ')">'
+    + '<div class="grid grid-cols-1 gap-4 mb-4">'
+    + '<div><label class="block text-sm font-semibold text-gray-700 mb-1">Título *</label>'
+    + '<input type="text" id="trailTitle" required value="' + (trail ? trail.title.replace(/"/g, '&quot;') : '') + '" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none" placeholder="Ex: Fundamentos do Direito Civil"></div>'
+    + '<div><label class="block text-sm font-semibold text-gray-700 mb-1">Descrição</label>'
+    + '<textarea id="trailDesc" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none" placeholder="Descreva o objetivo desta trilha...">' + (trail ? (trail.description || '') : '') + '</textarea></div>'
+    + '<div class="flex items-center gap-2"><input type="checkbox" id="trailPublished" ' + (trail && trail.is_published ? 'checked' : '') + ' class="w-4 h-4 accent-indigo-600">'
+    + '<label class="text-sm font-semibold text-gray-700" for="trailPublished">Publicada (visível para usuários)</label></div>'
+    + '</div>'
+    + '<div class="flex gap-3">'
+    + '<button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold transition-colors"><i class="fas fa-save mr-2"></i>' + (isEdit ? 'Salvar Alterações' : 'Criar Trilha') + '</button>'
+    + '<button type="button" onclick="document.getElementById(\'trailFormArea\').innerHTML = \'\'" class="px-5 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-semibold transition-colors">Cancelar</button>'
+    + '</div></form></div>'
+  area.scrollIntoView({ behavior: 'smooth' })
+}
 
-    const isEdit = !!trail
-    area.innerHTML = `
-      <div class="border-2 border-indigo-200 rounded-lg p-6 mb-6 bg-indigo-50">
-        <h4 class="text-lg font-bold text-indigo-800 mb-4">
-          <i class="fas fa-${isEdit ? 'edit' : 'plus'} mr-2"></i>${isEdit ? 'Editar Trilha' : 'Nova Trilha'}
-        </h4>
-        <form onsubmit="adminUI.saveTrail(event, ${trail ? trail.id : 'null'})">
-          <div class="grid grid-cols-1 gap-4 mb-4">
-            <div>
-              <label class="block text-sm font-semibold text-gray-700 mb-1">Título *</label>
-              <input type="text" id="trailTitle" required value="${trail ? trail.title.replace(/"/g, '&quot;') : ''}"
-                     class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none" placeholder="Ex: Fundamentos do Direito Civil">
-            </div>
-            <div>
-              <label class="block text-sm font-semibold text-gray-700 mb-1">Descrição</label>
-              <textarea id="trailDesc" rows="2"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none" placeholder="Descreva o objetivo desta trilha...">${trail ? (trail.description || '') : ''}</textarea>
-            </div>
-            <div class="flex items-center gap-2">
-              <input type="checkbox" id="trailPublished" ${trail && trail.is_published ? 'checked' : ''} class="w-4 h-4 accent-indigo-600">
-              <label class="text-sm font-semibold text-gray-700" for="trailPublished">Publicada (visível para usuários)</label>
-            </div>
-          </div>
-          <div class="flex gap-3">
-            <button type="submit"
-                    class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold transition-colors">
-              <i class="fas fa-save mr-2"></i>${isEdit ? 'Salvar Alterações' : 'Criar Trilha'}
-            </button>
-            <button type="button" onclick="document.getElementById('trailFormArea').innerHTML = ''"
-                    class="px-5 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-semibold transition-colors">
-              Cancelar
-            </button>
-          </div>
-        </form>
-      </div>
-    `
-    area.scrollIntoView({ behavior: 'smooth' })
-  },
-
-  async saveTrail(event, trailId) {
-    event.preventDefault()
-    const title = document.getElementById('trailTitle').value.trim()
-    const description = document.getElementById('trailDesc').value.trim()
-    const is_published = document.getElementById('trailPublished').checked
-
-    if (!title) { alert('Título é obrigatório'); return }
-
-    try {
-      if (trailId) {
-        await axios.put(`/api/admin/trails/${trailId}`, { title, description, is_published })
-      } else {
-        await axios.post('/api/admin/trails', { title, description, is_published })
-      }
-      await this.renderTrailsTab()
-    } catch (e) {
-      alert('Erro ao salvar trilha: ' + (e.response?.data?.error || e.message))
+adminUI.saveTrail = async function(event, trailId) {
+  event.preventDefault()
+  const title = document.getElementById('trailTitle').value.trim()
+  const description = document.getElementById('trailDesc').value.trim()
+  const is_published = document.getElementById('trailPublished').checked
+  if (!title) { alert('Título é obrigatório'); return }
+  try {
+    if (trailId) {
+      await axios.put('/api/admin/trails/' + trailId, { title, description, is_published })
+    } else {
+      await axios.post('/api/admin/trails', { title, description, is_published })
     }
-  },
+    await adminUI.renderTrailsTab()
+  } catch (e) {
+    alert('Erro ao salvar trilha: ' + (e.response && e.response.data && e.response.data.error ? e.response.data.error : e.message))
+  }
+}
 
-  async deleteTrail(id, title) {
-    if (!confirm(`Tem certeza que deseja excluir a trilha "${title}"? Todas as aulas associadas serão removidas.`)) return
-    try {
-      await axios.delete(`/api/admin/trails/${id}`)
-      await this.renderTrailsTab()
-    } catch (e) {
-      alert('Erro ao excluir: ' + (e.response?.data?.error || e.message))
+adminUI.deleteTrail = async function(id, title) {
+  if (!confirm('Tem certeza que deseja excluir a trilha "' + title + '"? Todas as aulas associadas serão removidas.')) return
+  try {
+    await axios.delete('/api/admin/trails/' + id)
+    await adminUI.renderTrailsTab()
+  } catch (e) {
+    alert('Erro ao excluir: ' + (e.response && e.response.data && e.response.data.error ? e.response.data.error : e.message))
+  }
+}
+
+adminUI.loadTrailEditor = async function(trailId) {
+  const content = document.getElementById('adminContent')
+  content.innerHTML = '<div class="text-center py-12"><i class="fas fa-spinner fa-spin text-3xl text-indigo-500"></i></div>'
+  try {
+    const results = await Promise.all([
+      axios.get('/api/trails/' + trailId),
+      axios.get('/api/courses')
+    ])
+    const trail = results[0].data.trail
+    const trailLessons = results[0].data.lessons || []
+    const courses = results[1].data.courses || []
+
+    const lessonListHTML = trailLessons.length === 0
+      ? '<p class="text-gray-400 text-sm text-center py-6">Nenhuma aula na trilha. Adicione da busca ao lado.</p>'
+      : trailLessons.map(function(l, i) {
+          return '<div class="trail-lesson-item bg-white border border-gray-200 rounded-lg p-3 flex items-center gap-3 cursor-grab hover:border-indigo-300 transition-colors" draggable="true" data-lesson-id="' + l.lesson_id + '" data-order="' + i + '">'
+            + '<i class="fas fa-grip-vertical text-gray-300 flex-shrink-0"></i>'
+            + '<div class="flex-1 min-w-0"><p class="font-semibold text-gray-800 text-sm truncate">' + l.title + '</p>'
+            + '<p class="text-xs text-gray-400">' + l.course_title + ' › ' + l.module_title + ' • ' + l.duration_minutes + 'min</p></div>'
+            + '<button onclick="adminUI.removeLessonFromTrail(' + trailId + ', ' + l.lesson_id + ')" class="text-red-400 hover:text-red-600 flex-shrink-0 p-1" title="Remover"><i class="fas fa-times"></i></button>'
+            + '</div>'
+        }).join('')
+
+    const courseOptions = courses.map(function(c) {
+      return '<option value="' + c.id + '">' + c.title + '</option>'
+    }).join('')
+
+    content.innerHTML = '<div class="bg-white rounded-lg shadow-md p-6">'
+      + '<div class="flex items-center gap-3 mb-6">'
+      + '<button onclick="adminUI.renderTrailsTab()" class="text-indigo-600 hover:text-indigo-800 font-semibold"><i class="fas fa-arrow-left mr-1"></i>Voltar</button>'
+      + '<h3 class="text-xl font-bold text-gray-800"><i class="fas fa-route mr-2 text-indigo-500"></i>' + trail.title
+      + (trail.is_published ? '<span class="text-xs bg-green-500 text-white px-2 py-1 rounded ml-2">PUBLICADA</span>' : '<span class="text-xs bg-gray-400 text-white px-2 py-1 rounded ml-2">RASCUNHO</span>')
+      + '</h3></div>'
+      + '<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">'
+      + '<div><h4 class="font-bold text-gray-700 mb-3"><i class="fas fa-search mr-2 text-indigo-400"></i>Buscar Aulas para Adicionar</h4>'
+      + '<div class="flex gap-2 mb-3">'
+      + '<input type="text" id="trailLessonSearch" placeholder="Buscar por título..." oninput="adminUI.searchTrailLessons(' + trailId + ')" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none text-sm">'
+      + '<select id="trailCourseFilter" onchange="adminUI.searchTrailLessons(' + trailId + ')" class="px-3 py-2 border border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none text-sm"><option value="">Todos os cursos</option>' + courseOptions + '</select>'
+      + '</div>'
+      + '<div id="trailLessonResults" class="max-h-[500px] overflow-y-auto space-y-2 border border-gray-100 rounded-lg p-2 bg-gray-50"><p class="text-gray-400 text-sm text-center py-4">Digite para buscar aulas...</p></div></div>'
+      + '<div><h4 class="font-bold text-gray-700 mb-3"><i class="fas fa-list-ol mr-2 text-indigo-400"></i>Aulas na Trilha <span class="text-sm font-normal text-gray-400 ml-2">(arraste para reordenar)</span></h4>'
+      + '<div id="trailLessonsSortable" class="min-h-[80px] space-y-2 border-2 border-dashed border-indigo-200 rounded-lg p-2">' + lessonListHTML + '</div>'
+      + '<div id="trailReorderStatus" class="text-xs text-gray-400 mt-2 text-right"></div></div>'
+      + '</div></div>'
+
+    adminUI.initTrailDragDrop(trailId)
+    await adminUI.searchTrailLessons(trailId)
+  } catch (e) {
+    content.innerHTML = '<p class="text-red-500 text-center py-8">Erro ao carregar editor de trilha.</p>'
+  }
+}
+
+adminUI.searchTrailLessons = async function(trailId) {
+  const q = (document.getElementById('trailLessonSearch') || {}).value || ''
+  const courseId = (document.getElementById('trailCourseFilter') || {}).value || ''
+  const resultsEl = document.getElementById('trailLessonResults')
+  if (!resultsEl) return
+  resultsEl.innerHTML = '<p class="text-gray-400 text-sm text-center py-4"><i class="fas fa-spinner fa-spin mr-2"></i>Buscando...</p>'
+  try {
+    const params = new URLSearchParams()
+    if (q) params.set('q', q)
+    if (courseId) params.set('course_id', courseId)
+    const res = await axios.get('/api/admin/trails/search-lessons?' + params.toString())
+    const lessons = res.data.lessons || []
+    const currentIds = new Set(Array.from(document.querySelectorAll('#trailLessonsSortable .trail-lesson-item')).map(function(el) { return parseInt(el.dataset.lessonId) }))
+    if (lessons.length === 0) {
+      resultsEl.innerHTML = '<p class="text-gray-400 text-sm text-center py-4">Nenhuma aula encontrada.</p>'
+      return
     }
-  },
+    resultsEl.innerHTML = lessons.map(function(l) {
+      const alreadyAdded = currentIds.has(l.id)
+      const badge = alreadyAdded
+        ? '<span class="text-xs text-green-600 font-semibold flex-shrink-0"><i class="fas fa-check mr-1"></i>Adicionada</span>'
+        : '<button onclick="adminUI.addLessonToTrail(' + trailId + ', ' + l.id + ', this)" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold transition-colors flex-shrink-0"><i class="fas fa-plus mr-1"></i>Adicionar</button>'
+      const extras = (l.teste_gratis ? ' • <span class="text-green-600">Grátis</span>' : '') + (l.rentable ? ' • <span class="text-amber-600">' + l.rental_credits + ' créditos</span>' : '')
+      return '<div class="bg-white border rounded-lg p-3 ' + (alreadyAdded ? 'border-green-200 bg-green-50' : 'border-gray-200 hover:border-indigo-300') + ' transition-colors">'
+        + '<div class="flex items-center gap-3">'
+        + '<div class="flex-1 min-w-0"><p class="font-semibold text-gray-800 text-sm truncate">' + l.title + '</p>'
+        + '<p class="text-xs text-gray-400">' + l.course_title + ' › ' + l.module_title + ' • ' + l.duration_minutes + 'min' + extras + '</p></div>'
+        + badge + '</div></div>'
+    }).join('')
+  } catch (e) {
+    resultsEl.innerHTML = '<p class="text-red-400 text-sm text-center py-4">Erro ao buscar aulas.</p>'
+  }
+}
 
-  async loadTrailEditor(trailId) {
-    const content = document.getElementById('adminContent')
-    content.innerHTML = '<div class="text-center py-12"><i class="fas fa-spinner fa-spin text-3xl text-indigo-500"></i></div>'
-    try {
-      const [trailRes, coursesRes] = await Promise.all([
-        axios.get(`/api/trails/${trailId}`),
-        axios.get('/api/courses')
-      ])
-      const trail = trailRes.data.trail
-      const trailLessons = trailRes.data.lessons || []
-      const courses = coursesRes.data.courses || []
+adminUI.addLessonToTrail = async function(trailId, lessonId, btn) {
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>' }
+  try {
+    await axios.post('/api/admin/trails/' + trailId + '/lessons', { lesson_id: lessonId })
+    await adminUI.loadTrailEditor(trailId)
+  } catch (e) {
+    alert('Erro ao adicionar aula: ' + (e.response && e.response.data && e.response.data.error ? e.response.data.error : e.message))
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-plus mr-1"></i>Adicionar' }
+  }
+}
 
-      content.innerHTML = `
-        <div class="bg-white rounded-lg shadow-md p-6">
-          <div class="flex items-center gap-3 mb-6">
-            <button onclick="adminUI.renderTrailsTab()"
-                    class="text-indigo-600 hover:text-indigo-800 font-semibold">
-              <i class="fas fa-arrow-left mr-1"></i>Voltar
-            </button>
-            <h3 class="text-xl font-bold text-gray-800">
-              <i class="fas fa-route mr-2 text-indigo-500"></i>${trail.title}
-              ${trail.is_published
-                ? '<span class="text-xs bg-green-500 text-white px-2 py-1 rounded ml-2">PUBLICADA</span>'
-                : '<span class="text-xs bg-gray-400 text-white px-2 py-1 rounded ml-2">RASCUNHO</span>'}
-            </h3>
-          </div>
+adminUI.removeLessonFromTrail = async function(trailId, lessonId) {
+  try {
+    await axios.delete('/api/admin/trails/' + trailId + '/lessons/' + lessonId)
+    await adminUI.loadTrailEditor(trailId)
+  } catch (e) {
+    alert('Erro ao remover aula: ' + (e.response && e.response.data && e.response.data.error ? e.response.data.error : e.message))
+  }
+}
 
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <!-- Left: Lesson Search -->
-            <div>
-              <h4 class="font-bold text-gray-700 mb-3"><i class="fas fa-search mr-2 text-indigo-400"></i>Buscar Aulas para Adicionar</h4>
-              <div class="flex gap-2 mb-3">
-                <input type="text" id="trailLessonSearch" placeholder="Buscar por título..."
-                       oninput="adminUI.searchTrailLessons(${trailId})"
-                       class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none text-sm">
-                <select id="trailCourseFilter" onchange="adminUI.searchTrailLessons(${trailId})"
-                        class="px-3 py-2 border border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none text-sm">
-                  <option value="">Todos os cursos</option>
-                  ${courses.map(c => `<option value="${c.id}">${c.title}</option>`).join('')}
-                </select>
-              </div>
-              <div id="trailLessonResults" class="max-h-[500px] overflow-y-auto space-y-2 border border-gray-100 rounded-lg p-2 bg-gray-50">
-                <p class="text-gray-400 text-sm text-center py-4">Digite para buscar aulas...</p>
-              </div>
-            </div>
+adminUI.initTrailDragDrop = function(trailId) {
+  const container = document.getElementById('trailLessonsSortable')
+  if (!container) return
+  const dragState = {}
+  container.addEventListener('dragstart', function(e) {
+    const item = e.target.closest('.trail-lesson-item')
+    if (!item) return
+    dragState.el = item
+    item.style.opacity = '0.4'
+  })
+  container.addEventListener('dragend', function(e) {
+    const item = e.target.closest('.trail-lesson-item')
+    if (item) item.style.opacity = '1'
+    container.querySelectorAll('.trail-lesson-item').forEach(function(el) { el.style.borderTop = '' })
+  })
+  container.addEventListener('dragover', function(e) {
+    e.preventDefault()
+    const item = e.target.closest('.trail-lesson-item')
+    container.querySelectorAll('.trail-lesson-item').forEach(function(el) { el.style.borderTop = '' })
+    if (item && item !== dragState.el) item.style.borderTop = '3px solid #6366f1'
+  })
+  container.addEventListener('dragleave', function() {
+    container.querySelectorAll('.trail-lesson-item').forEach(function(el) { el.style.borderTop = '' })
+  })
+  container.addEventListener('drop', function(e) {
+    e.preventDefault()
+    container.querySelectorAll('.trail-lesson-item').forEach(function(el) { el.style.borderTop = '' })
+    const target = e.target.closest('.trail-lesson-item')
+    if (!target || target === dragState.el) return
+    container.insertBefore(dragState.el, target)
+    adminUI.saveTrailOrder(trailId, container)
+  })
+}
 
-            <!-- Right: Trail Lesson List -->
-            <div>
-              <h4 class="font-bold text-gray-700 mb-3"><i class="fas fa-list-ol mr-2 text-indigo-400"></i>Aulas na Trilha
-                <span class="text-sm font-normal text-gray-400 ml-2">(arraste para reordenar)</span>
-              </h4>
-              <div id="trailLessonsSortable" class="min-h-[80px] space-y-2 border-2 border-dashed border-indigo-200 rounded-lg p-2">
-                ${trailLessons.length === 0
-                  ? '<p class="text-gray-400 text-sm text-center py-6">Nenhuma aula na trilha. Adicione da busca ao lado.</p>'
-                  : trailLessons.map((l, i) => `
-                    <div class="trail-lesson-item bg-white border border-gray-200 rounded-lg p-3 flex items-center gap-3 cursor-grab hover:border-indigo-300 transition-colors"
-                         draggable="true"
-                         data-lesson-id="${l.lesson_id}"
-                         data-order="${i}">
-                      <i class="fas fa-grip-vertical text-gray-300 flex-shrink-0"></i>
-                      <div class="flex-1 min-w-0">
-                        <p class="font-semibold text-gray-800 text-sm truncate">${l.title}</p>
-                        <p class="text-xs text-gray-400">${l.course_title} › ${l.module_title} • ${l.duration_minutes}min</p>
-                      </div>
-                      <button onclick="adminUI.removeLessonFromTrail(${trailId}, ${l.lesson_id})"
-                              class="text-red-400 hover:text-red-600 flex-shrink-0 p-1" title="Remover">
-                        <i class="fas fa-times"></i>
-                      </button>
-                    </div>
-                  `).join('')}
-              </div>
-              <div id="trailReorderStatus" class="text-xs text-gray-400 mt-2 text-right"></div>
-            </div>
-          </div>
-        </div>
-      `
-
-      // Init drag-and-drop
-      this.initTrailDragDrop(trailId)
-
-      // Initial load of all lessons
-      await this.searchTrailLessons(trailId)
-    } catch (e) {
-      content.innerHTML = '<p class="text-red-500 text-center py-8">Erro ao carregar editor de trilha.</p>'
-    }
-  },
-
-  async searchTrailLessons(trailId) {
-    const q = document.getElementById('trailLessonSearch')?.value || ''
-    const courseId = document.getElementById('trailCourseFilter')?.value || ''
-    const resultsEl = document.getElementById('trailLessonResults')
-    if (!resultsEl) return
-
-    resultsEl.innerHTML = '<p class="text-gray-400 text-sm text-center py-4"><i class="fas fa-spinner fa-spin mr-2"></i>Buscando...</p>'
-    try {
-      const params = new URLSearchParams()
-      if (q) params.set('q', q)
-      if (courseId) params.set('course_id', courseId)
-      const res = await axios.get(`/api/admin/trails/search-lessons?${params}`)
-      const lessons = res.data.lessons || []
-
-      // Get current trail lesson IDs
-      const currentIds = new Set(
-        Array.from(document.querySelectorAll('#trailLessonsSortable .trail-lesson-item'))
-             .map(el => parseInt(el.dataset.lessonId))
-      )
-
-      if (lessons.length === 0) {
-        resultsEl.innerHTML = '<p class="text-gray-400 text-sm text-center py-4">Nenhuma aula encontrada.</p>'
-        return
-      }
-
-      resultsEl.innerHTML = lessons.map(l => {
-        const alreadyAdded = currentIds.has(l.id)
-        return `
-          <div class="bg-white border rounded-lg p-3 ${alreadyAdded ? 'border-green-200 bg-green-50' : 'border-gray-200 hover:border-indigo-300'} transition-colors">
-            <div class="flex items-center gap-3">
-              <div class="flex-1 min-w-0">
-                <p class="font-semibold text-gray-800 text-sm truncate">${l.title}</p>
-                <p class="text-xs text-gray-400">${l.course_title} › ${l.module_title} • ${l.duration_minutes}min
-                  ${l.teste_gratis ? ' • <span class="text-green-600">Grátis</span>' : ''}
-                  ${l.rentable ? ' • <span class="text-amber-600">' + l.rental_credits + ' créditos</span>' : ''}
-                </p>
-              </div>
-              ${alreadyAdded
-                ? '<span class="text-xs text-green-600 font-semibold flex-shrink-0"><i class="fas fa-check mr-1"></i>Adicionada</span>'
-                : `<button onclick="adminUI.addLessonToTrail(${trailId}, ${l.id}, this)"
-                           class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold transition-colors flex-shrink-0">
-                     <i class="fas fa-plus mr-1"></i>Adicionar
-                   </button>`}
-            </div>
-          </div>
-        `
-      }).join('')
-    } catch (e) {
-      resultsEl.innerHTML = '<p class="text-red-400 text-sm text-center py-4">Erro ao buscar aulas.</p>'
-    }
-  },
-
-  async addLessonToTrail(trailId, lessonId, btn) {
-    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>' }
-    try {
-      await axios.post(`/api/admin/trails/${trailId}/lessons`, { lesson_id: lessonId })
-      // Reload editor to show updated list
-      await this.loadTrailEditor(trailId)
-    } catch (e) {
-      alert('Erro ao adicionar aula: ' + (e.response?.data?.error || e.message))
-      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-plus mr-1"></i>Adicionar' }
-    }
-  },
-
-  async removeLessonFromTrail(trailId, lessonId) {
-    try {
-      await axios.delete(`/api/admin/trails/${trailId}/lessons/${lessonId}`)
-      await this.loadTrailEditor(trailId)
-    } catch (e) {
-      alert('Erro ao remover aula: ' + (e.response?.data?.error || e.message))
-    }
-  },
-
-  initTrailDragDrop(trailId) {
-    const container = document.getElementById('trailLessonsSortable')
-    if (!container) return
-
-    const dragState = {}
-
-    container.addEventListener('dragstart', (e) => {
-      const item = e.target.closest('.trail-lesson-item')
-      if (!item) return
-      dragState.el = item
-      item.style.opacity = '0.4'
-    })
-
-    container.addEventListener('dragend', (e) => {
-      const item = e.target.closest('.trail-lesson-item')
-      if (item) item.style.opacity = '1'
-      container.querySelectorAll('.trail-lesson-item').forEach(el => {
-        el.style.borderTop = ''
-      })
-    })
-
-    container.addEventListener('dragover', (e) => {
-      e.preventDefault()
-      const item = e.target.closest('.trail-lesson-item')
-      container.querySelectorAll('.trail-lesson-item').forEach(el => el.style.borderTop = '')
-      if (item && item !== dragState.el) {
-        item.style.borderTop = '3px solid #6366f1'
-      }
-    })
-
-    container.addEventListener('dragleave', () => {
-      container.querySelectorAll('.trail-lesson-item').forEach(el => el.style.borderTop = '')
-    })
-
-    container.addEventListener('drop', (e) => {
-      e.preventDefault()
-      container.querySelectorAll('.trail-lesson-item').forEach(el => el.style.borderTop = '')
-      const target = e.target.closest('.trail-lesson-item')
-      if (!target || target === dragState.el) return
-      container.insertBefore(dragState.el, target)
-      this.saveTrailOrder(trailId, container)
-    })
-  },
-
-  async saveTrailOrder(trailId, container) {
-    const status = document.getElementById('trailReorderStatus')
-    if (status) status.textContent = 'Salvando ordem...'
-    const items = container.querySelectorAll('.trail-lesson-item')
-    const lessons = Array.from(items).map((el, i) => ({
-      lesson_id: parseInt(el.dataset.lessonId),
-      order_index: i
-    }))
-    try {
-      await axios.post(`/api/admin/trails/${trailId}/reorder`, { lessons })
-      if (status) status.textContent = '✓ Ordem salva'
-      setTimeout(() => { if (status) status.textContent = '' }, 2000)
-    } catch (e) {
-      if (status) status.textContent = '❌ Erro ao salvar ordem'
-    }
+adminUI.saveTrailOrder = async function(trailId, container) {
+  const status = document.getElementById('trailReorderStatus')
+  if (status) status.textContent = 'Salvando ordem...'
+  const items = container.querySelectorAll('.trail-lesson-item')
+  const lessons = Array.from(items).map(function(el, i) { return { lesson_id: parseInt(el.dataset.lessonId), order_index: i } })
+  try {
+    await axios.post('/api/admin/trails/' + trailId + '/reorder', { lessons })
+    if (status) status.textContent = '✓ Ordem salva'
+    setTimeout(function() { if (status) status.textContent = '' }, 2000)
+  } catch (e) {
+    if (status) status.textContent = '❌ Erro ao salvar ordem'
   }
 }
 
