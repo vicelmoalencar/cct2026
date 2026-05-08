@@ -1934,8 +1934,19 @@ const app = {
       view.innerHTML = '<div class="text-center py-16"><i class="fas fa-spinner fa-spin text-4xl text-indigo-500"></i></div>'
     }
     try {
-      const res = await axios.get(`/api/trails/${trailId}`)
+      const [res, rentalsRes] = await Promise.all([
+        axios.get(`/api/trails/${trailId}`),
+        axios.get('/api/user/rentals').catch(() => ({ data: { rentals: [] } }))
+      ])
       const { trail, lessons } = res.data
+
+      const now = new Date()
+      const activeRentalIds = new Set(
+        (rentalsRes.data.rentals || [])
+          .filter(r => new Date(r.expires_at) > now)
+          .map(r => r.lesson_id)
+      )
+      activeRentalIds.forEach(id => this.activeRentals.add(id))
 
       const hasFullAccess = accessManager?.userAccessStatus?.accessType === 'COMPLETO'
 
