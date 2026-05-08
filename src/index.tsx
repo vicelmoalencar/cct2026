@@ -23,19 +23,34 @@ function getDB(c: any): PostgresClient {
   return new PostgresClient(connStr)
 }
 
-// Helper: retorna cliente PostgreSQL para o banco de créditos (SUITE PLUS)
+// Helper: retorna cliente PostgreSQL para créditos — usa banco dedicado ou cai no CCT
 function getCreditsDB(c: any): PostgresClient {
-  const connStr = c.env.DATABASE_URL_CREDITOS || c.env.DATABASE_SUITEPLUS
-  if (!connStr) throw new Error('Banco de créditos não configurado')
+  const connStr = c.env.DATABASE_URL_CREDITOS || c.env.DATABASE_SUITEPLUS || c.env.DATABASE_CCT
+  if (!connStr) throw new Error('Nenhum banco de dados configurado')
   return new PostgresClient(connStr)
 }
 
+async function ensureCreditsSchema(credDb: PostgresClient): Promise<void> {
+  await credDb.sql(`
+    CREATE TABLE IF NOT EXISTS users_credits (
+      id SERIAL PRIMARY KEY,
+      user_email VARCHAR(255) NOT NULL UNIQUE,
+      credits_balance INTEGER NOT NULL DEFAULT 0,
+      total_credits_used INTEGER NOT NULL DEFAULT 0,
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `)
+  await credDb.sql(`CREATE INDEX IF NOT EXISTS idx_users_credits_email ON users_credits(lower(user_email))`)
+}
+
 async function getUserCreditBalance(credDb: PostgresClient, email: string): Promise<number> {
+  await ensureCreditsSchema(credDb)
   const rows = await credDb.sql('SELECT credits_balance FROM users_credits WHERE lower(user_email) = lower($1)', [email])
   return rows.length > 0 ? parseInt(rows[0].credits_balance) : 0
 }
 
 async function deductCredits(credDb: PostgresClient, email: string, amount: number): Promise<boolean> {
+  await ensureCreditsSchema(credDb)
   const rows = await credDb.sql(
     `UPDATE users_credits
      SET credits_balance = credits_balance - $1,
@@ -47,6 +62,18 @@ async function deductCredits(credDb: PostgresClient, email: string, amount: numb
     [amount, email]
   )
   return rows.length > 0
+}
+
+async function addCredits(credDb: PostgresClient, email: string, amount: number): Promise<void> {
+  await ensureCreditsSchema(credDb)
+  await credDb.sql(
+    `INSERT INTO users_credits (user_email, credits_balance)
+     VALUES (lower($1), $2)
+     ON CONFLICT (user_email) DO UPDATE
+     SET credits_balance = users_credits.credits_balance + $2,
+         updated_at = NOW()`,
+    [email, amount]
+  )
 }
 
 async function ensureLessonRentalSchema(db: PostgresClient): Promise<void> {
