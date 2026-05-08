@@ -1350,7 +1350,7 @@ Minimum version required to store current data is: `+P+`.
         <script defer src="/static/admin.js?v=3"><\/script>
         <script defer src="/static/access-control.js?v=3"><\/script>
         <script defer src="/static/app.js?v=5"><\/script>
-        <script defer src="/static/search.js"><\/script>
+        <script defer src="/static/search.js?v=2"><\/script>
     </body>
     </html>
   `));I.get("/api/favorites",se,async e=>{const t=e.get("user"),r=q(e);try{const s=await r.sql(`

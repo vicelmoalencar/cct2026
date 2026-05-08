@@ -87,7 +87,7 @@ window.searchManager = {
     courses.forEach(course => {
       const option = document.createElement('option')
       option.value = course.id
-      option.textContent = course.name
+      option.textContent = course.title || course.name
       courseFilter.appendChild(option)
     })
   },
