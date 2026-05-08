@@ -189,12 +189,17 @@ async function requireAuth(c: any, next: any) {
 app.get('/api/user/credits', requireAuth, async (c) => {
   try {
     const user = c.get('user')
+    const connStr = c.env.DATABASE_URL_CREDITOS || c.env.DATABASE_SUITEPLUS
+    if (!connStr) {
+      console.warn('Credits DB not configured — returning 0')
+      return c.json({ success: true, credits: 0, unavailable: true })
+    }
     const credDb = getCreditsDB(c)
     const credits = await getUserCreditBalance(credDb, user.email)
     return c.json({ success: true, credits })
   } catch (error: any) {
     console.error('Get credits error:', error)
-    return c.json({ error: error.message || 'Erro ao buscar créditos' }, 500)
+    return c.json({ success: true, credits: 0, unavailable: true })
   }
 })
 

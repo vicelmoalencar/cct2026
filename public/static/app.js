@@ -71,9 +71,13 @@ const app = {
       const data = response.data
       const el = document.getElementById('userCredits')
       if (el) {
-        el.textContent = (data.success && data.credits !== undefined)
-          ? Number(data.credits).toLocaleString('pt-BR')
-          : '—'
+        if (data.unavailable) {
+          el.textContent = '—'
+        } else if (data.success && data.credits !== undefined) {
+          el.textContent = Number(data.credits).toLocaleString('pt-BR')
+        } else {
+          el.textContent = '—'
+        }
       }
     } catch (error) {
       const el = document.getElementById('userCredits')
@@ -1636,22 +1640,30 @@ const app = {
     const confirmBtn = document.getElementById('confirmRentBtn')
     try {
       const response = await axios.get('/api/user/credits')
-      const credits = Number(response.data.credits || 0)
+      const data = response.data
+      const credits = Number(data.credits || 0)
+      const unavailable = data.unavailable === true
+
       if (balanceEl) {
-        balanceEl.textContent = `${credits.toLocaleString('pt-BR')} creditos`
-        balanceEl.className = credits >= requiredCredits
-          ? 'text-sm font-bold text-green-600'
-          : 'text-sm font-bold text-red-600'
+        if (unavailable) {
+          balanceEl.innerHTML = '<i class="fas fa-exclamation-circle mr-1"></i>Saldo indisponível'
+          balanceEl.className = 'text-sm font-bold text-gray-400'
+        } else {
+          balanceEl.textContent = credits.toLocaleString('pt-BR') + ' créditos'
+          balanceEl.className = credits >= requiredCredits
+            ? 'text-sm font-bold text-green-600'
+            : 'text-sm font-bold text-red-600'
+        }
       }
-      if (confirmBtn && credits < requiredCredits) {
+      if (confirmBtn && !unavailable && credits < requiredCredits) {
         confirmBtn.disabled = true
         confirmBtn.classList.add('opacity-60', 'cursor-not-allowed')
-        confirmBtn.innerHTML = '<i class="fas fa-coins mr-2"></i>Creditos insuficientes'
+        confirmBtn.innerHTML = '<i class="fas fa-coins mr-2"></i>Créditos insuficientes'
       }
     } catch (error) {
       if (balanceEl) {
-        balanceEl.textContent = 'Nao foi possivel consultar'
-        balanceEl.className = 'text-sm font-bold text-red-600'
+        balanceEl.innerHTML = '<i class="fas fa-exclamation-circle mr-1"></i>Saldo indisponível'
+        balanceEl.className = 'text-sm font-bold text-gray-400'
       }
     }
   },
