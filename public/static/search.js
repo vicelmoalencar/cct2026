@@ -218,6 +218,8 @@ window.searchManager = {
         results = results.filter(lesson => lesson.isFree)
       } else if (lessonType === 'premium') {
         results = results.filter(lesson => !lesson.isFree)
+      } else if (lessonType === 'rented') {
+        results = results.filter(lesson => app?.activeRentals?.has(lesson.id))
       }
     }
     
@@ -293,27 +295,36 @@ window.searchManager = {
     // Render results
     const resultsHTML = this.searchResults.map(lesson => {
       const isPremium = !lesson.isFree
-      const canAccess = lesson.isFree || hasFullAccess
-      const isBlocked = isPremium && !hasFullAccess
-      
+      const isRented = app?.activeRentals?.has(lesson.id) || false
+      const isRentable = isPremium && !isRented && !hasFullAccess && lesson.rentable && lesson.rental_credits > 0
+      const isBlocked = isPremium && !hasFullAccess && !isRented
+
+      const borderColor = isRented ? 'border-teal-500' : isPremium ? 'border-orange-500' : 'border-green-500'
+
+      let titleIcon
+      if (isRented) titleIcon = '<i class="fas fa-key text-teal-500 ml-2 text-sm"></i>'
+      else if (isBlocked) titleIcon = '<i class="fas fa-lock text-red-500 ml-2 text-sm"></i>'
+      else if (isPremium) titleIcon = '<i class="fas fa-crown text-orange-500 ml-2 text-sm"></i>'
+      else titleIcon = '<i class="fas fa-gift text-green-500 ml-2 text-sm"></i>'
+
+      let statusBadge
+      if (isRented) statusBadge = '<span class="px-3 py-1 rounded-full text-xs font-semibold bg-teal-100 text-teal-700">🔑 ALUGADO</span>'
+      else if (isBlocked) statusBadge = '<span class="px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">🔒 BLOQUEADO</span>'
+      else if (isPremium) statusBadge = '<span class="px-3 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-700">👑 PREMIUM</span>'
+      else statusBadge = '<span class="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">🎁 GRÁTIS</span>'
+
       return `
-        <div class="bg-white rounded-xl shadow-md hover:shadow-lg transition-all p-6 cursor-pointer border-l-4 ${
-          isPremium ? 'border-orange-500' : 'border-green-500'
-        } ${isBlocked ? 'opacity-75 hover:opacity-90' : ''}" 
+        <div class="bg-white rounded-xl shadow-md hover:shadow-lg transition-all p-6 cursor-pointer border-l-4 ${borderColor} ${isBlocked && !isRentable ? 'opacity-75 hover:opacity-90' : ''}"
              onclick="searchManager.openLesson(${lesson.id})"
-             data-lesson-id="${lesson.id}"
-             data-is-premium="${isPremium}"
-             data-is-blocked="${isBlocked}">
+             data-lesson-id="${lesson.id}">
           <div class="flex items-start justify-between gap-4">
             <div class="flex-1">
-              <!-- Title and Course -->
+              <!-- Title -->
               <h3 class="text-lg font-bold text-gray-800 mb-2">
                 ${this.highlightText(lesson.title, this.currentFilters.query)}
-                ${isBlocked ? '<i class="fas fa-lock text-red-500 ml-2 text-sm"></i>' : 
-                  isPremium ? '<i class="fas fa-crown text-orange-500 ml-2 text-sm"></i>' : 
-                  '<i class="fas fa-gift text-green-500 ml-2 text-sm"></i>'}
+                ${titleIcon}
               </h3>
-              
+
               <!-- Course and Module -->
               <div class="flex items-center gap-4 text-sm text-gray-600 mb-3">
                 <span class="flex items-center gap-1">
@@ -325,42 +336,51 @@ window.searchManager = {
                   ${lesson.moduleName}
                 </span>
               </div>
-              
+
               <!-- Description -->
               ${lesson.description ? `
                 <p class="text-gray-700 text-sm mb-3 line-clamp-2">
                   ${this.highlightText(lesson.description, this.currentFilters.query)}
                 </p>
               ` : ''}
-              
-              <!-- Blocked Message -->
-              ${isBlocked ? `
-                <div class="bg-red-50 border border-red-200 rounded-lg p-3 mb-3">
-                  <p class="text-xs text-red-700 flex items-center gap-2">
-                    <i class="fas fa-lock"></i>
-                    <span>Esta aula requer plano ${userAccessType === 'TESTE_GRATIS' ? 'pago' : 'ativo'}. Clique para fazer upgrade.</span>
+
+              <!-- Rented access banner -->
+              ${isRented ? `
+                <div class="bg-teal-50 border border-teal-200 rounded-lg p-3 mb-3">
+                  <p class="text-xs text-teal-700 flex items-center gap-2">
+                    <i class="fas fa-key"></i>
+                    <span>Você tem acesso via aluguel. Clique para entrar direto.</span>
                   </p>
                 </div>
               ` : ''}
-              
+
+              <!-- Blocked message with optional rent button -->
+              ${isBlocked ? `
+                <div class="bg-red-50 border border-red-200 rounded-lg p-3 mb-3">
+                  <p class="text-xs text-red-700 flex items-center gap-2 ${isRentable ? 'mb-2' : ''}">
+                    <i class="fas fa-lock"></i>
+                    <span>Esta aula requer plano ${userAccessType === 'TESTE_GRATIS' ? 'pago' : 'ativo'}.</span>
+                  </p>
+                  ${isRentable ? `
+                    <button onclick="event.stopPropagation(); app.showRentModal(${lesson.id}, '${lesson.title.replace(/'/g, "\\'")}', ${lesson.rental_credits})"
+                            class="text-xs bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 transition-colors">
+                      <i class="fas fa-coins"></i>
+                      Alugar por ${lesson.rental_credits} crédito${lesson.rental_credits !== 1 ? 's' : ''}
+                    </button>
+                  ` : ''}
+                </div>
+              ` : ''}
+
               <!-- Meta info -->
               <div class="flex items-center gap-4 text-sm">
                 <span class="flex items-center gap-1 text-gray-600">
                   <i class="fas fa-clock"></i>
                   ${lesson.duration_minutes} min
                 </span>
-                <span class="px-3 py-1 rounded-full text-xs font-semibold ${
-                  isBlocked 
-                    ? 'bg-red-100 text-red-700' 
-                    : isPremium 
-                      ? 'bg-orange-100 text-orange-700' 
-                      : 'bg-green-100 text-green-700'
-                }">
-                  ${isBlocked ? '🔒 BLOQUEADO' : isPremium ? '👑 PREMIUM' : '🎁 GRÁTIS'}
-                </span>
+                ${statusBadge}
               </div>
             </div>
-            
+
             <!-- Arrow icon -->
             <div class="flex-shrink-0">
               <i class="fas fa-chevron-right text-gray-400 text-xl"></i>

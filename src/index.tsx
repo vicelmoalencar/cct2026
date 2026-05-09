@@ -4844,6 +4844,7 @@ app.get('/', (c) => {
                                 <option value="all">Todas</option>
                                 <option value="free">Apenas Grátis</option>
                                 <option value="premium">Apenas Premium</option>
+                                <option value="rented">Minhas Alugadas</option>
                             </select>
                         </div>
                         
