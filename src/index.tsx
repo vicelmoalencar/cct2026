@@ -4622,10 +4622,11 @@ app.get('/', (c) => {
             }
           }
           
-          /* Smooth Animations */
-          * {
-            transition-property: all;
+          /* Smooth Animations - scoped to interactive elements only */
+          a, button, .lesson-item, .module-header, .group {
+            transition-property: color, background-color, border-color, box-shadow, opacity, transform;
             transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+            transition-duration: 150ms;
           }
           
           /* Mobile Responsive Utilities */

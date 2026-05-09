@@ -1397,11 +1397,14 @@ const app = {
   
   // View management
   showCourses() {
+    this.hideLoadingState()
     document.getElementById('coursesView').classList.remove('hidden')
     document.getElementById('courseView').classList.add('hidden')
     document.getElementById('lessonView').classList.add('hidden')
     document.getElementById('searchView')?.classList.add('hidden')
     document.getElementById('trailsView')?.classList.add('hidden')
+    document.getElementById('plansView')?.classList.add('hidden')
+    document.getElementById('rentalsView')?.classList.add('hidden')
     this.loadCourses()
   },
   
