@@ -2144,23 +2144,25 @@ const app = {
   
   // Show loading state with spinner
   showLoadingState(message = 'Carregando...') {
-    // Create or get loading overlay
+    // Cancel any existing auto-hide safety timeout
+    if (this._overlayTimeout) {
+      clearTimeout(this._overlayTimeout)
+      this._overlayTimeout = null
+    }
+
     let overlay = document.getElementById('loadingOverlay')
-    
+
     if (!overlay) {
       overlay = document.createElement('div')
       overlay.id = 'loadingOverlay'
-      overlay.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 transition-opacity'
+      overlay.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50'
       overlay.innerHTML = `
-        <div class="bg-white rounded-xl shadow-2xl p-8 max-w-sm mx-4 transform transition-all">
+        <div class="bg-white rounded-xl shadow-2xl p-8 max-w-sm mx-4">
           <div class="flex flex-col items-center">
-            <!-- Spinner -->
             <div class="relative w-16 h-16 mb-4">
               <div class="absolute inset-0 border-4 border-blue-200 rounded-full"></div>
               <div class="absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
             </div>
-            
-            <!-- Message -->
             <p class="text-lg font-semibold text-gray-800 mb-2" id="loadingMessage">${message}</p>
             <p class="text-sm text-gray-500">Aguarde um momento...</p>
           </div>
@@ -2168,27 +2170,31 @@ const app = {
       `
       document.body.appendChild(overlay)
     } else {
-      // Update message if overlay already exists
       const messageElement = overlay.querySelector('#loadingMessage')
-      if (messageElement) {
-        messageElement.textContent = message
-      }
+      if (messageElement) messageElement.textContent = message
       overlay.classList.remove('hidden')
+      overlay.style.opacity = '1'
     }
-    
-    // Force reflow for animation
-    overlay.offsetHeight
-    overlay.style.opacity = '1'
+
+    // Safety net: auto-hide after 10s to prevent overlay from getting stuck
+    this._overlayTimeout = setTimeout(() => {
+      this.hideLoadingState()
+    }, 10000)
   },
-  
+
   // Hide loading state
   hideLoadingState() {
+    if (this._overlayTimeout) {
+      clearTimeout(this._overlayTimeout)
+      this._overlayTimeout = null
+    }
     const overlay = document.getElementById('loadingOverlay')
-    if (overlay) {
+    if (overlay && !overlay.classList.contains('hidden')) {
       overlay.style.opacity = '0'
       setTimeout(() => {
         overlay.classList.add('hidden')
-      }, 300)
+        overlay.style.opacity = ''
+      }, 200)
     }
   },
   
