@@ -215,6 +215,7 @@ const app = {
   
   // Load all courses
   async loadCourses() {
+    this.hideLoadingState()
     try {
       const response = await axios.get('/api/courses')
       const courses = response.data.courses
