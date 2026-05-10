@@ -4574,6 +4574,7 @@ app.get('/', (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta name="color-scheme" content="light only">
         <title>CCT - Clube do Cálculo Trabalhista</title>
         <link rel="icon" type="image/svg+xml" href="/favicon.svg">
         <link rel="icon" type="image/svg+xml" href="/favicon.svg">
@@ -4622,11 +4623,11 @@ app.get('/', (c) => {
             }
           }
           
-          /* Smooth Animations - scoped to interactive elements only */
-          a, button, .lesson-item, .module-header, .group {
-            transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+          /* Smooth Animations */
+          * {
+            transition-property: color, background-color, border-color, opacity, transform, box-shadow;
             transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-            transition-duration: 150ms;
+            transition-duration: 0ms;
           }
           
           /* Mobile Responsive Utilities */
@@ -4898,7 +4899,7 @@ app.get('/', (c) => {
         <script defer src="/static/auth.js"></script>
         <script defer src="/static/admin.js?v=5"></script>
         <script defer src="/static/access-control.js?v=3"></script>
-        <script defer src="/static/app.js?v=10"></script>
+        <script defer src="/static/app.js?v=11"></script>
         <script defer src="/static/search.js?v=3"></script>
     </body>
     </html>
