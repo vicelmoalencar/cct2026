@@ -1,5 +1,6 @@
 import { serve } from '@hono/node-server'
 import { serveStatic } from '@hono/node-server/serve-static'
+import { compress } from 'hono/compress'
 
 // Load the Hono app
 import { Hono } from 'hono'
@@ -49,6 +50,7 @@ console.log('📁 Static files directory:', publicPath)
 
 // Check if public directory exists
 import { existsSync, readdirSync } from 'fs'
+import { readFileSync, statSync } from 'fs'
 
 if (existsSync(publicPath)) {
   console.log('✅ Public directory exists')
@@ -64,8 +66,13 @@ if (existsSync(publicPath)) {
   console.error('❌ Public directory NOT found at:', publicPath)
 }
 
-// Add request logging middleware BEFORE static files
+app.use('*', compress())
+
+// Add request logging middleware BEFORE static files when explicitly enabled
+const debugRequests = process.env.DEBUG_REQUESTS === 'true'
 app.use('*', async (c, next) => {
+  if (!debugRequests) return next()
+
   const start = Date.now()
   const path = new URL(c.req.url).pathname
   console.log(`📥 ${c.req.method} ${path}`)
@@ -90,48 +97,77 @@ console.log('   Root path:', publicPath)
 console.log('   Static path:', join(publicPath, 'static'))
 console.log('   Pattern: /static/* -> ' + join(publicPath, 'static'))
 
-// Option 1: Serve from /app/public/static/* at URL /static/*
-app.use('/static/*', serveStatic({ 
-  root: publicPath,
-  rewriteRequestPath: (path) => {
-    console.log('🔄 Rewriting path:', path, '-> /static' + path.replace('/static', ''))
-    return path.replace('/static', '/static')
-  }
-}))
+const staticFileCache = new Map()
+const contentTypes = new Map([
+  ['.js', 'application/javascript; charset=utf-8'],
+  ['.css', 'text/css; charset=utf-8'],
+  ['.html', 'text/html; charset=utf-8'],
+  ['.csv', 'text/csv; charset=utf-8'],
+  ['.svg', 'image/svg+xml; charset=utf-8'],
+])
 
-// Option 2: Try direct mapping (fallback)
+function getContentType(fileName) {
+  const extension = fileName.slice(fileName.lastIndexOf('.')).toLowerCase()
+  return contentTypes.get(extension) || 'application/octet-stream'
+}
+
+function getStaticFile(filePath) {
+  const stats = statSync(filePath)
+  const cached = staticFileCache.get(filePath)
+  if (cached && cached.mtimeMs === stats.mtimeMs && cached.size === stats.size) {
+    return cached
+  }
+
+  const body = readFileSync(filePath)
+  const etag = `"${stats.size.toString(16)}-${Math.floor(stats.mtimeMs).toString(16)}"`
+  const nextCached = { body, etag, mtimeMs: stats.mtimeMs, size: stats.size }
+  staticFileCache.set(filePath, nextCached)
+  return nextCached
+}
+
+// Serve static assets from memory with browser caching and conditional 304s.
 app.use('/static/*', async (c, next) => {
   const requestPath = new URL(c.req.url).pathname
   const fileName = requestPath.replace('/static/', '')
   const filePath = join(publicPath, 'static', fileName)
-  
-  console.log('🔍 Looking for file:', filePath)
-  
+
   if (existsSync(filePath)) {
-    console.log('✅ File found, serving:', fileName)
-    const { readFileSync } = await import('fs')
-    const content = readFileSync(filePath, 'utf-8')
-    
-    // Set appropriate content type
-    let contentType = 'text/plain'
-    if (fileName.endsWith('.js')) contentType = 'application/javascript'
-    else if (fileName.endsWith('.css')) contentType = 'text/css'
-    else if (fileName.endsWith('.html')) contentType = 'text/html'
-    
-    return c.text(content, 200, { 'Content-Type': contentType, 'Cache-Control': 'no-cache' })
+    const file = getStaticFile(filePath)
+    const ifNoneMatch = c.req.header('if-none-match')
+
+    c.header('ETag', file.etag)
+    c.header('Cache-Control', 'public, max-age=31536000, immutable')
+    c.header('Content-Type', getContentType(fileName))
+
+    if (ifNoneMatch === file.etag) {
+      return c.body(null, 304)
+    }
+
+    return c.body(file.body)
   }
-  
-  console.log('❌ File not found:', filePath)
+
   await next()
 })
 
+// Fallback to Hono static serving for other public files.
+app.use('/static/*', serveStatic({ root: publicPath }))
+
 // Serve favicon.svg from public/
 app.get('/favicon.svg', async (c) => {
-  const { readFileSync } = await import('fs')
   const filePath = join(publicPath, 'favicon.svg')
   if (existsSync(filePath)) {
-    const content = readFileSync(filePath, 'utf-8')
-    return c.text(content, 200, { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=86400' })
+    const file = getStaticFile(filePath)
+    const ifNoneMatch = c.req.header('if-none-match')
+
+    c.header('ETag', file.etag)
+    c.header('Cache-Control', 'public, max-age=86400')
+    c.header('Content-Type', 'image/svg+xml; charset=utf-8')
+
+    if (ifNoneMatch === file.etag) {
+      return c.body(null, 304)
+    }
+
+    return c.body(file.body)
   }
   return c.notFound()
 })
@@ -168,19 +204,20 @@ const keepAlive = setInterval(() => {
   console.log(`💓 Keep-alive ping - ${new Date().toISOString()}`)
 }, 30000)
 
-// Self health check every 10 seconds
-const selfCheck = setInterval(async () => {
-  try {
-    const response = await fetch(`http://localhost:${port}/health`)
-    if (response.ok) {
-      console.log(`🩺 Self health check: OK`)
-    } else {
-      console.warn(`⚠️ Self health check failed: ${response.status}`)
-    }
-  } catch (error) {
-    console.error(`❌ Self health check error:`, error.message)
-  }
-}, 10000)
+const selfCheck = process.env.ENABLE_SELF_CHECK === 'true'
+  ? setInterval(async () => {
+      try {
+        const response = await fetch(`http://localhost:${port}/health`)
+        if (response.ok) {
+          console.log(`🩺 Self health check: OK`)
+        } else {
+          console.warn(`⚠️ Self health check failed: ${response.status}`)
+        }
+      } catch (error) {
+        console.error(`❌ Self health check error:`, error.message)
+      }
+    }, 10000)
+  : null
 
 // Handle graceful shutdown
 let isShuttingDown = false
@@ -191,7 +228,7 @@ process.on('SIGTERM', () => {
   
   console.log('⚠️ SIGTERM received, shutting down gracefully...')
   clearInterval(keepAlive)
-  clearInterval(selfCheck)
+  if (selfCheck) clearInterval(selfCheck)
   
   server.close(() => {
     console.log('✅ Server closed')
@@ -211,7 +248,7 @@ process.on('SIGINT', () => {
   
   console.log('⚠️ SIGINT received, shutting down gracefully...')
   clearInterval(keepAlive)
-  clearInterval(selfCheck)
+  if (selfCheck) clearInterval(selfCheck)
   
   server.close(() => {
     console.log('✅ Server closed')

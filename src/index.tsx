@@ -15,6 +15,8 @@ type Bindings = {
 }
 
 const app = new Hono<{ Bindings: Bindings }>()
+const creditsSchemaReady = new Map<string, Promise<void>>()
+const lessonRentalSchemaReady = new Map<string, Promise<void>>()
 
 // Helper: retorna cliente PostgreSQL para dados do CCT
 function getDB(c: any): PostgresClient {
@@ -31,16 +33,23 @@ function getCreditsDB(c: any): PostgresClient {
 }
 
 async function ensureCreditsSchema(credDb: PostgresClient): Promise<void> {
-  await credDb.sql(`
-    CREATE TABLE IF NOT EXISTS users_credits (
-      id SERIAL PRIMARY KEY,
-      user_email VARCHAR(255) NOT NULL UNIQUE,
-      credits_balance INTEGER NOT NULL DEFAULT 0,
-      total_credits_used INTEGER NOT NULL DEFAULT 0,
-      updated_at TIMESTAMPTZ DEFAULT NOW()
-    )
-  `)
-  await credDb.sql(`CREATE INDEX IF NOT EXISTS idx_users_credits_email ON users_credits(lower(user_email))`)
+  const key = (credDb as any).connectionString || 'credits'
+  if (!creditsSchemaReady.has(key)) {
+    creditsSchemaReady.set(key, (async () => {
+      await credDb.sql(`
+        CREATE TABLE IF NOT EXISTS users_credits (
+          id SERIAL PRIMARY KEY,
+          user_email VARCHAR(255) NOT NULL UNIQUE,
+          credits_balance INTEGER NOT NULL DEFAULT 0,
+          total_credits_used INTEGER NOT NULL DEFAULT 0,
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `)
+      await credDb.sql(`CREATE INDEX IF NOT EXISTS idx_users_credits_email ON users_credits(lower(user_email))`)
+    })())
+  }
+
+  await creditsSchemaReady.get(key)
 }
 
 async function getUserCreditBalance(credDb: PostgresClient, email: string): Promise<number> {
@@ -77,21 +86,28 @@ async function addCredits(credDb: PostgresClient, email: string, amount: number)
 }
 
 async function ensureLessonRentalSchema(db: PostgresClient): Promise<void> {
-  await db.sql(`ALTER TABLE lessons ADD COLUMN IF NOT EXISTS rentable BOOLEAN DEFAULT FALSE`)
-  await db.sql(`ALTER TABLE lessons ADD COLUMN IF NOT EXISTS rental_credits INTEGER DEFAULT 0`)
-  await db.sql(`
-    CREATE TABLE IF NOT EXISTS lesson_rentals (
-      id SERIAL PRIMARY KEY,
-      user_email VARCHAR(255) NOT NULL,
-      lesson_id INTEGER NOT NULL,
-      credits_paid INTEGER NOT NULL,
-      rented_at TIMESTAMPTZ DEFAULT NOW(),
-      expires_at TIMESTAMPTZ NOT NULL,
-      UNIQUE(user_email, lesson_id)
-    )
-  `)
-  await db.sql(`CREATE INDEX IF NOT EXISTS idx_lesson_rentals_email ON lesson_rentals(user_email)`)
-  await db.sql(`CREATE INDEX IF NOT EXISTS idx_lesson_rentals_lesson ON lesson_rentals(lesson_id)`)
+  const key = (db as any).connectionString || 'lesson-rentals'
+  if (!lessonRentalSchemaReady.has(key)) {
+    lessonRentalSchemaReady.set(key, (async () => {
+      await db.sql(`ALTER TABLE lessons ADD COLUMN IF NOT EXISTS rentable BOOLEAN DEFAULT FALSE`)
+      await db.sql(`ALTER TABLE lessons ADD COLUMN IF NOT EXISTS rental_credits INTEGER DEFAULT 0`)
+      await db.sql(`
+        CREATE TABLE IF NOT EXISTS lesson_rentals (
+          id SERIAL PRIMARY KEY,
+          user_email VARCHAR(255) NOT NULL,
+          lesson_id INTEGER NOT NULL,
+          credits_paid INTEGER NOT NULL,
+          rented_at TIMESTAMPTZ DEFAULT NOW(),
+          expires_at TIMESTAMPTZ NOT NULL,
+          UNIQUE(user_email, lesson_id)
+        )
+      `)
+      await db.sql(`CREATE INDEX IF NOT EXISTS idx_lesson_rentals_email ON lesson_rentals(user_email)`)
+      await db.sql(`CREATE INDEX IF NOT EXISTS idx_lesson_rentals_lesson ON lesson_rentals(lesson_id)`)
+    })())
+  }
+
+  await lessonRentalSchemaReady.get(key)
 }
 
 // Consulta a data de expiração do usuário no sistema suiteplus (produto ID 4)
@@ -4899,11 +4915,58 @@ app.get('/', (c) => {
         <script defer src="/static/auth.js"></script>
         <script defer src="/static/admin.js?v=5"></script>
         <script defer src="/static/access-control.js?v=3"></script>
-        <script defer src="/static/app.js?v=11"></script>
+        <script defer src="/static/app.js?v=12"></script>
         <script defer src="/static/search.js?v=3"></script>
     </body>
     </html>
   `)
+})
+
+// ── Direct URL navigation: /course/:id and /lesson/:id ──────────────────────
+// These routes allow sharing direct links to courses and lessons.
+// Server returns a lightweight redirect page; the JS client handles navigation.
+app.get('/course/:courseId', (c) => {
+  const courseId = c.req.param('courseId')
+  return c.html(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="color-scheme" content="light only">
+<title>CCT - Abrindo aula...</title>
+<style>body{margin:0;background:#1e3a8a;display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:sans-serif;color:white}</style>
+</head>
+<body>
+<script>
+(function() {
+  var hash = window.location.hash;
+  var lessonId = hash.startsWith('#lesson-') ? hash.slice(8) : '';
+  if (lessonId) {
+    window.location.replace('/?lesson=' + encodeURIComponent(lessonId));
+  } else {
+    window.location.replace('/?course=' + encodeURIComponent('${courseId}'));
+  }
+})();
+</script>
+<p>Abrindo aula...</p>
+</body>
+</html>`)
+})
+
+app.get('/lesson/:lessonId', (c) => {
+  const lessonId = c.req.param('lessonId')
+  return c.html(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="color-scheme" content="light only">
+<title>CCT - Abrindo aula...</title>
+<style>body{margin:0;background:#1e3a8a;display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:sans-serif;color:white}</style>
+</head>
+<body>
+<script>window.location.replace('/?lesson=' + encodeURIComponent('${lessonId}'));</script>
+<p>Abrindo aula...</p>
+</body>
+</html>`)
 })
 
 // ── Favorites APIs ──────────────────────────────────────────────────────────
