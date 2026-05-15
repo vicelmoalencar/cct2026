@@ -38,8 +38,21 @@ const app = {
       sessionStorage.removeItem('email_confirmed')
       this.showSuccessMessage('✅ Email confirmado com sucesso! Bem-vindo à plataforma.')
     }
-    
-    this.loadCourses()
+
+    // Handle direct URL navigation (?lesson=X or ?course=X)
+    const params = new URLSearchParams(window.location.search)
+    const directLesson = params.get('lesson')
+    const directCourse = params.get('course')
+
+    if (directLesson) {
+      window.history.replaceState({}, '', '/')
+      this.loadLesson(parseInt(directLesson))
+    } else if (directCourse) {
+      window.history.replaceState({}, '', '/')
+      this.loadCourse(parseInt(directCourse))
+    } else {
+      this.loadCourses()
+    }
   },
 
   async loadUserCredits() {
