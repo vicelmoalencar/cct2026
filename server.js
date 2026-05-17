@@ -125,6 +125,21 @@ function getStaticFile(filePath) {
   return nextCached
 }
 
+// Admin JS served without immutable cache so updates deploy immediately
+app.get('/static/admin.js', async (c) => {
+  const filePath = join(publicPath, 'static', 'admin.js')
+  if (existsSync(filePath)) {
+    const file = getStaticFile(filePath)
+    const ifNoneMatch = c.req.header('if-none-match')
+    c.header('ETag', file.etag)
+    c.header('Cache-Control', 'no-cache')
+    c.header('Content-Type', 'application/javascript; charset=utf-8')
+    if (ifNoneMatch === file.etag) return c.body(null, 304)
+    return c.body(file.body)
+  }
+  return c.notFound()
+})
+
 // Serve static assets from memory with browser caching and conditional 304s.
 app.use('/static/*', async (c, next) => {
   const requestPath = new URL(c.req.url).pathname
