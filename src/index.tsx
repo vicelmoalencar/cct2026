@@ -1527,32 +1527,33 @@ app.post('/api/admin/lessons/:id/generate-transcript', requireAdmin, async (c) =
 
     const db = getDB(c)
     const rows = await db.sql(
-      `SELECT title, description FROM lessons WHERE id = $1`,
+      `SELECT title, transcript FROM lessons WHERE id = $1`,
       [lessonId]
     )
     if (!rows.length) return c.json({ error: 'Aula não encontrada' }, 404)
 
     const lesson = rows[0]
+    if (!lesson.transcript) return c.json({ error: 'Esta aula não possui transcrição para estruturar.' }, 400)
+
     const apiKey = (c.env as any).VITE_OPENROUTER_API_KEY
     if (!apiKey) return c.json({ error: 'VITE_OPENROUTER_API_KEY não configurada no ambiente' }, 500)
 
-    const systemPrompt = `Você é um especialista em direito trabalhista, liquidação de sentença judicial e uso do software PJe-Calc. Escreve transcrições didáticas e bem estruturadas para aulas online de cursos jurídicos.`
+    const systemPrompt = `Você é um especialista em direito trabalhista, liquidação de sentença judicial e uso do software PJe-Calc. Sua tarefa é pegar transcrições brutas de aulas e organizá-las em Markdown estruturado, claro e didático.`
 
-    const userPrompt = `Gere uma transcrição estruturada em Markdown para a seguinte aula:
+    const userPrompt = `Abaixo está a transcrição bruta de uma aula chamada "${lesson.title}".${context ? `\n\nInstruções adicionais: ${context}` : ''}
 
-**Título:** ${lesson.title}
-**Descrição:** ${lesson.description || '(sem descrição)'}${context ? `\n\n**Instruções adicionais do professor:**\n${context}` : ''}
+Organize essa transcrição em Markdown estruturado, sem inventar conteúdo. Apenas reorganize, agrupe por tópicos e formate o que já está no texto:
+- Título principal com #
+- Tópicos e subtópicos com ## e ###
+- Conceitos importantes em **negrito**
+- > Blockquote para trechos de destaque ou alertas
+- Listas com - quando houver enumerações
+- Um **Resumo** ao final com os pontos principais
 
-A transcrição deve conter:
-- **Introdução** clara ao tema
-- **Tópicos principais** numerados com explicação detalhada
-- **Subtópicos** quando necessário
-- Conceitos-chave em **negrito**
-- > Destaques importantes em citação (blockquote)
-- Exemplos práticos quando relevante
-- **Resumo** ao final
-
-Use Markdown completo: # título, ## subtítulo, **negrito**, *itálico*, listas com -, > blockquote.`
+Transcrição bruta:
+---
+${lesson.transcript}
+---`
 
     const aiResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',

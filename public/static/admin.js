@@ -1135,7 +1135,7 @@ const adminUI = {
     this.currentAttachments = (isEdit && lesson.attachments) ? [...lesson.attachments] : []
 
     const generateTranscriptBtn = isEdit
-      ? '<button type="button" onclick="adminUI.showGenerateTranscriptModal(' + lesson.id + ')" class="inline-flex items-center gap-1 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm"><i class="fas fa-magic"></i> Gerar com IA</button>'
+      ? '<button type="button" onclick="adminUI.showGenerateTranscriptModal(' + lesson.id + ')" class="inline-flex items-center gap-1 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm"><i class="fas fa-magic"></i> Estruturar com IA</button>'
       : ''
 
     content.innerHTML = `
@@ -2971,8 +2971,8 @@ const adminUI = {
               <i class="fas fa-magic text-purple-600 text-lg"></i>
             </div>
             <div>
-              <h3 class="text-lg font-bold text-gray-800">Gerar Transcrição com IA</h3>
-              <p class="text-xs text-gray-500">A IA usará o título e descrição da aula</p>
+              <h3 class="text-lg font-bold text-gray-800">Estruturar Transcrição com IA</h3>
+              <p class="text-xs text-gray-500">A IA organiza a transcrição atual em tópicos e destaques Markdown</p>
             </div>
           </div>
           <button onclick="adminUI.closeGenerateTranscriptModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
@@ -2986,7 +2986,7 @@ const adminUI = {
             </label>
             <textarea id="aiTranscriptContext" rows="5"
               class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm resize-none"
-              placeholder="Ex: Enfatize os aspectos práticos do PJe-Calc. Inclua exemplos com datas de dissídio. A aula é para advogados iniciantes..."></textarea>
+              placeholder="Ex: Enfatize os aspectos práticos. Separe bem os passos de instalação. Destaque os avisos importantes..."></textarea>
             <p class="text-xs text-gray-400 mt-1">Quanto mais detalhado, melhor o resultado. Deixe em branco para usar só o título e descrição.</p>
           </div>
 
@@ -3007,7 +3007,7 @@ const adminUI = {
           <div class="flex items-center gap-2">
             <button id="aiGenerateBtn" onclick="adminUI.generateTranscript(${lessonId})"
               class="inline-flex items-center gap-2 px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition-colors text-sm shadow-sm">
-              <i class="fas fa-magic"></i> Gerar Transcrição
+              <i class="fas fa-magic"></i> Estruturar com IA
             </button>
             <button id="aiApplyBtn" onclick="adminUI.applyGeneratedTranscript()" class="hidden
               inline-flex items-center gap-2 px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-colors text-sm shadow-sm">
@@ -3049,10 +3049,10 @@ const adminUI = {
       resultBox.classList.remove('hidden')
       applyBtn.classList.remove('hidden')
       applyBtn.classList.add('inline-flex')
-      btn.innerHTML = '<i class="fas fa-redo"></i> Gerar novamente'
+      btn.innerHTML = '<i class="fas fa-redo"></i> Estruturar novamente'
     } catch (error) {
       alert('❌ Erro ao gerar transcrição: ' + (error.response?.data?.error || error.message))
-      btn.innerHTML = '<i class="fas fa-magic"></i> Gerar Transcrição'
+      btn.innerHTML = '<i class="fas fa-magic"></i> Estruturar com IA'
     } finally {
       btn.disabled = false
     }
