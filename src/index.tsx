@@ -4977,7 +4977,7 @@ app.get('/', (c) => {
 
         <script defer src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
         <script defer src="/static/auth.js"></script>
-        <script defer src="/static/admin.js?v=5"></script>
+        <script defer src="/static/admin.js?v=6"></script>
         <script defer src="/static/access-control.js?v=3"></script>
         <script defer src="/static/app.js?v=12"></script>
         <script defer src="/static/search.js?v=3"></script>
