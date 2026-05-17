@@ -1519,7 +1519,7 @@ app.put('/api/admin/lessons/:id', requireAdmin, async (c) => {
   }
 })
 
-// Generate transcript via Claude AI (admin only)
+// Generate transcript via OpenRouter (admin only)
 app.post('/api/admin/lessons/:id/generate-transcript', requireAdmin, async (c) => {
   try {
     const lessonId = parseInt(c.req.param('id'))
@@ -1533,8 +1533,8 @@ app.post('/api/admin/lessons/:id/generate-transcript', requireAdmin, async (c) =
     if (!rows.length) return c.json({ error: 'Aula não encontrada' }, 404)
 
     const lesson = rows[0]
-    const apiKey = (c.env as any).ANTHROPIC_API_KEY
-    if (!apiKey) return c.json({ error: 'ANTHROPIC_API_KEY não configurada no ambiente' }, 500)
+    const apiKey = (c.env as any).VITE_OPENROUTER_API_KEY
+    if (!apiKey) return c.json({ error: 'VITE_OPENROUTER_API_KEY não configurada no ambiente' }, 500)
 
     const systemPrompt = `Você é um especialista em direito trabalhista, liquidação de sentença judicial e uso do software PJe-Calc. Escreve transcrições didáticas e bem estruturadas para aulas online de cursos jurídicos.`
 
@@ -1554,28 +1554,30 @@ A transcrição deve conter:
 
 Use Markdown completo: # título, ## subtítulo, **negrito**, *itálico*, listas com -, > blockquote.`
 
-    const aiResponse = await fetch('https://api.anthropic.com/v1/messages', {
+    const aiResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
+        'Authorization': `Bearer ${apiKey}`,
+        'HTTP-Referer': 'https://cct2026.com.br',
+        'X-Title': 'CCT2026 Admin',
       },
       body: JSON.stringify({
-        model: 'claude-opus-4-7',
-        max_tokens: 4096,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userPrompt }],
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
       }),
     })
 
     if (!aiResponse.ok) {
       const err = await aiResponse.text()
-      return c.json({ error: `Erro na API Claude: ${err}` }, 500)
+      return c.json({ error: `Erro na API OpenRouter: ${err}` }, 500)
     }
 
     const aiData = await aiResponse.json() as any
-    const transcript = aiData.content?.[0]?.text || ''
+    const transcript = aiData.choices?.[0]?.message?.content || ''
     return c.json({ transcript })
   } catch (error: any) {
     console.error('Generate transcript error:', error)
