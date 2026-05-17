@@ -1133,7 +1133,11 @@ const adminUI = {
     
     // Initialize attachments array for editing
     this.currentAttachments = (isEdit && lesson.attachments) ? [...lesson.attachments] : []
-    
+
+    const generateTranscriptBtn = isEdit
+      ? '<button type="button" onclick="adminUI.showGenerateTranscriptModal(' + lesson.id + ')" class="inline-flex items-center gap-1 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm"><i class="fas fa-magic"></i> Gerar com IA</button>'
+      : ''
+
     content.innerHTML = `
       <div class="bg-white rounded-lg shadow-md p-6">
         <h3 class="text-xl font-bold text-gray-800 mb-6">
@@ -1269,12 +1273,9 @@ const adminUI = {
           </div>
           
           <div>
-            <label class="block text-sm font-semibold text-gray-700 mb-2 flex items-center justify-between">
+            <label class="flex items-center justify-between text-sm font-semibold text-gray-700 mb-2">
               <span><i class="fas fa-closed-captioning mr-2"></i>Transcrição do Vídeo</span>
-              ${isEdit ? `<button type="button" onclick="adminUI.showGenerateTranscriptModal(${lesson.id})"
-                class="inline-flex items-center gap-1 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm">
-                <i class="fas fa-magic"></i> Gerar com IA
-              </button>` : ''}
+              ${generateTranscriptBtn}
             </label>
             <textarea id="lessonTranscript" rows="8"
                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
