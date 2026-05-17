@@ -1519,6 +1519,70 @@ app.put('/api/admin/lessons/:id', requireAdmin, async (c) => {
   }
 })
 
+// Generate transcript via Claude AI (admin only)
+app.post('/api/admin/lessons/:id/generate-transcript', requireAdmin, async (c) => {
+  try {
+    const lessonId = parseInt(c.req.param('id'))
+    const { context } = await c.req.json()
+
+    const db = getDB(c)
+    const rows = await db.sql(
+      `SELECT title, description FROM lessons WHERE id = $1`,
+      [lessonId]
+    )
+    if (!rows.length) return c.json({ error: 'Aula não encontrada' }, 404)
+
+    const lesson = rows[0]
+    const apiKey = (c.env as any).ANTHROPIC_API_KEY
+    if (!apiKey) return c.json({ error: 'ANTHROPIC_API_KEY não configurada no ambiente' }, 500)
+
+    const systemPrompt = `Você é um especialista em direito trabalhista, liquidação de sentença judicial e uso do software PJe-Calc. Escreve transcrições didáticas e bem estruturadas para aulas online de cursos jurídicos.`
+
+    const userPrompt = `Gere uma transcrição estruturada em Markdown para a seguinte aula:
+
+**Título:** ${lesson.title}
+**Descrição:** ${lesson.description || '(sem descrição)'}${context ? `\n\n**Instruções adicionais do professor:**\n${context}` : ''}
+
+A transcrição deve conter:
+- **Introdução** clara ao tema
+- **Tópicos principais** numerados com explicação detalhada
+- **Subtópicos** quando necessário
+- Conceitos-chave em **negrito**
+- > Destaques importantes em citação (blockquote)
+- Exemplos práticos quando relevante
+- **Resumo** ao final
+
+Use Markdown completo: # título, ## subtítulo, **negrito**, *itálico*, listas com -, > blockquote.`
+
+    const aiResponse = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-opus-4-7',
+        max_tokens: 4096,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }],
+      }),
+    })
+
+    if (!aiResponse.ok) {
+      const err = await aiResponse.text()
+      return c.json({ error: `Erro na API Claude: ${err}` }, 500)
+    }
+
+    const aiData = await aiResponse.json() as any
+    const transcript = aiData.content?.[0]?.text || ''
+    return c.json({ transcript })
+  } catch (error: any) {
+    console.error('Generate transcript error:', error)
+    return c.json({ error: error.message || 'Erro ao gerar transcrição' }, 500)
+  }
+})
+
 // Delete lesson (admin only)
 app.delete('/api/admin/lessons/:id', requireAdmin, async (c) => {
   try {

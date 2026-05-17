@@ -1269,8 +1269,12 @@ const adminUI = {
           </div>
           
           <div>
-            <label class="block text-sm font-semibold text-gray-700 mb-2">
-              <i class="fas fa-closed-captioning mr-2"></i>Transcrição do Vídeo
+            <label class="block text-sm font-semibold text-gray-700 mb-2 flex items-center justify-between">
+              <span><i class="fas fa-closed-captioning mr-2"></i>Transcrição do Vídeo</span>
+              ${isEdit ? `<button type="button" onclick="adminUI.showGenerateTranscriptModal(${lesson.id})"
+                class="inline-flex items-center gap-1 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm">
+                <i class="fas fa-magic"></i> Gerar com IA
+              </button>` : ''}
             </label>
             <textarea id="lessonTranscript" rows="8"
                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
@@ -2949,6 +2953,117 @@ const adminUI = {
   closeUserEditModal() {
     const modal = document.getElementById('userEditModal')
     if (modal) modal.remove()
+  },
+
+  showGenerateTranscriptModal(lessonId) {
+    const existing = document.getElementById('generateTranscriptModal')
+    if (existing) existing.remove()
+
+    const modal = document.createElement('div')
+    modal.id = 'generateTranscriptModal'
+    modal.className = 'fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4'
+    modal.innerHTML = `
+      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col" style="max-height:90vh">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
+              <i class="fas fa-magic text-purple-600 text-lg"></i>
+            </div>
+            <div>
+              <h3 class="text-lg font-bold text-gray-800">Gerar Transcrição com IA</h3>
+              <p class="text-xs text-gray-500">A IA usará o título e descrição da aula</p>
+            </div>
+          </div>
+          <button onclick="adminUI.closeGenerateTranscriptModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+        </div>
+
+        <div class="px-6 py-5 overflow-y-auto flex-1 space-y-4">
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-2">
+              <i class="fas fa-comment-dots mr-1 text-purple-500"></i>
+              Instruções / Contexto adicional <span class="font-normal text-gray-400">(opcional)</span>
+            </label>
+            <textarea id="aiTranscriptContext" rows="5"
+              class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm resize-none"
+              placeholder="Ex: Enfatize os aspectos práticos do PJe-Calc. Inclua exemplos com datas de dissídio. A aula é para advogados iniciantes..."></textarea>
+            <p class="text-xs text-gray-400 mt-1">Quanto mais detalhado, melhor o resultado. Deixe em branco para usar só o título e descrição.</p>
+          </div>
+
+          <div id="aiTranscriptResult" class="hidden">
+            <label class="block text-sm font-semibold text-gray-700 mb-2">
+              <i class="fas fa-check-circle mr-1 text-green-500"></i>Transcrição gerada
+            </label>
+            <textarea id="aiTranscriptOutput" rows="12"
+              class="w-full px-4 py-3 border border-green-300 bg-green-50 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 font-mono text-xs resize-none"></textarea>
+          </div>
+        </div>
+
+        <div class="px-6 py-4 border-t border-gray-200 flex items-center justify-between gap-3">
+          <button onclick="adminUI.closeGenerateTranscriptModal()"
+            class="px-5 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-semibold text-sm transition-colors">
+            Cancelar
+          </button>
+          <div class="flex items-center gap-2">
+            <button id="aiGenerateBtn" onclick="adminUI.generateTranscript(${lessonId})"
+              class="inline-flex items-center gap-2 px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition-colors text-sm shadow-sm">
+              <i class="fas fa-magic"></i> Gerar Transcrição
+            </button>
+            <button id="aiApplyBtn" onclick="adminUI.applyGeneratedTranscript()" class="hidden
+              inline-flex items-center gap-2 px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-colors text-sm shadow-sm">
+              <i class="fas fa-check"></i> Usar esta transcrição
+            </button>
+          </div>
+        </div>
+      </div>
+    `
+    document.body.appendChild(modal)
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) this.closeGenerateTranscriptModal()
+    })
+    setTimeout(() => document.getElementById('aiTranscriptContext')?.focus(), 100)
+  },
+
+  closeGenerateTranscriptModal() {
+    const modal = document.getElementById('generateTranscriptModal')
+    if (modal) modal.remove()
+  },
+
+  async generateTranscript(lessonId) {
+    const context = document.getElementById('aiTranscriptContext')?.value || ''
+    const btn = document.getElementById('aiGenerateBtn')
+    const resultBox = document.getElementById('aiTranscriptResult')
+    const output = document.getElementById('aiTranscriptOutput')
+    const applyBtn = document.getElementById('aiApplyBtn')
+
+    btn.disabled = true
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gerando...'
+    resultBox.classList.add('hidden')
+    applyBtn.classList.add('hidden')
+
+    try {
+      const response = await axios.post(`/api/admin/lessons/${lessonId}/generate-transcript`, { context })
+      const transcript = response.data.transcript || ''
+
+      output.value = transcript
+      resultBox.classList.remove('hidden')
+      applyBtn.classList.remove('hidden')
+      applyBtn.classList.add('inline-flex')
+      btn.innerHTML = '<i class="fas fa-redo"></i> Gerar novamente'
+    } catch (error) {
+      alert('❌ Erro ao gerar transcrição: ' + (error.response?.data?.error || error.message))
+      btn.innerHTML = '<i class="fas fa-magic"></i> Gerar Transcrição'
+    } finally {
+      btn.disabled = false
+    }
+  },
+
+  applyGeneratedTranscript() {
+    const output = document.getElementById('aiTranscriptOutput')
+    const target = document.getElementById('lessonTranscript')
+    if (output && target) {
+      target.value = output.value
+      this.closeGenerateTranscriptModal()
+    }
   },
 
   async saveUserPlan(userId, userEmail) {
