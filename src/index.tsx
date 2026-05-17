@@ -4682,6 +4682,23 @@ app.get('/', (c) => {
             transform: scale(1.02);
           }
           
+          /* Markdown rendered content */
+          .md-body h1 { font-size: 1.4em; font-weight: 700; margin: 1em 0 .4em; color: #1e293b; }
+          .md-body h2 { font-size: 1.2em; font-weight: 700; margin: 1em 0 .4em; color: #1e293b; }
+          .md-body h3 { font-size: 1.05em; font-weight: 600; margin: .8em 0 .3em; color: #334155; }
+          .md-body p  { margin: .5em 0; }
+          .md-body ul, .md-body ol { padding-left: 1.4em; margin: .5em 0; }
+          .md-body ul { list-style: disc; }
+          .md-body ol { list-style: decimal; }
+          .md-body li { margin: .25em 0; }
+          .md-body strong { font-weight: 700; }
+          .md-body em { font-style: italic; }
+          .md-body blockquote { border-left: 4px solid #a855f7; background: #faf5ff; padding: .5em 1em; margin: .75em 0; border-radius: 0 .5em .5em 0; color: #6b21a8; }
+          .md-body code { background: #f1f5f9; padding: .1em .3em; border-radius: .25em; font-size: .9em; font-family: monospace; }
+          .md-body pre { background: #1e293b; color: #e2e8f0; padding: 1em; border-radius: .5em; overflow-x: auto; margin: .75em 0; }
+          .md-body pre code { background: none; padding: 0; color: inherit; }
+          .md-body hr { border: none; border-top: 1px solid #e2e8f0; margin: 1em 0; }
+
           /* Line Clamp Utilities */
           .line-clamp-2 {
             display: -webkit-box;
@@ -4979,10 +4996,11 @@ app.get('/', (c) => {
         </main>
 
         <script defer src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+        <script defer src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
         <script defer src="/static/auth.js"></script>
         <script defer src="/static/admin.js?v=6"></script>
         <script defer src="/static/access-control.js?v=3"></script>
-        <script defer src="/static/app.js?v=12"></script>
+        <script defer src="/static/app.js?v=13"></script>
         <script defer src="/static/search.js?v=3"></script>
     </body>
     </html>

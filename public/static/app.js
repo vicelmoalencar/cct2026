@@ -4,7 +4,13 @@ const app = {
   currentCourse: null,
   currentLesson: null,
   activeRentals: new Set(), // lesson IDs with active rentals
-  
+
+  renderMd(text) {
+    if (!text) return ''
+    if (typeof marked !== 'undefined') return marked.parse(text)
+    return text.replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  },
+
   // Initialize app
   async init() {
     // Check authentication
@@ -871,7 +877,7 @@ const app = {
                       <i class="fas fa-folder mr-1"></i>${lesson.module_title}
                     </p>
                     <h1 class="text-2xl md:text-3xl font-bold text-gray-800 mb-3">${lesson.title}</h1>
-                    ${lesson.description ? `<p class="text-gray-600 leading-relaxed">${lesson.description}</p>` : ''}
+                    ${lesson.description ? `<div class="md-body text-gray-600 leading-relaxed">${app.renderMd(lesson.description)}</div>` : ''}
                   </div>
                 </div>
                 
@@ -1055,7 +1061,7 @@ const app = {
               ${lesson.support_text ? `
                 <div id="contentSupport" class="p-6 hidden">
                   <div class="prose max-w-none bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
-                    <div class="text-gray-700 whitespace-pre-wrap leading-relaxed">${lesson.support_text}</div>
+                    <div class="md-body text-gray-700 leading-relaxed">${app.renderMd(lesson.support_text)}</div>
                   </div>
                 </div>
               ` : ''}
@@ -1087,7 +1093,7 @@ const app = {
               ${lesson.transcript ? `
                 <div id="contentTranscript" class="p-6 hidden">
                   <div class="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-6 border border-purple-100">
-                    <div class="text-sm text-gray-700 whitespace-pre-wrap font-mono leading-relaxed">${lesson.transcript}</div>
+                    <div class="md-body text-sm text-gray-700 leading-relaxed">${app.renderMd(lesson.transcript)}</div>
                   </div>
                 </div>
               ` : ''}
