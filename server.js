@@ -201,7 +201,8 @@ const server = serve({
       SUPABASE_ANON_KEY: SUPABASE_ANON_KEY || '',
       DATABASE_CCT: DATABASE_CCT || '',
       DATABASE_SUITEPLUS: DATABASE_SUITEPLUS || '',
-      DATABASE_URL_CREDITOS: DATABASE_URL_CREDITOS || ''
+      DATABASE_URL_CREDITOS: DATABASE_URL_CREDITOS || '',
+      VITE_OPENROUTER_API_KEY: process.env.VITE_OPENROUTER_API_KEY || ''
     }
     
     // Call the Hono app with the environment
