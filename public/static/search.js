@@ -250,18 +250,20 @@ window.searchManager = {
   },
   
   // Highlight search terms in text
+  escapeHtml(text) {
+    if (!text) return ''
+    return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+  },
+
   highlightText(text, query) {
-    if (!query || query.length < 2) return text
-    
-    const terms = query.split(' ').filter(t => t.length > 0)
-    let highlighted = text
-    
-    terms.forEach(term => {
-      const regex = new RegExp(`(${term})`, 'gi')
-      highlighted = highlighted.replace(regex, '<mark class="bg-yellow-200 font-semibold">$1</mark>')
-    })
-    
-    return highlighted
+    const escaped = this.escapeHtml(text)
+    if (!query || query.length < 2) return escaped
+    const terms = query.trim().split(/\s+/)
+      .filter(t => t.length > 1)
+      .map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    if (!terms.length) return escaped
+    const regex = new RegExp(`(${terms.join('|')})`, 'gi')
+    return escaped.replace(regex, '<mark class="bg-yellow-200 font-semibold">$1</mark>')
   },
   
   // Render search results

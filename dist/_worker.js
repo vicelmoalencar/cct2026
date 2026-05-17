@@ -1452,7 +1452,7 @@ ${c.transcript}
         <script defer src="/static/admin.js?v=6"><\/script>
         <script defer src="/static/access-control.js?v=3"><\/script>
         <script defer src="/static/app.js?v=13"><\/script>
-        <script defer src="/static/search.js?v=3"><\/script>
+        <script defer src="/static/search.js?v=4"><\/script>
     </body>
     </html>
   `));I.get("/course/:courseId",e=>{const t=e.req.param("courseId");return e.html(`<!DOCTYPE html>
