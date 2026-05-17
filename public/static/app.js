@@ -580,6 +580,10 @@ const app = {
                       : isRentable
                         ? '<span class="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full ml-1"><i class="fas fa-coins"></i> ' + lesson.rental_credits + ' créditos</span>'
                         : ''
+                    const hasTranscript = !!(lesson.transcript && lesson.transcript.trim().length > 0)
+                    const transcriptBadge = hasTranscript
+                      ? '<span class="inline-flex items-center gap-1 text-xs font-semibold text-purple-700 bg-purple-100 px-2 py-0.5 rounded-full ml-1" title="Esta aula possui transcrição"><i class="fas fa-align-left"></i> Transcrição</span>'
+                      : ''
 
                     return `
                       <div class="lesson-item p-3 rounded-lg border ${borderClass} flex items-center justify-between cursor-pointer"
@@ -600,6 +604,7 @@ const app = {
                               ${isPremium ? '<i class="fas fa-lock text-red-500 ml-1"></i>' : '<i class="fas fa-gift text-green-500 ml-1"></i>'}
                               ${watchedBadge}
                               ${rentBadge}
+                              ${transcriptBadge}
                             </p>
                             <p class="text-xs text-gray-500">
                               ${lesson.duration_minutes} minutos
