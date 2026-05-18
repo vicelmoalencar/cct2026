@@ -1461,14 +1461,107 @@ const adminUI = {
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Transcrevendo...'
     try {
       const response = await axios.post('/api/admin/lessons/' + lessonId + '/groq-transcribe')
-      document.getElementById('lessonTranscript').value = response.data.transcript || ''
+      const { transcript, description } = response.data
       btn.innerHTML = '<i class="fas fa-check"></i> Concluído!'
       setTimeout(() => { btn.innerHTML = '<i class="fas fa-bolt"></i> Transcrever com Groq'; btn.disabled = false }, 3000)
+      this.showGroqResultModal(transcript || '', description || '')
     } catch (error) {
       alert('❌ Erro ao transcrever com Groq: ' + (error.response?.data?.error || error.message))
       btn.innerHTML = '<i class="fas fa-bolt"></i> Transcrever com Groq'
       btn.disabled = false
     }
+  },
+
+  showGroqResultModal(transcript, description) {
+    const existing = document.getElementById('groqResultModal')
+    if (existing) existing.remove()
+
+    const modal = document.createElement('div')
+    modal.id = 'groqResultModal'
+    modal.className = 'fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4'
+    modal.innerHTML = `
+      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col" style="max-height:90vh">
+        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
+              <i class="fas fa-bolt text-green-600"></i>
+            </div>
+            <div>
+              <h3 class="text-lg font-bold text-gray-800">Resultado da Transcrição Groq</h3>
+              <p class="text-xs text-gray-500">Revise e aplique ao formulário</p>
+            </div>
+          </div>
+          <button onclick="adminUI.closeGroqResultModal()" class="text-gray-400 hover:text-gray-600 text-xl font-bold">&times;</button>
+        </div>
+
+        <div class="px-6 py-4 overflow-y-auto flex-1 flex flex-col gap-4">
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-2">
+              <i class="fas fa-closed-captioning mr-1 text-green-500"></i>Transcrição estruturada
+            </label>
+            <textarea id="groqTranscriptOutput" rows="10"
+              class="w-full px-4 py-3 border border-green-300 bg-green-50 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 font-mono text-xs resize-none">${transcript.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
+          </div>
+          ${description ? `
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-2">
+              <i class="fas fa-align-left mr-1 text-blue-500"></i>Resumo (para a descrição da aula)
+            </label>
+            <textarea id="groqDescriptionOutput" rows="4"
+              class="w-full px-4 py-3 border border-blue-300 bg-blue-50 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none">${description.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
+          </div>` : ''}
+        </div>
+
+        <div class="px-6 py-4 border-t border-gray-200 flex items-center justify-between gap-3 flex-shrink-0">
+          <button onclick="adminUI.closeGroqResultModal()"
+            class="px-5 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-semibold text-sm transition-colors">
+            Fechar
+          </button>
+          <div class="flex items-center gap-2 flex-wrap justify-end">
+            <button onclick="adminUI.applyGroqTranscript()"
+              class="inline-flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-colors text-sm shadow-sm">
+              <i class="fas fa-file-alt"></i> Aplicar transcrição
+            </button>
+            ${description ? `
+            <button onclick="adminUI.applyGroqDescription()"
+              class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors text-sm shadow-sm">
+              <i class="fas fa-align-left"></i> Aplicar descrição
+            </button>
+            <button onclick="adminUI.applyGroqAll()"
+              class="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition-colors text-sm shadow-sm">
+              <i class="fas fa-check-double"></i> Aplicar tudo
+            </button>` : ''}
+          </div>
+        </div>
+      </div>
+    `
+    document.body.appendChild(modal)
+    modal.addEventListener('click', (e) => { if (e.target === modal) this.closeGroqResultModal() })
+  },
+
+  closeGroqResultModal() {
+    const modal = document.getElementById('groqResultModal')
+    if (modal) modal.remove()
+  },
+
+  applyGroqTranscript() {
+    const val = document.getElementById('groqTranscriptOutput')?.value
+    if (val) document.getElementById('lessonTranscript').value = val
+    this.closeGroqResultModal()
+  },
+
+  applyGroqDescription() {
+    const val = document.getElementById('groqDescriptionOutput')?.value
+    if (val) document.getElementById('lessonDescription').value = val
+    this.closeGroqResultModal()
+  },
+
+  applyGroqAll() {
+    const t = document.getElementById('groqTranscriptOutput')?.value
+    const d = document.getElementById('groqDescriptionOutput')?.value
+    if (t) document.getElementById('lessonTranscript').value = t
+    if (d) document.getElementById('lessonDescription').value = d
+    this.closeGroqResultModal()
   },
 
   async whisperTranscribe(lessonId) {
