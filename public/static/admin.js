@@ -1148,6 +1148,9 @@ const adminUI = {
     const aiBtn = isEdit
       ? '<button type="button" onclick="adminUI.showGenerateTranscriptModal(' + lesson.id + ')" class="inline-flex items-center gap-1 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm"><i class="fas fa-magic"></i> Estruturar com IA</button>'
       : '<button type="button" id="aiStructureBtn" onclick="adminUI.structureTranscriptInline()" class="inline-flex items-center gap-1 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm"><i class="fas fa-magic"></i> Estruturar com IA</button>'
+    const whisperBtn = isEdit
+      ? '<button type="button" id="whisperTranscribeBtn" onclick="adminUI.whisperTranscribe(' + lesson.id + ')" class="inline-flex items-center gap-1 px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm"><i class="fas fa-microphone"></i> Transcrever com Whisper</button>'
+      : ''
 
     content.innerHTML = `
       <div class="bg-white rounded-lg shadow-md p-6">
@@ -1300,6 +1303,7 @@ const adminUI = {
               <div class="flex items-center gap-2">
                 ${vimeoBtn}
                 ${aiBtn}
+                ${whisperBtn}
               </div>
             </label>
             <textarea id="lessonTranscript" rows="8"
@@ -1443,6 +1447,22 @@ const adminUI = {
     } catch (error) {
       alert('❌ Erro ao estruturar transcrição: ' + (error.response?.data?.error || error.message))
       btn.innerHTML = '<i class="fas fa-magic"></i> Estruturar com IA'
+      btn.disabled = false
+    }
+  },
+
+  async whisperTranscribe(lessonId) {
+    const btn = document.getElementById('whisperTranscribeBtn')
+    btn.disabled = true
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Transcrevendo...'
+    try {
+      const response = await axios.post('/api/admin/lessons/' + lessonId + '/whisper-transcribe')
+      document.getElementById('lessonTranscript').value = response.data.transcript || ''
+      btn.innerHTML = '<i class="fas fa-check"></i> Concluído!'
+      setTimeout(() => { btn.innerHTML = '<i class="fas fa-microphone"></i> Transcrever com Whisper'; btn.disabled = false }, 3000)
+    } catch (error) {
+      alert('❌ Erro ao transcrever: ' + (error.response?.data?.error || error.message))
+      btn.innerHTML = '<i class="fas fa-microphone"></i> Transcrever com Whisper'
       btn.disabled = false
     }
   },
