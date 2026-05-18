@@ -1151,6 +1151,9 @@ const adminUI = {
     const whisperBtn = isEdit
       ? '<button type="button" id="whisperTranscribeBtn" onclick="adminUI.whisperTranscribe(' + lesson.id + ')" class="inline-flex items-center gap-1 px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm"><i class="fas fa-microphone"></i> Transcrever com Whisper</button>'
       : ''
+    const groqBtn = isEdit
+      ? '<button type="button" id="groqTranscribeBtn" onclick="adminUI.groqTranscribe(' + lesson.id + ')" class="inline-flex items-center gap-1 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm"><i class="fas fa-bolt"></i> Transcrever com Groq</button>'
+      : ''
 
     content.innerHTML = `
       <div class="bg-white rounded-lg shadow-md p-6">
@@ -1304,6 +1307,7 @@ const adminUI = {
                 ${vimeoBtn}
                 ${aiBtn}
                 ${whisperBtn}
+                ${groqBtn}
               </div>
             </label>
             <textarea id="lessonTranscript" rows="8"
@@ -1447,6 +1451,22 @@ const adminUI = {
     } catch (error) {
       alert('❌ Erro ao estruturar transcrição: ' + (error.response?.data?.error || error.message))
       btn.innerHTML = '<i class="fas fa-magic"></i> Estruturar com IA'
+      btn.disabled = false
+    }
+  },
+
+  async groqTranscribe(lessonId) {
+    const btn = document.getElementById('groqTranscribeBtn')
+    btn.disabled = true
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Transcrevendo...'
+    try {
+      const response = await axios.post('/api/admin/lessons/' + lessonId + '/groq-transcribe')
+      document.getElementById('lessonTranscript').value = response.data.transcript || ''
+      btn.innerHTML = '<i class="fas fa-check"></i> Concluído!'
+      setTimeout(() => { btn.innerHTML = '<i class="fas fa-bolt"></i> Transcrever com Groq'; btn.disabled = false }, 3000)
+    } catch (error) {
+      alert('❌ Erro ao transcrever com Groq: ' + (error.response?.data?.error || error.message))
+      btn.innerHTML = '<i class="fas fa-bolt"></i> Transcrever com Groq'
       btn.disabled = false
     }
   },

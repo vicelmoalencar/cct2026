@@ -1819,6 +1819,134 @@ app.post('/api/admin/lessons/:id/whisper-transcribe', requireAdmin, async (c) =>
   }
 })
 
+// Transcribe Vimeo video with Groq Whisper + structure with AI (admin only)
+app.post('/api/admin/lessons/:id/groq-transcribe', requireAdmin, async (c) => {
+  try {
+    const lessonId = parseInt(c.req.param('id'))
+    const db = getDB(c)
+
+    const rows = await db.sql(
+      'SELECT id, title, video_provider, video_id FROM lessons WHERE id = $1',
+      [lessonId]
+    )
+    if (!rows.length) return c.json({ error: 'Aula não encontrada' }, 404)
+    const lesson = rows[0]
+
+    if (lesson.video_provider !== 'vimeo')
+      return c.json({ error: 'Esta aula não usa Vimeo como provedor' }, 400)
+    if (!lesson.video_id || !/^\d+$/.test(lesson.video_id))
+      return c.json({ error: 'ID do vídeo Vimeo inválido' }, 400)
+
+    const procEnv = (globalThis as any).process?.env || {}
+    const vimeoToken = (c.env as any).VIMEO_ACCESS_TOKEN || procEnv.VIMEO_ACCESS_TOKEN
+    const groqKey = (c.env as any).GROQ_API_KEY || procEnv.GROQ_API_KEY
+    const openrouterKey = (c.env as any).VITE_OPENROUTER_API_KEY || procEnv.VITE_OPENROUTER_API_KEY
+    if (!vimeoToken) return c.json({ error: 'VIMEO_ACCESS_TOKEN não configurado' }, 500)
+    if (!groqKey) {
+      const keys = Object.keys(procEnv).filter(k => k.toLowerCase().includes('groq'))
+      return c.json({ error: `GROQ_API_KEY não configurado. Chaves GROQ encontradas: [${keys.join(', ')}]` }, 500)
+    }
+
+    // 1. Get Vimeo download URL (smallest quality)
+    const vimeoRes = await fetch(`https://api.vimeo.com/videos/${lesson.video_id}?fields=download`, {
+      headers: { Authorization: `Bearer ${vimeoToken}` }
+    })
+    if (!vimeoRes.ok) return c.json({ error: `Vimeo API ${vimeoRes.status}` }, 502)
+    const vimeoData = await vimeoRes.json() as any
+    const downloads = (vimeoData.download || [])
+      .filter((d: any) => d.link && d.size)
+      .sort((a: any, b: any) => a.size - b.size)
+    if (!downloads.length) return c.json({ error: 'Download não disponível para este vídeo' }, 400)
+    const chosen = downloads[0]
+    const sizeMB = (chosen.size / 1024 / 1024).toFixed(1)
+
+    // 2. Download video to buffer
+    const videoRes = await fetch(chosen.link)
+    if (!videoRes.ok) return c.json({ error: `Download falhou: HTTP ${videoRes.status}` }, 502)
+    let audioBuffer = Buffer.from(await videoRes.arrayBuffer())
+    let fileName = 'video.mp4'
+    const MAX_BYTES = 24 * 1024 * 1024
+
+    // 3. If large, try ffmpeg to extract compressed audio
+    if (audioBuffer.length > MAX_BYTES) {
+      try {
+        const os = await import('os')
+        const path = await import('path')
+        const fs = await import('fs')
+        const cp = await import('child_process')
+        const tmpIn = path.join(os.tmpdir(), `cct_g_${lessonId}.mp4`)
+        const tmpOut = path.join(os.tmpdir(), `cct_g_${lessonId}.mp3`)
+        fs.writeFileSync(tmpIn, audioBuffer)
+        const r = cp.spawnSync('ffmpeg', ['-y', '-i', tmpIn, '-vn', '-ar', '16000', '-ac', '1', '-b:a', '32k', tmpOut], { stdio: 'pipe' })
+        if (r.status === 0 && fs.existsSync(tmpOut)) {
+          audioBuffer = fs.readFileSync(tmpOut)
+          fileName = 'audio.mp3'
+          fs.unlinkSync(tmpOut)
+        }
+        fs.unlinkSync(tmpIn)
+      } catch (_) { /* ffmpeg não disponível */ }
+
+      if (audioBuffer.length > MAX_BYTES) {
+        return c.json({ error: `Arquivo muito grande (${sizeMB} MB). Use o script de transcrição em lote.` }, 400)
+      }
+    }
+
+    // 4. Transcribe with Groq Whisper
+    const boundary = '----GroqBoundary' + Date.now().toString(16)
+    const CRLF = '\r\n'
+    const mimeType = fileName.endsWith('.mp3') ? 'audio/mpeg' : 'video/mp4'
+    const formBody = Buffer.concat([
+      Buffer.from(`--${boundary}${CRLF}Content-Disposition: form-data; name="file"; filename="${fileName}"${CRLF}Content-Type: ${mimeType}${CRLF}${CRLF}`),
+      audioBuffer,
+      Buffer.from(`${CRLF}--${boundary}${CRLF}Content-Disposition: form-data; name="model"${CRLF}${CRLF}whisper-large-v3-turbo`),
+      Buffer.from(`${CRLF}--${boundary}${CRLF}Content-Disposition: form-data; name="language"${CRLF}${CRLF}pt`),
+      Buffer.from(`${CRLF}--${boundary}${CRLF}Content-Disposition: form-data; name="response_format"${CRLF}${CRLF}text`),
+      Buffer.from(`${CRLF}--${boundary}--${CRLF}`),
+    ])
+    const groqRes = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${groqKey}`,
+        'Content-Type': `multipart/form-data; boundary=${boundary}`,
+        'Content-Length': String(formBody.length),
+      },
+      body: formBody,
+    })
+    if (!groqRes.ok) return c.json({ error: `Groq Whisper ${groqRes.status}: ${await groqRes.text()}` }, 502)
+    let transcript = (await groqRes.text()).trim()
+
+    // 5. Structure with AI
+    let description: string | null = null
+    if (openrouterKey && transcript) {
+      const prompt = `Você é um assistente especializado em cursos de PJe-Calc (cálculos trabalhistas no sistema judicial brasileiro).\n\nRecebi a transcrição bruta de uma aula chamada "${lesson.title}". Organize esta transcrição em Markdown estruturado com:\n- Um resumo em ## Resumo (3-4 linhas)\n- Tópicos principais com ## e subtópicos com ###\n- **Negrito** para termos técnicos e ações importantes\n- Listas com - para passos ou itens\n- > Destaques para avisos, dicas e pontos críticos\n\nMantenha o idioma português do Brasil. Não adicione conteúdo que não esteja na transcrição.\n\nTRANSCRIÇÃO:\n${transcript}`
+      const aiRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${openrouterKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'google/gemini-2.5-flash', messages: [{ role: 'user', content: prompt }] })
+      })
+      if (aiRes.ok) {
+        const aiData = await aiRes.json() as any
+        const structured = aiData.choices?.[0]?.message?.content || ''
+        if (structured) {
+          transcript = structured
+          const match = structured.match(/##\s*Resumo\s*\n([\s\S]*?)(?=\n##\s|\n*$)/)
+          if (match) description = match[1].trim()
+        }
+      }
+    }
+
+    // 6. Save to DB
+    await db.sql(
+      `UPDATE lessons SET transcript = $1, description = CASE WHEN $2::text IS NOT NULL THEN $2 ELSE description END WHERE id = $3`,
+      [transcript, description, lessonId]
+    )
+
+    return c.json({ transcript, description, sizeMB })
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500)
+  }
+})
+
 // Delete lesson (admin only)
 app.delete('/api/admin/lessons/:id', requireAdmin, async (c) => {
   try {
