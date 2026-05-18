@@ -1570,14 +1570,107 @@ const adminUI = {
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Transcrevendo...'
     try {
       const response = await axios.post('/api/admin/lessons/' + lessonId + '/whisper-transcribe')
-      document.getElementById('lessonTranscript').value = response.data.transcript || ''
+      const { transcript, description } = response.data
       btn.innerHTML = '<i class="fas fa-check"></i> Concluído!'
       setTimeout(() => { btn.innerHTML = '<i class="fas fa-microphone"></i> Transcrever com Whisper'; btn.disabled = false }, 3000)
+      this.showWhisperResultModal(transcript || '', description || '')
     } catch (error) {
       alert('❌ Erro ao transcrever: ' + (error.response?.data?.error || error.message))
       btn.innerHTML = '<i class="fas fa-microphone"></i> Transcrever com Whisper'
       btn.disabled = false
     }
+  },
+
+  showWhisperResultModal(transcript, description) {
+    const existing = document.getElementById('whisperResultModal')
+    if (existing) existing.remove()
+
+    const modal = document.createElement('div')
+    modal.id = 'whisperResultModal'
+    modal.className = 'fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4'
+    modal.innerHTML = `
+      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col" style="max-height:90vh">
+        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center">
+              <i class="fas fa-microphone text-orange-600"></i>
+            </div>
+            <div>
+              <h3 class="text-lg font-bold text-gray-800">Resultado da Transcrição Whisper</h3>
+              <p class="text-xs text-gray-500">Revise e aplique ao formulário</p>
+            </div>
+          </div>
+          <button onclick="adminUI.closeWhisperResultModal()" class="text-gray-400 hover:text-gray-600 text-xl font-bold">&times;</button>
+        </div>
+
+        <div class="px-6 py-4 overflow-y-auto flex-1 flex flex-col gap-4">
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-2">
+              <i class="fas fa-closed-captioning mr-1 text-orange-500"></i>Transcrição estruturada
+            </label>
+            <textarea id="whisperTranscriptOutput" rows="10"
+              class="w-full px-4 py-3 border border-orange-300 bg-orange-50 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 font-mono text-xs resize-none">${transcript.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
+          </div>
+          ${description ? `
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-2">
+              <i class="fas fa-align-left mr-1 text-blue-500"></i>Resumo (para o texto de apoio da aula)
+            </label>
+            <textarea id="whisperDescriptionOutput" rows="4"
+              class="w-full px-4 py-3 border border-blue-300 bg-blue-50 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none">${description.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
+          </div>` : ''}
+        </div>
+
+        <div class="px-6 py-4 border-t border-gray-200 flex items-center justify-between gap-3 flex-shrink-0">
+          <button onclick="adminUI.closeWhisperResultModal()"
+            class="px-5 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-semibold text-sm transition-colors">
+            Fechar
+          </button>
+          <div class="flex items-center gap-2 flex-wrap justify-end">
+            <button onclick="adminUI.applyWhisperTranscript()"
+              class="inline-flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-lg transition-colors text-sm shadow-sm">
+              <i class="fas fa-file-alt"></i> Aplicar transcrição
+            </button>
+            ${description ? `
+            <button onclick="adminUI.applyWhisperDescription()"
+              class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors text-sm shadow-sm">
+              <i class="fas fa-align-left"></i> Aplicar texto de apoio
+            </button>
+            <button onclick="adminUI.applyWhisperAll()"
+              class="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition-colors text-sm shadow-sm">
+              <i class="fas fa-check-double"></i> Aplicar tudo
+            </button>` : ''}
+          </div>
+        </div>
+      </div>
+    `
+    document.body.appendChild(modal)
+    modal.addEventListener('click', (e) => { if (e.target === modal) this.closeWhisperResultModal() })
+  },
+
+  closeWhisperResultModal() {
+    const modal = document.getElementById('whisperResultModal')
+    if (modal) modal.remove()
+  },
+
+  applyWhisperTranscript() {
+    const val = document.getElementById('whisperTranscriptOutput')?.value
+    if (val) document.getElementById('lessonTranscript').value = val
+    this.closeWhisperResultModal()
+  },
+
+  applyWhisperDescription() {
+    const val = document.getElementById('whisperDescriptionOutput')?.value
+    if (val) document.getElementById('lessonSupportText').value = val
+    this.closeWhisperResultModal()
+  },
+
+  applyWhisperAll() {
+    const t = document.getElementById('whisperTranscriptOutput')?.value
+    const d = document.getElementById('whisperDescriptionOutput')?.value
+    if (t) document.getElementById('lessonTranscript').value = t
+    if (d) document.getElementById('lessonSupportText').value = d
+    this.closeWhisperResultModal()
   },
 
   // Save lesson
