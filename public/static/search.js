@@ -173,31 +173,35 @@ window.searchManager = {
       
       results = results.filter(lesson => {
         const searchableText = `
-          ${lesson.title} 
-          ${lesson.description || ''} 
-          ${lesson.courseName} 
+          ${lesson.title}
+          ${lesson.description || ''}
+          ${lesson.courseName}
           ${lesson.moduleName}
+          ${lesson.transcript || ''}
         `.toLowerCase()
-        
+
         // All search terms must be present
         return searchTerms.every(term => searchableText.includes(term))
       })
-      
+
       // Calculate relevance score
       results.forEach(lesson => {
         let score = 0
         const titleLower = lesson.title.toLowerCase()
         const descLower = (lesson.description || '').toLowerCase()
-        
+        const transcriptLower = (lesson.transcript || '').toLowerCase()
+
         searchTerms.forEach(term => {
           // Title match is worth more
           if (titleLower.includes(term)) score += 10
           // Description match
           if (descLower.includes(term)) score += 5
+          // Transcript match (lower weight)
+          if (transcriptLower.includes(term)) score += 2
           // Exact title match is worth most
           if (titleLower === query.toLowerCase()) score += 50
         })
-        
+
         lesson.relevanceScore = score
       })
     }
@@ -265,7 +269,18 @@ window.searchManager = {
     const regex = new RegExp(`(${terms.join('|')})`, 'gi')
     return escaped.replace(regex, '<mark class="bg-yellow-200 font-semibold">$1</mark>')
   },
-  
+
+  getTranscriptSnippet(transcript, query) {
+    if (!transcript || !query || query.length < 2) return null
+    const firstTerm = query.trim().split(/\s+/)[0].toLowerCase()
+    const lower = transcript.toLowerCase()
+    const idx = lower.indexOf(firstTerm)
+    if (idx === -1) return null
+    const start = Math.max(0, idx - 60)
+    const end = Math.min(transcript.length, idx + 140)
+    return (start > 0 ? '…' : '') + transcript.slice(start, end).trim() + (end < transcript.length ? '…' : '')
+  },
+
   // Render search results
   renderResults() {
     const resultsContainer = document.getElementById('searchResults')
@@ -345,6 +360,19 @@ window.searchManager = {
                   ${this.highlightText(lesson.description, this.currentFilters.query)}
                 </p>
               ` : ''}
+
+              <!-- Transcript snippet (shown when match comes from transcript) -->
+              ${(() => {
+                const q = this.currentFilters.query
+                if (!q || !lesson.transcript) return ''
+                const descHasMatch = q.trim().split(/\s+/).some(t => (lesson.description || '').toLowerCase().includes(t.toLowerCase()))
+                if (descHasMatch) return ''
+                const snippet = this.getTranscriptSnippet(lesson.transcript, q)
+                if (!snippet) return ''
+                return `<p class="text-xs text-blue-700 mb-3 line-clamp-2 bg-blue-50 border-l-2 border-blue-400 pl-2 py-1 rounded-r">
+                  <i class="fas fa-file-alt mr-1 opacity-60"></i>${this.highlightText(snippet, q)}
+                </p>`
+              })()}
 
               <!-- Rented access banner -->
               ${isRented ? `
