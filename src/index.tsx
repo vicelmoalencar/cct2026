@@ -1586,6 +1586,111 @@ ${lesson.transcript}
   }
 })
 
+// Structure transcript inline (sem lesson ID — para novas aulas)
+app.post('/api/admin/structure-transcript', requireAdmin, async (c) => {
+  try {
+    const { title, transcript, context } = await c.req.json()
+    if (!transcript?.trim()) return c.json({ error: 'Transcrição vazia' }, 400)
+
+    const apiKey = (c.env as any).VITE_OPENROUTER_API_KEY
+    if (!apiKey) return c.json({ error: 'VITE_OPENROUTER_API_KEY não configurada' }, 500)
+
+    const systemPrompt = `Você é um especialista em direito trabalhista, liquidação de sentença judicial e uso do software PJe-Calc. Sua tarefa é pegar transcrições brutas de aulas e organizá-las em Markdown estruturado, claro e didático.`
+
+    const userPrompt = `Abaixo está a transcrição bruta de uma aula${title ? ` chamada "${title}"` : ''}.${context ? `\n\nInstruções adicionais: ${context}` : ''}
+
+Organize essa transcrição em Markdown estruturado, sem inventar conteúdo:
+- Título principal com #
+- Tópicos e subtópicos com ## e ###
+- Conceitos importantes em **negrito**
+- > Blockquote para destaques e alertas
+- Listas com - quando houver enumerações
+- Um ## Resumo ao final com os pontos principais
+
+Transcrição bruta:
+---
+${transcript}
+---`
+
+    const aiRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+        'HTTP-Referer': 'https://cct2026.com.br',
+        'X-Title': 'CCT2026 Admin',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+      }),
+    })
+    if (!aiRes.ok) return c.json({ error: `OpenRouter: ${await aiRes.text()}` }, 500)
+    const aiData = await aiRes.json() as any
+    return c.json({ transcript: aiData.choices?.[0]?.message?.content || '' })
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500)
+  }
+})
+
+// Fetch Vimeo transcript via text tracks API (admin only)
+app.post('/api/admin/vimeo-transcript', requireAdmin, async (c) => {
+  try {
+    const { video_id } = await c.req.json()
+    if (!video_id) return c.json({ error: 'video_id obrigatório' }, 400)
+
+    const token = (c.env as any).VIMEO_ACCESS_TOKEN
+    if (!token) return c.json({ error: 'VIMEO_ACCESS_TOKEN não configurada' }, 500)
+
+    const cleanId = String(video_id).replace(/^https?:\/\/(?:www\.)?vimeo\.com\//i, '').replace(/[?#].*$/, '').replace(/\/$/, '')
+
+    const tracksRes = await fetch(`https://api.vimeo.com/videos/${cleanId}/texttracks?per_page=100`, {
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.vimeo.*+json;version=3.4' },
+    })
+    if (!tracksRes.ok) return c.json({ error: `Vimeo API ${tracksRes.status}` }, 502)
+
+    const tracksData = await tracksRes.json() as any
+    const tracks: any[] = tracksData.data || []
+    if (!tracks.length) return c.json({ error: 'Nenhuma legenda encontrada para este vídeo' }, 404)
+
+    // Prefer PT tracks, then any active track
+    const sorted = [...tracks].sort((a, b) => {
+      const score = (t: any) => {
+        let p = 0
+        if (String(t.language || '').toLowerCase().startsWith('pt')) p += 40
+        if (t.active !== false) p += 20
+        if (t.type === 'captions') p += 10
+        return p
+      }
+      return score(b) - score(a)
+    })
+    const track = sorted.find((t: any) => t.link) || null
+    if (!track) return c.json({ error: 'Nenhuma legenda com link disponível' }, 404)
+
+    const vttRes = await fetch(track.link)
+    if (!vttRes.ok) return c.json({ error: `Download da legenda falhou: ${vttRes.status}` }, 502)
+    const vtt = await vttRes.text()
+
+    // VTT → plain text
+    const lines = vtt.replace(/^﻿/, '').split(/\r?\n/).map((l: string) => l.trim())
+    const textLines: string[] = []
+    for (const line of lines) {
+      if (!line || /^(WEBVTT|Kind:|Language:|NOTE|STYLE|REGION|\d+$)/.test(line) || line.includes('-->')) continue
+      const cleaned = line.replace(/<[^>]+>/g, '').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'").trim()
+      if (cleaned && textLines[textLines.length - 1] !== cleaned) textLines.push(cleaned)
+    }
+    const transcript = textLines.join(' ').replace(/\s+/g, ' ').trim()
+    if (!transcript) return c.json({ error: 'Legenda encontrada mas está vazia' }, 404)
+
+    return c.json({ transcript, language: track.language })
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500)
+  }
+})
+
 // Delete lesson (admin only)
 app.delete('/api/admin/lessons/:id', requireAdmin, async (c) => {
   try {
@@ -4998,7 +5103,7 @@ app.get('/', (c) => {
         <script defer src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
         <script defer src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
         <script defer src="/static/auth.js"></script>
-        <script defer src="/static/admin.js?v=6"></script>
+        <script defer src="/static/admin.js?v=7"></script>
         <script defer src="/static/access-control.js?v=3"></script>
         <script defer src="/static/app.js?v=13"></script>
         <script defer src="/static/search.js?v=4"></script>

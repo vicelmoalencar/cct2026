@@ -1134,9 +1134,20 @@ const adminUI = {
     // Initialize attachments array for editing
     this.currentAttachments = (isEdit && lesson.attachments) ? [...lesson.attachments] : []
 
-    const generateTranscriptBtn = isEdit
+    let selectedCourseId = 0
+    if (isEdit) {
+      for (const course of this.courses) {
+        if ((course.modules || []).some(m => m.id === lesson.module_id)) {
+          selectedCourseId = course.id
+          break
+        }
+      }
+    }
+
+    const vimeoBtn = '<button type="button" id="vimeoDownloadBtn" onclick="adminUI.fetchVimeoTranscript()" class="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm"><i class="fas fa-download"></i> Baixar do Vimeo</button>'
+    const aiBtn = isEdit
       ? '<button type="button" onclick="adminUI.showGenerateTranscriptModal(' + lesson.id + ')" class="inline-flex items-center gap-1 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm"><i class="fas fa-magic"></i> Estruturar com IA</button>'
-      : ''
+      : '<button type="button" id="aiStructureBtn" onclick="adminUI.structureTranscriptInline()" class="inline-flex items-center gap-1 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm"><i class="fas fa-magic"></i> Estruturar com IA</button>'
 
     content.innerHTML = `
       <div class="bg-white rounded-lg shadow-md p-6">
@@ -1147,11 +1158,22 @@ const adminUI = {
         
         <form onsubmit="adminUI.saveLesson(event, ${isEdit ? lesson.id : 'null'})" class="space-y-4">
           <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-2">Curso</label>
+            <select id="lessonCourse" onchange="adminUI.filterModulesByCourse()"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="">Todos os cursos</option>
+              ${this.courses.map(course => `
+                <option value="${course.id}" ${selectedCourseId == course.id ? 'selected' : ''}>${course.title}</option>
+              `).join('')}
+            </select>
+          </div>
+
+          <div>
             <label class="block text-sm font-semibold text-gray-700 mb-2">Módulo *</label>
             <select id="lessonModule" required
                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
               <option value="">Selecione um módulo</option>
-              ${this.courses.map(course => `
+              ${this.courses.filter(c => !selectedCourseId || c.id == selectedCourseId).map(course => `
                 <optgroup label="${course.title}">
                   ${(course.modules || []).map(m => `
                     <option value="${m.id}" ${(isEdit && lesson.module_id === m.id) || (!isEdit && moduleId === m.id) ? 'selected' : ''}>
@@ -1275,7 +1297,10 @@ const adminUI = {
           <div>
             <label class="flex items-center justify-between text-sm font-semibold text-gray-700 mb-2">
               <span><i class="fas fa-closed-captioning mr-2"></i>Transcrição do Vídeo</span>
-              ${generateTranscriptBtn}
+              <div class="flex items-center gap-2">
+                ${vimeoBtn}
+                ${aiBtn}
+              </div>
             </label>
             <textarea id="lessonTranscript" rows="8"
                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
@@ -1356,6 +1381,70 @@ const adminUI = {
     const checked = document.getElementById('lessonRentable').checked
     const section = document.getElementById('rentalSection')
     if (section) section.classList.toggle('hidden', !checked)
+  },
+
+  filterModulesByCourse() {
+    const courseId = parseInt(document.getElementById('lessonCourse')?.value) || 0
+    const moduleSelect = document.getElementById('lessonModule')
+    if (!moduleSelect) return
+    const options = ['<option value="">Selecione um módulo</option>']
+    for (const course of this.courses) {
+      if (courseId && course.id != courseId) continue
+      options.push('<optgroup label="' + course.title + '">')
+      for (const m of (course.modules || [])) {
+        options.push('<option value="' + m.id + '">' + m.title + '</option>')
+      }
+      options.push('</optgroup>')
+    }
+    moduleSelect.innerHTML = options.join('')
+  },
+
+  async fetchVimeoTranscript() {
+    const provider = document.getElementById('lessonProvider')?.value
+    const videoId = (document.getElementById('lessonVideoId')?.value || '').trim()
+    if (provider !== 'vimeo') {
+      alert('Selecione o provedor "Vimeo" e informe o ID do vídeo.')
+      return
+    }
+    if (!videoId) {
+      alert('Informe o ID do vídeo Vimeo primeiro.')
+      return
+    }
+    const btn = document.getElementById('vimeoDownloadBtn')
+    btn.disabled = true
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Baixando...'
+    try {
+      const response = await axios.post('/api/admin/vimeo-transcript', { video_id: videoId })
+      document.getElementById('lessonTranscript').value = response.data.transcript || ''
+      btn.innerHTML = '<i class="fas fa-check"></i> Baixado!'
+      setTimeout(() => { btn.innerHTML = '<i class="fas fa-download"></i> Baixar do Vimeo'; btn.disabled = false }, 2000)
+    } catch (error) {
+      alert('❌ Erro ao baixar transcrição do Vimeo: ' + (error.response?.data?.error || error.message))
+      btn.innerHTML = '<i class="fas fa-download"></i> Baixar do Vimeo'
+      btn.disabled = false
+    }
+  },
+
+  async structureTranscriptInline() {
+    const transcript = (document.getElementById('lessonTranscript')?.value || '').trim()
+    const title = (document.getElementById('lessonTitle')?.value || '').trim()
+    if (!transcript) {
+      alert('Informe a transcrição antes de estruturar com IA.')
+      return
+    }
+    const btn = document.getElementById('aiStructureBtn')
+    btn.disabled = true
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Estruturando...'
+    try {
+      const response = await axios.post('/api/admin/structure-transcript', { title, transcript })
+      document.getElementById('lessonTranscript').value = response.data.transcript || transcript
+      btn.innerHTML = '<i class="fas fa-check"></i> Estruturado!'
+      setTimeout(() => { btn.innerHTML = '<i class="fas fa-magic"></i> Estruturar com IA'; btn.disabled = false }, 2000)
+    } catch (error) {
+      alert('❌ Erro ao estruturar transcrição: ' + (error.response?.data?.error || error.message))
+      btn.innerHTML = '<i class="fas fa-magic"></i> Estruturar com IA'
+      btn.disabled = false
+    }
   },
 
   // Save lesson
