@@ -1709,9 +1709,9 @@ app.post('/api/admin/lessons/:id/whisper-transcribe', requireAdmin, async (c) =>
     if (!lesson.video_id || !/^\d+$/.test(lesson.video_id))
       return c.json({ error: 'ID do vídeo Vimeo inválido' }, 400)
 
-    const vimeoToken = (c.env as any).VIMEO_ACCESS_TOKEN
-    const openaiKey = (c.env as any).OPENAI_API_KEY
-    const openrouterKey = (c.env as any).VITE_OPENROUTER_API_KEY
+    const vimeoToken = (c.env as any).VIMEO_ACCESS_TOKEN || (globalThis as any).process?.env?.VIMEO_ACCESS_TOKEN
+    const openaiKey = (c.env as any).OPENAI_API_KEY || (globalThis as any).process?.env?.OPENAI_API_KEY
+    const openrouterKey = (c.env as any).VITE_OPENROUTER_API_KEY || (globalThis as any).process?.env?.VITE_OPENROUTER_API_KEY
     if (!vimeoToken) return c.json({ error: 'VIMEO_ACCESS_TOKEN não configurado' }, 500)
     if (!openaiKey) return c.json({ error: 'OPENAI_API_KEY não configurado' }, 500)
 
