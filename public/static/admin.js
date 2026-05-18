@@ -1127,19 +1127,24 @@ const adminUI = {
   },
   
   // Show lesson form
-  showLessonForm(lesson = null, moduleId = null) {
+  async showLessonForm(lesson = null, moduleId = null) {
     const isEdit = lesson !== null
     const content = document.getElementById('adminContent')
-    
+
     // Initialize attachments array for editing
     this.currentAttachments = (isEdit && lesson.attachments) ? [...lesson.attachments] : []
 
+    // For edit mode: get course_id from the active filter (user comes from lessons tab with a course selected)
     let selectedCourseId = 0
     if (isEdit) {
-      for (const course of this.courses) {
-        if ((course.modules || []).some(m => m.id === lesson.module_id)) {
-          selectedCourseId = course.id
-          break
+      selectedCourseId = parseInt(document.getElementById('filterCourse')?.value) || 0
+      // Fallback: search already-loaded modules
+      if (!selectedCourseId) {
+        for (const course of this.courses) {
+          if ((course.modules || []).some(m => m.id === lesson.module_id)) {
+            selectedCourseId = course.id
+            break
+          }
         }
       }
     }
@@ -1178,16 +1183,7 @@ const adminUI = {
             <label class="block text-sm font-semibold text-gray-700 mb-2">Módulo *</label>
             <select id="lessonModule" required
                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-              <option value="">Selecione um módulo</option>
-              ${this.courses.filter(c => !selectedCourseId || c.id == selectedCourseId).map(course => `
-                <optgroup label="${course.title}">
-                  ${(course.modules || []).map(m => `
-                    <option value="${m.id}" ${(isEdit && lesson.module_id === m.id) || (!isEdit && moduleId === m.id) ? 'selected' : ''}>
-                      ${m.title}
-                    </option>
-                  `).join('')}
-                </optgroup>
-              `).join('')}
+              <option value="">Selecione um curso primeiro</option>
             </select>
           </div>
           
@@ -1365,8 +1361,28 @@ const adminUI = {
         </form>
       </div>
     `
+
+    // Populate module select after rendering (modules are loaded lazily)
+    if (selectedCourseId) {
+      await this.loadModulesForCourse(selectedCourseId)
+    }
+    this._populateLessonModuleSelect(selectedCourseId, isEdit ? lesson.module_id : (moduleId || null))
   },
-  
+
+  _populateLessonModuleSelect(courseId, selectedModuleId) {
+    const moduleSelect = document.getElementById('lessonModule')
+    if (!moduleSelect) return
+    const options = ['<option value="">Selecione um módulo</option>']
+    for (const course of this.courses) {
+      if (courseId && course.id != courseId) continue
+      for (const m of (course.modules || [])) {
+        const sel = selectedModuleId && m.id == selectedModuleId ? ' selected' : ''
+        options.push(`<option value="${m.id}"${sel}>${m.title}</option>`)
+      }
+    }
+    moduleSelect.innerHTML = options.join('')
+  },
+
   // Update video ID placeholder based on provider
   updateVideoIdPlaceholder() {
     const provider = document.getElementById('lessonProvider').value
@@ -1391,20 +1407,10 @@ const adminUI = {
     if (section) section.classList.toggle('hidden', !checked)
   },
 
-  filterModulesByCourse() {
+  async filterModulesByCourse() {
     const courseId = parseInt(document.getElementById('lessonCourse')?.value) || 0
-    const moduleSelect = document.getElementById('lessonModule')
-    if (!moduleSelect) return
-    const options = ['<option value="">Selecione um módulo</option>']
-    for (const course of this.courses) {
-      if (courseId && course.id != courseId) continue
-      options.push('<optgroup label="' + course.title + '">')
-      for (const m of (course.modules || [])) {
-        options.push('<option value="' + m.id + '">' + m.title + '</option>')
-      }
-      options.push('</optgroup>')
-    }
-    moduleSelect.innerHTML = options.join('')
+    if (courseId) await this.loadModulesForCourse(courseId)
+    this._populateLessonModuleSelect(courseId, null)
   },
 
   async fetchVimeoTranscript() {
