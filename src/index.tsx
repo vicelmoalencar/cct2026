@@ -1709,11 +1709,15 @@ app.post('/api/admin/lessons/:id/whisper-transcribe', requireAdmin, async (c) =>
     if (!lesson.video_id || !/^\d+$/.test(lesson.video_id))
       return c.json({ error: 'ID do vídeo Vimeo inválido' }, 400)
 
-    const vimeoToken = (c.env as any).VIMEO_ACCESS_TOKEN || (globalThis as any).process?.env?.VIMEO_ACCESS_TOKEN
-    const openaiKey = (c.env as any).OPENAI_API_KEY || (globalThis as any).process?.env?.OPENAI_API_KEY
-    const openrouterKey = (c.env as any).VITE_OPENROUTER_API_KEY || (globalThis as any).process?.env?.VITE_OPENROUTER_API_KEY
+    const procEnv = (globalThis as any).process?.env || {}
+    const vimeoToken = (c.env as any).VIMEO_ACCESS_TOKEN || procEnv.VIMEO_ACCESS_TOKEN
+    const openaiKey = (c.env as any).OPENAI_API_KEY || procEnv.OPENAI_API_KEY || procEnv['OPENAI_API-KEY']
+    const openrouterKey = (c.env as any).VITE_OPENROUTER_API_KEY || procEnv.VITE_OPENROUTER_API_KEY
     if (!vimeoToken) return c.json({ error: 'VIMEO_ACCESS_TOKEN não configurado' }, 500)
-    if (!openaiKey) return c.json({ error: 'OPENAI_API_KEY não configurado' }, 500)
+    if (!openaiKey) {
+      const keys = Object.keys(procEnv).filter(k => k.toLowerCase().includes('openai'))
+      return c.json({ error: `OPENAI_API_KEY não configurado. Chaves OPENAI encontradas: [${keys.join(', ')}]` }, 500)
+    }
 
     // 1. Get Vimeo download URL (smallest quality)
     const vimeoRes = await fetch(`https://api.vimeo.com/videos/${lesson.video_id}?fields=download`, {
