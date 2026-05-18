@@ -1505,7 +1505,7 @@ const adminUI = {
           ${description ? `
           <div>
             <label class="block text-sm font-semibold text-gray-700 mb-2">
-              <i class="fas fa-align-left mr-1 text-blue-500"></i>Resumo (para a descrição da aula)
+              <i class="fas fa-align-left mr-1 text-blue-500"></i>Resumo (para o texto de apoio da aula)
             </label>
             <textarea id="groqDescriptionOutput" rows="4"
               class="w-full px-4 py-3 border border-blue-300 bg-blue-50 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none">${description.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
@@ -1552,7 +1552,7 @@ const adminUI = {
 
   applyGroqDescription() {
     const val = document.getElementById('groqDescriptionOutput')?.value
-    if (val) document.getElementById('lessonDescription').value = val
+    if (val) document.getElementById('lessonSupportText').value = val
     this.closeGroqResultModal()
   },
 
@@ -1560,7 +1560,7 @@ const adminUI = {
     const t = document.getElementById('groqTranscriptOutput')?.value
     const d = document.getElementById('groqDescriptionOutput')?.value
     if (t) document.getElementById('lessonTranscript').value = t
-    if (d) document.getElementById('lessonDescription').value = d
+    if (d) document.getElementById('lessonSupportText').value = d
     this.closeGroqResultModal()
   },
 
