@@ -219,8 +219,12 @@ const adminUI = {
   
   // Hide admin panel
   hideAdminPanel() {
-    document.getElementById('adminView').classList.add('hidden')
-    app.showCourses()
+    if (typeof app !== 'undefined') {
+      document.getElementById('adminView').classList.add('hidden')
+      app.showCourses()
+    } else {
+      window.location.href = '/'
+    }
   },
   
   // Render admin panel

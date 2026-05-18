@@ -5011,6 +5011,61 @@ app.get('/test-continue', (c) => {
   `)
 })
 
+app.get('/admin', (c) => {
+  return c.html(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light only">
+  <title>Admin — CCT</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <header class="bg-purple-700 text-white px-4 py-3 flex items-center gap-4 shadow">
+    <a href="/" class="flex items-center gap-2 text-purple-200 hover:text-white transition-colors text-sm font-semibold">
+      <i class="fas fa-arrow-left"></i>
+      <span>Voltar ao site</span>
+    </a>
+    <span class="text-purple-300">|</span>
+    <span class="font-bold text-lg"><i class="fas fa-tools mr-2"></i>Painel Admin</span>
+  </header>
+  <main>
+    <div id="loadingAdmin" class="text-center py-16">
+      <i class="fas fa-spinner fa-spin text-4xl text-purple-500"></i>
+      <p class="mt-4 text-gray-500">Carregando painel admin...</p>
+    </div>
+    <div id="adminView" class="hidden"></div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="/static/auth.js"></script>
+  <script src="/static/admin.js?v=8"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      const isAdmin = await adminManager.checkAdmin()
+      document.getElementById('loadingAdmin').remove()
+      if (!isAdmin) {
+        document.querySelector('main').innerHTML = \`
+          <div class="text-center py-16">
+            <i class="fas fa-lock text-4xl text-red-400"></i>
+            <p class="mt-4 text-red-600 font-semibold">Acesso negado. Você não tem permissão de administrador.</p>
+            <a href="/" class="mt-6 inline-block bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700">Voltar ao site</a>
+          </div>\`
+        return
+      }
+      document.getElementById('adminView').classList.remove('hidden')
+      await adminUI.loadData()
+      adminUI.renderAdminPanel()
+    })
+  </script>
+</body>
+</html>`)
+})
+
 app.get('/', (c) => {
   return c.html(`
     <!DOCTYPE html>
@@ -5212,7 +5267,7 @@ app.get('/', (c) => {
                         </button>
                         
                         <!-- Admin Button -->
-                        <button onclick="app.showAdminPanel()" 
+                        <button onclick="window.open('/admin', '_blank')"
                                 id="adminButton"
                                 class="hidden px-3 md:px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-xs md:text-sm font-semibold transition-colors">
                             <i class="fas fa-tools"></i>
