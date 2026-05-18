@@ -1423,26 +1423,18 @@ const app = {
   // View management
   showCourses() {
     this.hideLoadingState()
+    this._hideAllViews()
     document.getElementById('coursesView').classList.remove('hidden')
-    document.getElementById('courseView').classList.add('hidden')
-    document.getElementById('lessonView').classList.add('hidden')
-    document.getElementById('searchView')?.classList.add('hidden')
-    document.getElementById('trailsView')?.classList.add('hidden')
-    document.getElementById('plansView')?.classList.add('hidden')
-    document.getElementById('rentalsView')?.classList.add('hidden')
     this.loadCourses()
   },
-  
+
   showCourseView() {
-    document.getElementById('coursesView').classList.add('hidden')
+    this._hideAllViews()
     document.getElementById('courseView').classList.remove('hidden')
-    document.getElementById('lessonView').classList.add('hidden')
   },
-  
+
   showLessonView() {
-    document.getElementById('coursesView').classList.add('hidden')
-    document.getElementById('courseView').classList.add('hidden')
-    document.getElementById('searchView')?.classList.add('hidden')
+    this._hideAllViews()
     document.getElementById('lessonView').classList.remove('hidden')
   },
   
@@ -1471,13 +1463,15 @@ const app = {
     }, 5000)
   },
   
+  _hideAllViews() {
+    ['coursesView','courseView','lessonView','searchView','trailsView','plansView','rentalsView']
+      .forEach(id => document.getElementById(id)?.classList.add('hidden'))
+  },
+
   // Show plans page
   async showPlans() {
     try {
-      // Hide all views
-      document.getElementById('coursesView').classList.add('hidden')
-      document.getElementById('courseView').classList.add('hidden')
-      document.getElementById('lessonView').classList.add('hidden')
+      this._hideAllViews()
       
       // Create plans view if doesn't exist
       let plansView = document.getElementById('plansView')
@@ -1740,11 +1734,7 @@ const app = {
   },
 
   async showRentals() {
-    document.getElementById('coursesView').classList.add('hidden')
-    document.getElementById('courseView').classList.add('hidden')
-    document.getElementById('lessonView').classList.add('hidden')
-    document.getElementById('searchView')?.classList.add('hidden')
-    document.getElementById('plansView')?.classList.add('hidden')
+    this._hideAllViews()
 
     let view = document.getElementById('rentalsView')
     if (!view) {
@@ -1870,12 +1860,7 @@ const app = {
   },
 
   async showTrails() {
-    document.getElementById('coursesView').classList.add('hidden')
-    document.getElementById('courseView').classList.add('hidden')
-    document.getElementById('lessonView').classList.add('hidden')
-    document.getElementById('searchView')?.classList.add('hidden')
-    document.getElementById('plansView')?.classList.add('hidden')
-    document.getElementById('rentalsView')?.classList.add('hidden')
+    this._hideAllViews()
 
     let view = document.getElementById('trailsView')
     if (!view) {

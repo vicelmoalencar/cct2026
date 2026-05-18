@@ -458,8 +458,8 @@ window.searchManager = {
     }
     
     // Hide other views
-    document.getElementById('coursesView')?.classList.add('hidden')
-    document.getElementById('lessonView')?.classList.add('hidden')
+    ;['coursesView','courseView','lessonView','trailsView','plansView','rentalsView']
+      .forEach(id => document.getElementById(id)?.classList.add('hidden'))
     
     // Show search view
     const searchView = document.getElementById('searchView')
