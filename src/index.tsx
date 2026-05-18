@@ -1697,7 +1697,7 @@ app.post('/api/admin/lessons/:id/whisper-transcribe', requireAdmin, async (c) =>
     const lessonId = parseInt(c.req.param('id'))
     const db = getDB(c)
 
-    const { rows } = await (db as any).pool.query(
+    const rows = await db.sql(
       'SELECT id, title, video_provider, video_id FROM lessons WHERE id = $1',
       [lessonId]
     )
@@ -1804,7 +1804,7 @@ app.post('/api/admin/lessons/:id/whisper-transcribe', requireAdmin, async (c) =>
     }
 
     // 6. Save to DB
-    await (db as any).pool.query(
+    await db.sql(
       `UPDATE lessons SET transcript = $1, description = CASE WHEN $2::text IS NOT NULL THEN $2 ELSE description END WHERE id = $3`,
       [transcript, description, lessonId]
     )
