@@ -169,10 +169,9 @@ const adminUI = {
       return
     }
     
-    // Hide main app
-    document.getElementById('coursesView').classList.add('hidden')
-    document.getElementById('courseView').classList.add('hidden')
-    document.getElementById('lessonView').classList.add('hidden')
+    // Hide all app views
+    ;['coursesView','courseView','lessonView','searchView','trailsView','plansView','rentalsView']
+      .forEach(id => document.getElementById(id)?.classList.add('hidden'))
     
     // Create admin container if not exists
     let adminContainer = document.getElementById('adminView')

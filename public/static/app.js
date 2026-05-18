@@ -1464,7 +1464,7 @@ const app = {
   },
   
   _hideAllViews() {
-    ['coursesView','courseView','lessonView','searchView','trailsView','plansView','rentalsView']
+    ['coursesView','courseView','lessonView','searchView','trailsView','plansView','rentalsView','adminView']
       .forEach(id => document.getElementById(id)?.classList.add('hidden'))
   },
 
