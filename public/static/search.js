@@ -270,6 +270,23 @@ window.searchManager = {
     return escaped.replace(regex, '<mark class="bg-yellow-200 font-semibold">$1</mark>')
   },
 
+  renderMd(text, query) {
+    if (!text) return ''
+    // Apply term highlighting on raw text first (marked preserves <mark> tags)
+    let result = text
+    if (query && query.length >= 2) {
+      const terms = query.trim().split(/\s+/).filter(t => t.length > 1)
+      terms.forEach(term => {
+        const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        result = result.replace(new RegExp(`(${escaped})`, 'gi'), '<mark class="bg-yellow-200 font-semibold">$1</mark>')
+      })
+    }
+    if (typeof marked !== 'undefined') {
+      try { return marked.parse(result) } catch(e) {}
+    }
+    return result
+  },
+
   getTranscriptSnippet(transcript, query) {
     if (!transcript || !query || query.length < 2) return null
     const firstTerm = query.trim().split(/\s+/)[0].toLowerCase()
@@ -356,9 +373,9 @@ window.searchManager = {
 
               <!-- Description -->
               ${lesson.description ? `
-                <p class="text-gray-700 text-sm mb-3 line-clamp-2">
-                  ${this.highlightText(lesson.description, this.currentFilters.query)}
-                </p>
+                <div class="text-gray-700 text-sm mb-3 prose prose-sm max-w-none line-clamp-3">
+                  ${this.renderMd(lesson.description, this.currentFilters.query)}
+                </div>
               ` : ''}
 
               <!-- Transcript snippet (shown when match comes from transcript) -->
@@ -369,9 +386,9 @@ window.searchManager = {
                 if (descHasMatch) return ''
                 const snippet = this.getTranscriptSnippet(lesson.transcript, q)
                 if (!snippet) return ''
-                return `<p class="text-xs text-blue-700 mb-3 line-clamp-2 bg-blue-50 border-l-2 border-blue-400 pl-2 py-1 rounded-r">
-                  <i class="fas fa-file-alt mr-1 opacity-60"></i>${this.highlightText(snippet, q)}
-                </p>`
+                return `<div class="text-xs text-blue-700 mb-3 line-clamp-3 bg-blue-50 border-l-2 border-blue-400 pl-2 py-1 rounded-r prose prose-sm max-w-none">
+                  <i class="fas fa-file-alt mr-1 opacity-60"></i>${this.renderMd(snippet, q)}
+                </div>`
               })()}
 
               <!-- Rented access banner -->
