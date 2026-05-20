@@ -3540,22 +3540,16 @@ app.get('/api/admin/member-subscriptions', requireAdmin, async (c) => {
 // List SuitePlus subscriptions (admin only)
 app.get('/api/admin/suiteplus-subscriptions', requireAdmin, async (c) => {
   try {
-    const connStr = (c.env as any).DATABASE_SUITEPLUS || (globalThis as any).process?.env?.DATABASE_SUITEPLUS || ''
+    const connStr = c.env.DATABASE_SUITEPLUS
     if (!connStr) return c.json({ error: 'DATABASE_SUITEPLUS não configurada' }, 500)
 
-    const { Pool } = (await import('pg')).default
-    const pool = new Pool({ connectionString: connStr.replace('postgresql+psycopg2://', 'postgresql://').replace('postgres+psycopg2://', 'postgresql://'), ssl: { rejectUnauthorized: false } })
-
-    try {
-      const { rows } = await pool.query(`
-        SELECT id, user_email, product_id, started_at, expires_at, status, payment_source, recurring_enabled
-        FROM user_subscriptions
-        ORDER BY expires_at DESC
-      `)
-      return c.json({ subscriptions: rows })
-    } finally {
-      await pool.end()
-    }
+    const db = new PostgresClient(connStr)
+    const rows = await db.sql(
+      `SELECT id, user_email, product_id, started_at, expires_at, status, payment_source, recurring_enabled
+       FROM user_subscriptions
+       ORDER BY expires_at DESC`
+    )
+    return c.json({ subscriptions: rows })
   } catch (error: any) {
     console.error('SuitePlus subscriptions error:', error)
     return c.json({ error: error.message || 'Erro ao buscar assinaturas SuitePlus' }, 500)
