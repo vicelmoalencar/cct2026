@@ -2151,28 +2151,38 @@ const adminUI = {
   
   async loadSubscriptionsTable(filters = {}) {
     try {
-      const response = await axios.get('/api/admin/member-subscriptions')
-      let subscriptions = response.data.subscriptions || []
-      
+      const response = await axios.get('/api/admin/suiteplus-subscriptions')
+      // Normaliza campos do SuitePlus para o formato da tela
+      let subscriptions = (response.data.subscriptions || []).map(s => ({
+        id: s.id,
+        email_membro: s.user_email,
+        data_expiracao: s.expires_at,
+        ativo: s.status === 'active',
+        origem: s.payment_source || 'SuitePlus',
+        detalhe: `Produto #${s.product_id}`,
+        teste_gratis: false,
+        _suiteplus: true
+      }))
+
       const container = document.getElementById('subscriptionsTableContainer')
-      
+
       if (subscriptions.length === 0) {
         container.innerHTML = `
           <p class="text-center text-gray-500 py-8">
-            Nenhuma assinatura cadastrada. Importe o CSV de membros para começar.
+            Nenhuma assinatura encontrada no SuitePlus.
           </p>
         `
         return
       }
-      
+
       // Store original data
       this.allSubscriptions = subscriptions
-      
+
       // Separate active and expired (before filtering)
       const now = new Date()
       const active = subscriptions.filter(s => s.ativo && (!s.data_expiracao || new Date(s.data_expiracao) > now))
       const expired = subscriptions.filter(s => !s.ativo || (s.data_expiracao && new Date(s.data_expiracao) <= now))
-      
+
       // Get unique origins for filter dropdown
       const origins = [...new Set(subscriptions.map(s => s.origem).filter(Boolean))].sort()
       
@@ -2363,16 +2373,20 @@ const adminUI = {
                       ${sub.detalhe || '<span class="text-gray-400">-</span>'}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <button onclick='adminUI.showEditSubscriptionModal(${JSON.stringify(sub).replace(/'/g, "&#39;")})'
-                              class="text-blue-600 hover:text-blue-900 mr-3"
-                              title="Editar assinatura">
-                        <i class="fas fa-edit"></i>
-                      </button>
-                      <button onclick="adminUI.deleteSubscription(${sub.id}, '${sub.email_membro}')"
-                              class="text-red-600 hover:text-red-900"
-                              title="Deletar assinatura">
-                        <i class="fas fa-trash"></i>
-                      </button>
+                      ${sub._suiteplus ? `
+                        <span class="text-xs text-gray-400 italic">SuitePlus</span>
+                      ` : `
+                        <button onclick='adminUI.showEditSubscriptionModal(${JSON.stringify(sub).replace(/'/g, "&#39;")})'
+                                class="text-blue-600 hover:text-blue-900 mr-3"
+                                title="Editar assinatura">
+                          <i class="fas fa-edit"></i>
+                        </button>
+                        <button onclick="adminUI.deleteSubscription(${sub.id}, '${sub.email_membro}')"
+                                class="text-red-600 hover:text-red-900"
+                                title="Deletar assinatura">
+                          <i class="fas fa-trash"></i>
+                        </button>
+                      `}
                     </td>
                   </tr>
                 `
