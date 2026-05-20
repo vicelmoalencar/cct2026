@@ -1353,13 +1353,6 @@ ${T}`,O=await fetch("https://openrouter.ai/api/v1/chat/completions",{method:"POS
                             <span class="hidden sm:inline ml-2">Buscar</span>
                         </button>
                         
-                        <!-- Plans Button -->
-                        <button onclick="app.showPlans()"
-                                class="px-3 md:px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-xs md:text-sm font-semibold transition-colors">
-                            <i class="fas fa-crown"></i>
-                            <span class="hidden sm:inline ml-2">Planos</span>
-                        </button>
-
                         <!-- Trails Button -->
                         <button onclick="app.showTrails()"
                                 class="px-3 md:px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-xs md:text-sm font-semibold transition-colors">
