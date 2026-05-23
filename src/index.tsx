@@ -17,6 +17,7 @@ type Bindings = {
 const app = new Hono<{ Bindings: Bindings }>()
 const creditsSchemaReady = new Map<string, Promise<void>>()
 const lessonRentalSchemaReady = new Map<string, Promise<void>>()
+const questionBankSchemaReady = new Map<string, Promise<void>>()
 
 // Helper: retorna cliente PostgreSQL para dados do CCT
 function getDB(c: any): PostgresClient {
@@ -108,6 +109,73 @@ async function ensureLessonRentalSchema(db: PostgresClient): Promise<void> {
   }
 
   await lessonRentalSchemaReady.get(key)
+}
+
+async function ensureQuestionBankSchema(db: PostgresClient): Promise<void> {
+  const key = (db as any).connectionString || 'question-bank'
+  if (!questionBankSchemaReady.has(key)) {
+    questionBankSchemaReady.set(key, (async () => {
+      await db.sql(`
+        CREATE TABLE IF NOT EXISTS question_bank (
+          id SERIAL PRIMARY KEY,
+          title VARCHAR(255),
+          statement_html TEXT NOT NULL DEFAULT '',
+          question_type VARCHAR(32) NOT NULL DEFAULT 'multiple_choice',
+          alternatives JSONB NOT NULL DEFAULT '[]'::jsonb,
+          answer_key JSONB NOT NULL DEFAULT '{}'::jsonb,
+          technical_comment_html TEXT,
+          difficulty VARCHAR(32) NOT NULL DEFAULT 'medio',
+          theme VARCHAR(160),
+          subtheme VARCHAR(160),
+          legal_basis TEXT,
+          weight NUMERIC(8,2) NOT NULL DEFAULT 1,
+          estimated_minutes INTEGER NOT NULL DEFAULT 5,
+          tags JSONB NOT NULL DEFAULT '[]'::jsonb,
+          status VARCHAR(32) NOT NULL DEFAULT 'draft',
+          professor VARCHAR(160),
+          course_id INTEGER,
+          lesson_id INTEGER,
+          source_transcript TEXT,
+          ai_generated BOOLEAN NOT NULL DEFAULT FALSE,
+          version INTEGER NOT NULL DEFAULT 1,
+          order_index INTEGER NOT NULL DEFAULT 0,
+          usage_count INTEGER NOT NULL DEFAULT 0,
+          attempts_count INTEGER NOT NULL DEFAULT 0,
+          correct_count INTEGER NOT NULL DEFAULT 0,
+          wrong_count INTEGER NOT NULL DEFAULT 0,
+          created_by VARCHAR(255),
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `)
+      await db.sql(`
+        CREATE TABLE IF NOT EXISTS question_bank_versions (
+          id SERIAL PRIMARY KEY,
+          question_id INTEGER NOT NULL REFERENCES question_bank(id) ON DELETE CASCADE,
+          version INTEGER NOT NULL,
+          snapshot JSONB NOT NULL,
+          changed_by VARCHAR(255),
+          change_note TEXT,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `)
+      await db.sql(`
+        CREATE TABLE IF NOT EXISTS question_bank_exam_items (
+          id SERIAL PRIMARY KEY,
+          question_id INTEGER NOT NULL REFERENCES question_bank(id) ON DELETE CASCADE,
+          exam_title VARCHAR(255),
+          used_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `)
+      await db.sql(`CREATE INDEX IF NOT EXISTS idx_question_bank_status ON question_bank(status)`)
+      await db.sql(`CREATE INDEX IF NOT EXISTS idx_question_bank_type ON question_bank(question_type)`)
+      await db.sql(`CREATE INDEX IF NOT EXISTS idx_question_bank_theme ON question_bank(theme)`)
+      await db.sql(`CREATE INDEX IF NOT EXISTS idx_question_bank_course ON question_bank(course_id)`)
+      await db.sql(`CREATE INDEX IF NOT EXISTS idx_question_versions_question ON question_bank_versions(question_id)`)
+    })())
+  }
+
+  await questionBankSchemaReady.get(key)
 }
 
 // Consulta a data de expiração do usuário no sistema suiteplus (produto ID 4)
@@ -2335,6 +2403,365 @@ app.get('/api/admin/lessons/find', requireAdmin, async (c) => {
   } catch (error: any) {
     console.error('Find lesson error:', error)
     return c.json({ error: error.message || 'Failed to find lesson' }, 500)
+  }
+})
+
+function normalizeQuestionPayload(body: any, userEmail?: string) {
+  const alternatives = Array.isArray(body.alternatives) ? body.alternatives : []
+  const tags = Array.isArray(body.tags) ? body.tags : String(body.tags || '')
+    .split(',')
+    .map((tag: string) => tag.trim())
+    .filter(Boolean)
+
+  return {
+    title: body.title || null,
+    statement_html: body.statement_html || '',
+    question_type: body.question_type || 'multiple_choice',
+    alternatives: JSON.stringify(alternatives),
+    answer_key: JSON.stringify(body.answer_key || {}),
+    technical_comment_html: body.technical_comment_html || null,
+    difficulty: body.difficulty || 'medio',
+    theme: body.theme || null,
+    subtheme: body.subtheme || null,
+    legal_basis: body.legal_basis || null,
+    weight: Number(body.weight || 1),
+    estimated_minutes: parseInt(body.estimated_minutes) || 5,
+    tags: JSON.stringify(tags),
+    status: body.status || 'draft',
+    professor: body.professor || null,
+    course_id: body.course_id ? parseInt(body.course_id) : null,
+    lesson_id: body.lesson_id ? parseInt(body.lesson_id) : null,
+    source_transcript: body.source_transcript || null,
+    ai_generated: body.ai_generated === true || body.ai_generated === 'true',
+    order_index: parseInt(body.order_index) || 0,
+    usage_count: parseInt(body.usage_count) || 0,
+    attempts_count: parseInt(body.attempts_count) || 0,
+    correct_count: parseInt(body.correct_count) || 0,
+    wrong_count: parseInt(body.wrong_count) || 0,
+    created_by: userEmail || body.created_by || null
+  }
+}
+
+// Question bank - admin only
+app.get('/api/admin/questions', requireAdmin, async (c) => {
+  try {
+    const db = getDB(c)
+    await ensureQuestionBankSchema(db)
+
+    const filters: string[] = []
+    const values: any[] = []
+    let idx = 1
+    const addFilter = (sql: string, value: any) => {
+      filters.push(sql.replace('?', `$${idx++}`))
+      values.push(value)
+    }
+
+    const q = c.req.query('q')
+    const theme = c.req.query('theme')
+    const professor = c.req.query('professor')
+    const course = c.req.query('course_id')
+    const difficulty = c.req.query('difficulty')
+    const type = c.req.query('question_type')
+    const status = c.req.query('status')
+    const from = c.req.query('from')
+    const to = c.req.query('to')
+
+    if (q) {
+      filters.push(`(title ILIKE $${idx} OR statement_html ILIKE $${idx + 1} OR legal_basis ILIKE $${idx + 2})`)
+      values.push(`%${q}%`, `%${q}%`, `%${q}%`)
+      idx += 3
+    }
+    if (theme) addFilter('theme = ?', theme)
+    if (professor) addFilter('professor = ?', professor)
+    if (course) addFilter('course_id = ?', parseInt(course))
+    if (difficulty) addFilter('difficulty = ?', difficulty)
+    if (type) addFilter('question_type = ?', type)
+    if (status) addFilter('status = ?', status)
+    if (from) addFilter('created_at >= ?', from)
+    if (to) addFilter('created_at <= ?', to)
+
+    const where = filters.length ? `WHERE ${filters.join(' AND ')}` : ''
+    const questions = await db.sql(`
+      SELECT q.*,
+             c.title AS course_title,
+             l.title AS lesson_title,
+             CASE WHEN q.attempts_count > 0 THEN ROUND((q.correct_count::numeric / q.attempts_count::numeric) * 100, 1) ELSE NULL END AS success_rate,
+             CASE WHEN q.attempts_count > 0 THEN ROUND((q.wrong_count::numeric / q.attempts_count::numeric) * 100, 1) ELSE NULL END AS real_difficulty_index
+      FROM question_bank q
+      LEFT JOIN courses c ON c.id = q.course_id
+      LEFT JOIN lessons l ON l.id = q.lesson_id
+      ${where}
+      ORDER BY q.order_index ASC, q.updated_at DESC
+      LIMIT 500
+    `, values)
+    return c.json({ questions })
+  } catch (error: any) {
+    console.error('List questions error:', error)
+    return c.json({ error: error.message || 'Failed to list questions' }, 500)
+  }
+})
+
+app.get('/api/admin/questions/stats', requireAdmin, async (c) => {
+  try {
+    const db = getDB(c)
+    await ensureQuestionBankSchema(db)
+    const rows = await db.sql(`
+      SELECT
+        COUNT(*)::int AS total,
+        COUNT(*) FILTER (WHERE status = 'published')::int AS published,
+        COUNT(*) FILTER (WHERE ai_generated)::int AS ai_generated,
+        COALESCE(SUM(usage_count), 0)::int AS total_usage,
+        ROUND(AVG(CASE WHEN attempts_count > 0 THEN correct_count::numeric / attempts_count::numeric * 100 END), 1) AS avg_success_rate
+      FROM question_bank
+    `)
+    const mostWrong = await db.sql(`SELECT id, title, wrong_count, attempts_count FROM question_bank ORDER BY wrong_count DESC, attempts_count DESC LIMIT 5`)
+    const mostUsed = await db.sql(`SELECT id, title, usage_count FROM question_bank ORDER BY usage_count DESC LIMIT 5`)
+    return c.json({ stats: rows[0] || {}, mostWrong, mostUsed })
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500)
+  }
+})
+
+app.get('/api/admin/questions/:id/versions', requireAdmin, async (c) => {
+  try {
+    const db = getDB(c)
+    await ensureQuestionBankSchema(db)
+    const versions = await db.sql(
+      `SELECT * FROM question_bank_versions WHERE question_id = $1 ORDER BY version DESC, created_at DESC`,
+      [parseInt(c.req.param('id'))]
+    )
+    return c.json({ versions })
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500)
+  }
+})
+
+app.post('/api/admin/questions', requireAdmin, async (c) => {
+  try {
+    const user = c.get('user')
+    const db = getDB(c)
+    await ensureQuestionBankSchema(db)
+    const payload = normalizeQuestionPayload(await c.req.json(), user?.email)
+    const rows = await db.sql(`
+      INSERT INTO question_bank (
+        title, statement_html, question_type, alternatives, answer_key, technical_comment_html,
+        difficulty, theme, subtheme, legal_basis, weight, estimated_minutes, tags, status,
+        professor, course_id, lesson_id, source_transcript, ai_generated, order_index,
+        usage_count, attempts_count, correct_count, wrong_count, created_by
+      )
+      VALUES ($1,$2,$3,$4::jsonb,$5::jsonb,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)
+      RETURNING *
+    `, [
+      payload.title, payload.statement_html, payload.question_type, payload.alternatives, payload.answer_key,
+      payload.technical_comment_html, payload.difficulty, payload.theme, payload.subtheme, payload.legal_basis,
+      payload.weight, payload.estimated_minutes, payload.tags, payload.status, payload.professor, payload.course_id,
+      payload.lesson_id, payload.source_transcript, payload.ai_generated, payload.order_index, payload.usage_count,
+      payload.attempts_count, payload.correct_count, payload.wrong_count, payload.created_by
+    ])
+    const question = rows[0]
+    await db.sql(
+      `INSERT INTO question_bank_versions (question_id, version, snapshot, changed_by, change_note) VALUES ($1, $2, $3::jsonb, $4, $5)`,
+      [question.id, 1, JSON.stringify(question), user?.email || null, 'Criacao']
+    )
+    return c.json({ success: true, question })
+  } catch (error: any) {
+    console.error('Create question error:', error)
+    return c.json({ error: error.message || 'Failed to create question' }, 500)
+  }
+})
+
+app.put('/api/admin/questions/:id', requireAdmin, async (c) => {
+  try {
+    const user = c.get('user')
+    const id = parseInt(c.req.param('id'))
+    const db = getDB(c)
+    await ensureQuestionBankSchema(db)
+    const currentRows = await db.sql(`SELECT * FROM question_bank WHERE id = $1`, [id])
+    if (!currentRows.length) return c.json({ error: 'Question not found' }, 404)
+    const current = currentRows[0]
+    const payload = normalizeQuestionPayload(await c.req.json(), user?.email)
+    const nextVersion = parseInt(current.version || 1) + 1
+    const rows = await db.sql(`
+      UPDATE question_bank SET
+        title=$1, statement_html=$2, question_type=$3, alternatives=$4::jsonb, answer_key=$5::jsonb,
+        technical_comment_html=$6, difficulty=$7, theme=$8, subtheme=$9, legal_basis=$10,
+        weight=$11, estimated_minutes=$12, tags=$13::jsonb, status=$14, professor=$15,
+        course_id=$16, lesson_id=$17, source_transcript=$18, ai_generated=$19, order_index=$20,
+        usage_count=$21, attempts_count=$22, correct_count=$23, wrong_count=$24,
+        version=$25, updated_at=NOW()
+      WHERE id=$26
+      RETURNING *
+    `, [
+      payload.title, payload.statement_html, payload.question_type, payload.alternatives, payload.answer_key,
+      payload.technical_comment_html, payload.difficulty, payload.theme, payload.subtheme, payload.legal_basis,
+      payload.weight, payload.estimated_minutes, payload.tags, payload.status, payload.professor, payload.course_id,
+      payload.lesson_id, payload.source_transcript, payload.ai_generated, payload.order_index, payload.usage_count,
+      payload.attempts_count, payload.correct_count, payload.wrong_count, nextVersion, id
+    ])
+    await db.sql(
+      `INSERT INTO question_bank_versions (question_id, version, snapshot, changed_by, change_note) VALUES ($1, $2, $3::jsonb, $4, $5)`,
+      [id, nextVersion, JSON.stringify(rows[0]), user?.email || null, 'Edicao manual']
+    )
+    return c.json({ success: true, question: rows[0] })
+  } catch (error: any) {
+    console.error('Update question error:', error)
+    return c.json({ error: error.message || 'Failed to update question' }, 500)
+  }
+})
+
+app.post('/api/admin/questions/:id/duplicate', requireAdmin, async (c) => {
+  try {
+    const user = c.get('user')
+    const id = parseInt(c.req.param('id'))
+    const db = getDB(c)
+    await ensureQuestionBankSchema(db)
+    const rows = await db.sql(`SELECT * FROM question_bank WHERE id = $1`, [id])
+    if (!rows.length) return c.json({ error: 'Question not found' }, 404)
+    const q = rows[0]
+    const copy = await db.sql(`
+      INSERT INTO question_bank (
+        title, statement_html, question_type, alternatives, answer_key, technical_comment_html,
+        difficulty, theme, subtheme, legal_basis, weight, estimated_minutes, tags, status,
+        professor, course_id, lesson_id, source_transcript, ai_generated, order_index, created_by
+      )
+      VALUES ($1,$2,$3,$4::jsonb,$5::jsonb,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,'draft',$14,$15,$16,$17,$18,$19,$20)
+      RETURNING *
+    `, [
+      `${q.title || 'Questao'} (copia)`, q.statement_html, q.question_type, JSON.stringify(q.alternatives || []),
+      JSON.stringify(q.answer_key || {}), q.technical_comment_html, q.difficulty, q.theme, q.subtheme, q.legal_basis,
+      q.weight, q.estimated_minutes, JSON.stringify(q.tags || []), q.professor, q.course_id, q.lesson_id,
+      q.source_transcript, q.ai_generated, q.order_index + 1, user?.email || null
+    ])
+    return c.json({ success: true, question: copy[0] })
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500)
+  }
+})
+
+app.delete('/api/admin/questions/:id', requireAdmin, async (c) => {
+  try {
+    const db = getDB(c)
+    await ensureQuestionBankSchema(db)
+    await db.sql(`DELETE FROM question_bank WHERE id = $1`, [parseInt(c.req.param('id'))])
+    return c.json({ success: true })
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500)
+  }
+})
+
+app.post('/api/admin/questions-reorder', requireAdmin, async (c) => {
+  try {
+    const { questions } = await c.req.json()
+    if (!Array.isArray(questions)) return c.json({ error: 'questions must be an array' }, 400)
+    const db = getDB(c)
+    await ensureQuestionBankSchema(db)
+    for (const item of questions) {
+      await db.sql(`UPDATE question_bank SET order_index = $1, updated_at = NOW() WHERE id = $2`, [parseInt(item.order_index), parseInt(item.id)])
+    }
+    return c.json({ success: true })
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500)
+  }
+})
+
+app.post('/api/admin/questions/import', requireAdmin, async (c) => {
+  try {
+    const { questions } = await c.req.json()
+    if (!Array.isArray(questions)) return c.json({ error: 'questions array required' }, 400)
+    const user = c.get('user')
+    const db = getDB(c)
+    await ensureQuestionBankSchema(db)
+    let created = 0
+    for (const question of questions) {
+      const payload = normalizeQuestionPayload(question, user?.email)
+      await db.sql(`
+        INSERT INTO question_bank (
+          title, statement_html, question_type, alternatives, answer_key, technical_comment_html,
+          difficulty, theme, subtheme, legal_basis, weight, estimated_minutes, tags, status,
+          professor, course_id, lesson_id, source_transcript, ai_generated, order_index, created_by
+        )
+        VALUES ($1,$2,$3,$4::jsonb,$5::jsonb,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14,$15,$16,$17,$18,$19,$20,$21)
+      `, [
+        payload.title, payload.statement_html, payload.question_type, payload.alternatives, payload.answer_key,
+        payload.technical_comment_html, payload.difficulty, payload.theme, payload.subtheme, payload.legal_basis,
+        payload.weight, payload.estimated_minutes, payload.tags, payload.status, payload.professor, payload.course_id,
+        payload.lesson_id, payload.source_transcript, payload.ai_generated, payload.order_index, payload.created_by
+      ])
+      created++
+    }
+    return c.json({ success: true, created })
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500)
+  }
+})
+
+app.post('/api/admin/questions/generate-ai', requireAdmin, async (c) => {
+  try {
+    const { lesson_id, transcript, count = 5, types = ['multiple_choice', 'true_false', 'discursive'], difficulty = 'misto', context = '' } = await c.req.json()
+    const db = getDB(c)
+    await ensureQuestionBankSchema(db)
+    let sourceText = transcript || ''
+    let lesson: any = null
+    if (lesson_id) {
+      const rows = await db.sql(`
+        SELECT l.id, l.title, l.transcript, c.title AS course_title, c.instructor, c.id AS course_id
+        FROM lessons l
+        JOIN modules m ON m.id = l.module_id
+        JOIN courses c ON c.id = m.course_id
+        WHERE l.id = $1
+      `, [parseInt(lesson_id)])
+      lesson = rows[0] || null
+      sourceText = sourceText || lesson?.transcript || ''
+    }
+    if (!sourceText?.trim()) return c.json({ error: 'Informe uma transcricao ou selecione uma aula com transcricao.' }, 400)
+
+    const apiKey = (c.env as any).VITE_OPENROUTER_API_KEY
+    if (!apiKey) return c.json({ error: 'VITE_OPENROUTER_API_KEY nao configurada' }, 500)
+
+    const prompt = `Gere questoes para prova de proficiencia e certificacao em calculos trabalhistas a partir da transcricao abaixo.
+Retorne somente JSON valido, sem markdown, no formato {"questions":[...]}.
+Cada item deve conter: title, statement_html, question_type ("discursive", "multiple_choice" ou "true_false"), alternatives (array com {label,text_html,is_correct}), answer_key, technical_comment_html, difficulty ("facil","medio","dificil"), theme, subtheme, legal_basis, weight, estimated_minutes, tags.
+Crie alternativas plausiveis, gabarito comentado e fundamentacao tecnica. Tipos desejados: ${types.join(', ')}. Dificuldade: ${difficulty}. Quantidade: ${count}.
+Contexto adicional: ${context || 'nenhum'}.
+Transcricao:
+---
+${sourceText.slice(0, 24000)}
+---`
+
+    const aiRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+        'HTTP-Referer': 'https://cct2026.com.br',
+        'X-Title': 'CCT2026 Admin',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          { role: 'system', content: 'Voce e especialista em direito do trabalho, calculos trabalhistas, PJe-Calc e avaliacao educacional. Responda apenas JSON valido.' },
+          { role: 'user', content: prompt },
+        ],
+        response_format: { type: 'json_object' }
+      }),
+    })
+    if (!aiRes.ok) return c.json({ error: `OpenRouter: ${await aiRes.text()}` }, 500)
+    const data = await aiRes.json() as any
+    const raw = data.choices?.[0]?.message?.content || '{"questions":[]}'
+    const parsed = JSON.parse(raw)
+    const questions = (parsed.questions || []).map((q: any) => ({
+      ...q,
+      lesson_id: lesson?.id || lesson_id || null,
+      course_id: lesson?.course_id || null,
+      professor: lesson?.instructor || null,
+      source_transcript: sourceText,
+      ai_generated: true,
+      status: 'review'
+    }))
+    return c.json({ questions })
+  } catch (error: any) {
+    console.error('Generate questions error:', error)
+    return c.json({ error: error.message || 'Erro ao gerar questoes' }, 500)
   }
 })
 

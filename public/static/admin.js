@@ -147,6 +147,47 @@ const adminManager = {
   async expireAllSubscriptions() {
     const response = await axios.post('/api/admin/subscriptions/expire')
     return response.data
+  },
+
+  async getQuestions(params = {}) {
+    const query = new URLSearchParams(params)
+    const response = await axios.get('/api/admin/questions?' + query.toString())
+    return response.data.questions || []
+  },
+
+  async getQuestionStats() {
+    const response = await axios.get('/api/admin/questions/stats')
+    return response.data
+  },
+
+  async createQuestion(data) {
+    const response = await axios.post('/api/admin/questions', data)
+    return response.data
+  },
+
+  async updateQuestion(id, data) {
+    const response = await axios.put('/api/admin/questions/' + id, data)
+    return response.data
+  },
+
+  async deleteQuestion(id) {
+    const response = await axios.delete('/api/admin/questions/' + id)
+    return response.data
+  },
+
+  async duplicateQuestion(id) {
+    const response = await axios.post('/api/admin/questions/' + id + '/duplicate')
+    return response.data
+  },
+
+  async generateQuestionsAI(data) {
+    const response = await axios.post('/api/admin/questions/generate-ai', data)
+    return response.data.questions || []
+  },
+
+  async importQuestions(questions) {
+    const response = await axios.post('/api/admin/questions/import', { questions })
+    return response.data
   }
 }
 
@@ -159,6 +200,9 @@ const adminUI = {
   lessons: [],
   plans: [],
   subscriptions: [],
+  questions: [],
+  questionStats: null,
+  generatedQuestions: [],
   
   // Show admin panel
   async showAdminPanel() {
@@ -289,6 +333,11 @@ const adminUI = {
                   class="flex-1 py-4 px-6 font-semibold text-gray-400 border-b-2 border-transparent hover:text-blue-600 transition-colors whitespace-nowrap">
             <i class="fas fa-route mr-2"></i> Trilhas
           </button>
+          <button onclick="adminUI.switchTab('questions')"
+                  id="tabQuestions"
+                  class="flex-1 py-4 px-6 font-semibold text-gray-400 border-b-2 border-transparent hover:text-blue-600 transition-colors whitespace-nowrap">
+            <i class="fas fa-clipboard-question mr-2"></i> Questoes
+          </button>
           <button onclick="adminUI.switchTab('import')"
                   id="tabImport"
                   class="flex-1 py-4 px-6 font-semibold text-gray-400 border-b-2 border-transparent hover:text-blue-600 transition-colors whitespace-nowrap">
@@ -309,7 +358,7 @@ const adminUI = {
     this.currentView = tab
     
     // Update tab styles
-    const tabs = ['courses', 'modules', 'lessons', 'plans', 'subscriptions', 'users', 'certificates', 'trails', 'import']
+    const tabs = ['courses', 'modules', 'lessons', 'plans', 'subscriptions', 'users', 'certificates', 'trails', 'questions', 'import']
     tabs.forEach(t => {
       const tabEl = document.getElementById(`tab${t.charAt(0).toUpperCase() + t.slice(1)}`)
       if (t === tab) {
@@ -331,6 +380,7 @@ const adminUI = {
     if (tab === 'users') this.renderUsersTab()
     if (tab === 'import') this.renderImportTab()
     if (tab === 'trails') await adminUI.renderTrailsTab()
+    if (tab === 'questions') await adminUI.renderQuestionsTab()
   },
   
   // Render courses tab
@@ -5578,6 +5628,643 @@ adminUI.saveTrailOrder = async function(trailId, container) {
   } catch (e) {
     if (status) status.textContent = '❌ Erro ao salvar ordem'
   }
+}
+
+adminUI.escapeHtml = function(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+adminUI.questionTypeLabel = function(type) {
+  return {
+    discursive: 'Discursiva',
+    multiple_choice: 'Multipla escolha',
+    true_false: 'Certo ou Errado'
+  }[type] || type
+}
+
+adminUI.renderQuestionsTab = async function() {
+  const content = document.getElementById('adminContent')
+  content.innerHTML = '<div class="bg-white rounded-lg shadow-md p-8 text-center text-gray-500"><i class="fas fa-spinner fa-spin text-2xl mr-2 text-blue-600"></i>Carregando banco de questoes...</div>'
+  try {
+    const results = await Promise.all([
+      adminManager.getQuestions(),
+      adminManager.getQuestionStats()
+    ])
+    this.questions = results[0]
+    this.questionStats = results[1]
+  } catch (e) {
+    console.error(e)
+    content.innerHTML = '<div class="bg-red-50 border border-red-200 rounded-lg p-6 text-red-700">Erro ao carregar banco de questoes: ' + this.escapeHtml(e.response?.data?.error || e.message) + '</div>'
+    return
+  }
+  this.drawQuestionsTab()
+}
+
+adminUI.drawQuestionsTab = function() {
+  const content = document.getElementById('adminContent')
+  const stats = (this.questionStats && this.questionStats.stats) || {}
+  const mostWrong = (this.questionStats && this.questionStats.mostWrong) || []
+  const mostUsed = (this.questionStats && this.questionStats.mostUsed) || []
+  content.innerHTML = `
+    <div class="space-y-5">
+      <div class="bg-white rounded-lg shadow-md p-5">
+        <div class="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+          <div>
+            <h3 class="text-xl font-bold text-gray-800"><i class="fas fa-clipboard-question mr-2 text-blue-600"></i>Banco de Questoes</h3>
+            <p class="text-sm text-gray-500 mt-1">Proficiencia e certificacao em calculos trabalhistas</p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button onclick="adminUI.showQuestionForm()" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold"><i class="fas fa-plus mr-2"></i>Nova Questao</button>
+            <button onclick="adminUI.showAIGenerator()" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold"><i class="fas fa-magic mr-2"></i>Gerar com IA</button>
+            <button onclick="adminUI.exportQuestions()" class="px-4 py-2 bg-slate-700 hover:bg-slate-800 text-white rounded-lg font-semibold"><i class="fas fa-file-export mr-2"></i>Exportar</button>
+            <button onclick="adminUI.showQuestionImport()" class="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-semibold"><i class="fas fa-file-import mr-2"></i>Importar</button>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mt-5">
+          <div class="border rounded-lg p-3"><p class="text-xs text-gray-500">Total</p><p class="text-2xl font-bold text-gray-800">${stats.total || 0}</p></div>
+          <div class="border rounded-lg p-3"><p class="text-xs text-gray-500">Publicadas</p><p class="text-2xl font-bold text-green-700">${stats.published || 0}</p></div>
+          <div class="border rounded-lg p-3"><p class="text-xs text-gray-500">Geradas por IA</p><p class="text-2xl font-bold text-purple-700">${stats.ai_generated || 0}</p></div>
+          <div class="border rounded-lg p-3"><p class="text-xs text-gray-500">Usos</p><p class="text-2xl font-bold text-blue-700">${stats.total_usage || 0}</p></div>
+          <div class="border rounded-lg p-3"><p class="text-xs text-gray-500">Acerto medio</p><p class="text-2xl font-bold text-amber-700">${stats.avg_success_rate || 0}%</p></div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-lg shadow-md p-5">
+        <div class="grid grid-cols-1 md:grid-cols-4 xl:grid-cols-8 gap-3">
+          <input id="questionSearch" oninput="adminUI.filterQuestionsRemote()" placeholder="Buscar..." class="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 md:col-span-2">
+          <input id="questionThemeFilter" onchange="adminUI.filterQuestionsRemote()" placeholder="Tema" class="px-3 py-2 border rounded-lg">
+          <input id="questionProfessorFilter" onchange="adminUI.filterQuestionsRemote()" placeholder="Professor" class="px-3 py-2 border rounded-lg">
+          <select id="questionCourseFilter" onchange="adminUI.filterQuestionsRemote()" class="px-3 py-2 border rounded-lg">
+            <option value="">Curso</option>
+            ${this.courses.map(c => `<option value="${c.id}">${this.escapeHtml(c.title)}</option>`).join('')}
+          </select>
+          <select id="questionDifficultyFilter" onchange="adminUI.filterQuestionsRemote()" class="px-3 py-2 border rounded-lg">
+            <option value="">Dificuldade</option><option value="facil">Facil</option><option value="medio">Medio</option><option value="dificil">Dificil</option>
+          </select>
+          <select id="questionTypeFilter" onchange="adminUI.filterQuestionsRemote()" class="px-3 py-2 border rounded-lg">
+            <option value="">Tipo</option><option value="discursive">Discursiva</option><option value="multiple_choice">Multipla escolha</option><option value="true_false">Certo/Errado</option>
+          </select>
+          <select id="questionStatusFilter" onchange="adminUI.filterQuestionsRemote()" class="px-3 py-2 border rounded-lg">
+            <option value="">Status</option><option value="draft">Rascunho</option><option value="review">Revisao</option><option value="published">Publicada</option><option value="archived">Arquivada</option>
+          </select>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+          <input type="date" id="questionFromFilter" onchange="adminUI.filterQuestionsRemote()" class="px-3 py-2 border rounded-lg">
+          <input type="date" id="questionToFilter" onchange="adminUI.filterQuestionsRemote()" class="px-3 py-2 border rounded-lg">
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 xl:grid-cols-4 gap-5">
+        <div class="xl:col-span-3 bg-white rounded-lg shadow-md overflow-hidden">
+          <div class="px-5 py-3 border-b flex items-center justify-between">
+            <span class="font-semibold text-gray-700"><span id="questionCount">${this.questions.length}</span> questoes</span>
+            <span id="questionReorderStatus" class="text-sm font-semibold text-gray-500"></span>
+          </div>
+          <div id="questionsList" class="divide-y">${this.renderQuestionRows(this.questions)}</div>
+        </div>
+        <div class="space-y-5">
+          <div class="bg-white rounded-lg shadow-md p-4">
+            <h4 class="font-bold text-gray-800 mb-3"><i class="fas fa-circle-xmark mr-2 text-red-600"></i>Mais erradas</h4>
+            ${mostWrong.map(q => `<p class="text-sm border-b py-2"><strong>#${q.id}</strong> ${this.escapeHtml(q.title || 'Sem titulo')} <span class="text-red-600">(${q.wrong_count || 0})</span></p>`).join('') || '<p class="text-sm text-gray-400">Sem dados ainda.</p>'}
+          </div>
+          <div class="bg-white rounded-lg shadow-md p-4">
+            <h4 class="font-bold text-gray-800 mb-3"><i class="fas fa-repeat mr-2 text-blue-600"></i>Mais utilizadas</h4>
+            ${mostUsed.map(q => `<p class="text-sm border-b py-2"><strong>#${q.id}</strong> ${this.escapeHtml(q.title || 'Sem titulo')} <span class="text-blue-600">(${q.usage_count || 0})</span></p>`).join('') || '<p class="text-sm text-gray-400">Sem dados ainda.</p>'}
+          </div>
+        </div>
+      </div>
+    </div>
+  `
+  this.initQuestionDragDrop()
+}
+
+adminUI.renderQuestionRows = function(questions) {
+  if (!questions.length) return '<div class="p-10 text-center text-gray-400"><i class="fas fa-inbox text-3xl mb-3 block"></i>Nenhuma questao encontrada.</div>'
+  return questions.map(q => {
+    const cleanStatement = String(q.statement_html || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+    const tags = Array.isArray(q.tags) ? q.tags : []
+    return `
+      <div class="question-bank-row p-4 hover:bg-gray-50 transition-colors" draggable="true" data-question-id="${q.id}">
+        <div class="flex items-start gap-3">
+          <button class="cursor-grab text-gray-300 pt-2" title="Arrastar"><i class="fas fa-grip-vertical"></i></button>
+          <div class="flex-1 min-w-0">
+            <div class="flex flex-wrap items-center gap-2 mb-1">
+              <span class="text-xs font-bold text-gray-400">#${q.id}</span>
+              <h4 class="font-bold text-gray-800">${this.escapeHtml(q.title || cleanStatement.slice(0, 80) || 'Questao sem titulo')}</h4>
+              <span class="text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-700 font-semibold">${this.questionTypeLabel(q.question_type)}</span>
+              <span class="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-700 font-semibold">${this.escapeHtml(q.difficulty)}</span>
+              <span class="text-xs px-2 py-0.5 rounded ${q.status === 'published' ? 'bg-green-100 text-green-700' : q.status === 'review' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'} font-semibold">${this.escapeHtml(q.status)}</span>
+              ${q.ai_generated ? '<span class="text-xs px-2 py-0.5 rounded bg-fuchsia-100 text-fuchsia-700 font-semibold"><i class="fas fa-magic mr-1"></i>IA</span>' : ''}
+            </div>
+            <p class="text-sm text-gray-500 line-clamp-2">${this.escapeHtml(cleanStatement || 'Sem enunciado')}</p>
+            <div class="flex flex-wrap gap-3 text-xs text-gray-400 mt-2">
+              <span><i class="fas fa-scale-balanced mr-1"></i>${this.escapeHtml(q.theme || 'Sem tema')}</span>
+              <span><i class="fas fa-book-open mr-1"></i>${this.escapeHtml(q.course_title || 'Sem curso')}</span>
+              <span><i class="fas fa-weight-hanging mr-1"></i>Peso ${q.weight}</span>
+              <span><i class="fas fa-clock mr-1"></i>${q.estimated_minutes} min</span>
+              <span><i class="fas fa-chart-simple mr-1"></i>${q.success_rate == null ? 'sem tentativas' : q.success_rate + '% acerto'}</span>
+              <span><i class="fas fa-code-branch mr-1"></i>v${q.version || 1}</span>
+            </div>
+            ${tags.length ? '<div class="flex flex-wrap gap-1 mt-2">' + tags.slice(0, 6).map(tag => '<span class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">' + this.escapeHtml(tag) + '</span>').join('') + '</div>' : ''}
+          </div>
+          <div class="flex flex-wrap gap-2 justify-end">
+            <button onclick='adminUI.showQuestionForm(${JSON.stringify(q).replace(/'/g, "&#39;")})' class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm" title="Editar"><i class="fas fa-edit"></i></button>
+            <button onclick="adminUI.duplicateQuestion(${q.id})" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-sm" title="Duplicar"><i class="fas fa-copy"></i></button>
+            <button onclick="adminUI.showQuestionVersions(${q.id})" class="px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded text-sm" title="Historico"><i class="fas fa-clock-rotate-left"></i></button>
+            <button onclick="adminUI.deleteQuestion(${q.id})" class="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded text-sm" title="Excluir"><i class="fas fa-trash"></i></button>
+          </div>
+        </div>
+      </div>
+    `
+  }).join('')
+}
+
+adminUI.filterQuestionsRemote = async function() {
+  const params = {
+    q: document.getElementById('questionSearch')?.value || '',
+    theme: document.getElementById('questionThemeFilter')?.value || '',
+    professor: document.getElementById('questionProfessorFilter')?.value || '',
+    course_id: document.getElementById('questionCourseFilter')?.value || '',
+    difficulty: document.getElementById('questionDifficultyFilter')?.value || '',
+    question_type: document.getElementById('questionTypeFilter')?.value || '',
+    status: document.getElementById('questionStatusFilter')?.value || '',
+    from: document.getElementById('questionFromFilter')?.value || '',
+    to: document.getElementById('questionToFilter')?.value || ''
+  }
+  try {
+    this.questions = await adminManager.getQuestions(params)
+    document.getElementById('questionsList').innerHTML = this.renderQuestionRows(this.questions)
+    document.getElementById('questionCount').textContent = this.questions.length
+    this.initQuestionDragDrop()
+  } catch (e) {
+    alert('Erro ao filtrar questoes: ' + (e.response?.data?.error || e.message))
+  }
+}
+
+adminUI.editorToolbar = function(id) {
+  return `
+    <div class="flex flex-wrap gap-1 border border-b-0 rounded-t-lg bg-gray-50 p-2">
+      <button type="button" onclick="adminUI.execEditor('${id}','bold')" class="px-2 py-1 border rounded bg-white" title="Negrito"><i class="fas fa-bold"></i></button>
+      <button type="button" onclick="adminUI.execEditor('${id}','italic')" class="px-2 py-1 border rounded bg-white" title="Italico"><i class="fas fa-italic"></i></button>
+      <button type="button" onclick="adminUI.execEditor('${id}','insertUnorderedList')" class="px-2 py-1 border rounded bg-white" title="Lista"><i class="fas fa-list-ul"></i></button>
+      <button type="button" onclick="adminUI.insertTable('${id}')" class="px-2 py-1 border rounded bg-white" title="Tabela"><i class="fas fa-table"></i></button>
+      <button type="button" onclick="adminUI.insertFormula('${id}')" class="px-2 py-1 border rounded bg-white" title="Formula"><i class="fas fa-square-root-variable"></i></button>
+      <button type="button" onclick="adminUI.pickEditorImage('${id}')" class="px-2 py-1 border rounded bg-white" title="Imagem"><i class="fas fa-image"></i></button>
+      <input type="file" id="${id}ImageInput" accept="image/*" class="hidden" onchange="adminUI.uploadEditorImage('${id}', event)">
+    </div>
+  `
+}
+
+adminUI.richEditor = function(id, html, minHeight) {
+  return this.editorToolbar(id) + `<div id="${id}" contenteditable="true" onpaste="adminUI.handleEditorPaste(event, '${id}')" class="w-full border rounded-b-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white overflow-auto" style="min-height:${minHeight || 140}px">${html || ''}</div>`
+}
+
+adminUI.execEditor = function(id, command) {
+  document.getElementById(id)?.focus()
+  document.execCommand(command, false, null)
+}
+
+adminUI.insertTable = function(id) {
+  document.getElementById(id)?.focus()
+  document.execCommand('insertHTML', false, '<table border="1" style="border-collapse:collapse;width:100%"><tbody><tr><td style="padding:6px">Cabecalho</td><td style="padding:6px">Valor</td></tr><tr><td style="padding:6px">&nbsp;</td><td style="padding:6px">&nbsp;</td></tr></tbody></table><p></p>')
+}
+
+adminUI.insertFormula = function(id) {
+  const formula = prompt('Digite a formula:', 'Valor = Base x Percentual')
+  if (!formula) return
+  document.getElementById(id)?.focus()
+  document.execCommand('insertHTML', false, '<span style="font-family:monospace;background:#f3f4f6;padding:2px 6px;border-radius:4px">' + this.escapeHtml(formula) + '</span>')
+}
+
+adminUI.pickEditorImage = function(id) {
+  document.getElementById(id + 'ImageInput')?.click()
+}
+
+adminUI.uploadEditorImage = function(id, event) {
+  const file = event.target.files && event.target.files[0]
+  if (!file) return
+  const reader = new FileReader()
+  reader.onload = () => {
+    document.getElementById(id)?.focus()
+    document.execCommand('insertHTML', false, '<img src="' + reader.result + '" style="max-width:100%;height:auto;border-radius:6px;margin:8px 0">')
+  }
+  reader.readAsDataURL(file)
+}
+
+adminUI.handleEditorPaste = function(event, id) {
+  const items = event.clipboardData && event.clipboardData.items
+  if (!items) return
+  for (const item of items) {
+    if (item.type && item.type.indexOf('image') === 0) {
+      event.preventDefault()
+      const file = item.getAsFile()
+      const reader = new FileReader()
+      reader.onload = () => {
+        document.getElementById(id)?.focus()
+        document.execCommand('insertHTML', false, '<img src="' + reader.result + '" style="max-width:100%;height:auto;border-radius:6px;margin:8px 0">')
+      }
+      reader.readAsDataURL(file)
+      return
+    }
+  }
+}
+
+adminUI.showQuestionForm = function(question) {
+  const isEdit = !!question
+  this.currentQuestion = question || null
+  const alternatives = Array.isArray(question?.alternatives) ? question.alternatives : [
+    { label: 'A', text_html: '', is_correct: true },
+    { label: 'B', text_html: '', is_correct: false },
+    { label: 'C', text_html: '', is_correct: false },
+    { label: 'D', text_html: '', is_correct: false }
+  ]
+  const answer = question?.answer_key || {}
+  const content = document.getElementById('adminContent')
+  content.innerHTML = `
+    <div class="bg-white rounded-lg shadow-md p-6">
+      <div class="flex items-center justify-between gap-4 mb-5">
+        <h3 class="text-xl font-bold text-gray-800"><i class="fas fa-${isEdit ? 'edit' : 'plus'} mr-2"></i>${isEdit ? 'Editar' : 'Nova'} Questao</h3>
+        <button type="button" onclick="adminUI.renderQuestionsTab()" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-semibold"><i class="fas fa-arrow-left mr-2"></i>Voltar</button>
+      </div>
+      <form onsubmit="adminUI.saveQuestion(event, ${isEdit ? question.id : 'null'})" class="space-y-5">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="md:col-span-2">
+            <label class="block text-sm font-semibold mb-2">Titulo interno</label>
+            <input id="questionTitle" value="${this.escapeHtml(question?.title || '')}" class="w-full px-4 py-2 border rounded-lg" placeholder="Ex: Reflexos de horas extras no DSR">
+          </div>
+          <div>
+            <label class="block text-sm font-semibold mb-2">Tipo</label>
+            <select id="questionType" onchange="adminUI.updateQuestionTypeUI()" class="w-full px-4 py-2 border rounded-lg">
+              <option value="multiple_choice" ${question?.question_type === 'multiple_choice' ? 'selected' : ''}>Multipla escolha</option>
+              <option value="discursive" ${question?.question_type === 'discursive' ? 'selected' : ''}>Discursiva</option>
+              <option value="true_false" ${question?.question_type === 'true_false' ? 'selected' : ''}>Certo ou Errado</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-semibold mb-2">Enunciado</label>
+          ${this.richEditor('questionStatement', question?.statement_html || '', 180)}
+        </div>
+
+        <div id="alternativesArea" class="border rounded-lg p-4 bg-gray-50">
+          <div class="flex items-center justify-between mb-3">
+            <h4 class="font-bold text-gray-800">Alternativas</h4>
+            <button type="button" onclick="adminUI.addAlternative()" class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm"><i class="fas fa-plus mr-1"></i>Adicionar</button>
+          </div>
+          <div id="alternativesList" class="space-y-3"></div>
+        </div>
+
+        <div id="discursiveAnswerArea" class="hidden">
+          <label class="block text-sm font-semibold mb-2">Resposta esperada / gabarito discursivo</label>
+          <textarea id="discursiveAnswer" rows="4" class="w-full px-4 py-2 border rounded-lg">${this.escapeHtml(answer.text || '')}</textarea>
+        </div>
+
+        <div>
+          <label class="block text-sm font-semibold mb-2">Comentario tecnico da resposta</label>
+          ${this.richEditor('questionComment', question?.technical_comment_html || '', 150)}
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div><label class="block text-sm font-semibold mb-2">Dificuldade</label><select id="questionDifficulty" class="w-full px-4 py-2 border rounded-lg"><option value="facil" ${question?.difficulty === 'facil' ? 'selected' : ''}>Facil</option><option value="medio" ${!question || question?.difficulty === 'medio' ? 'selected' : ''}>Medio</option><option value="dificil" ${question?.difficulty === 'dificil' ? 'selected' : ''}>Dificil</option></select></div>
+          <div><label class="block text-sm font-semibold mb-2">Tema</label><input id="questionTheme" value="${this.escapeHtml(question?.theme || '')}" class="w-full px-4 py-2 border rounded-lg"></div>
+          <div><label class="block text-sm font-semibold mb-2">Subtema</label><input id="questionSubtheme" value="${this.escapeHtml(question?.subtheme || '')}" class="w-full px-4 py-2 border rounded-lg"></div>
+          <div><label class="block text-sm font-semibold mb-2">Status</label><select id="questionStatus" class="w-full px-4 py-2 border rounded-lg"><option value="draft" ${question?.status === 'draft' ? 'selected' : ''}>Rascunho</option><option value="review" ${question?.status === 'review' ? 'selected' : ''}>Revisao</option><option value="published" ${question?.status === 'published' ? 'selected' : ''}>Publicada</option><option value="archived" ${question?.status === 'archived' ? 'selected' : ''}>Arquivada</option></select></div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div><label class="block text-sm font-semibold mb-2">Peso</label><input type="number" step="0.1" id="questionWeight" value="${question?.weight || 1}" class="w-full px-4 py-2 border rounded-lg"></div>
+          <div><label class="block text-sm font-semibold mb-2">Tempo estimado (min)</label><input type="number" id="questionMinutes" value="${question?.estimated_minutes || 5}" class="w-full px-4 py-2 border rounded-lg"></div>
+          <div><label class="block text-sm font-semibold mb-2">Professor</label><input id="questionProfessor" value="${this.escapeHtml(question?.professor || '')}" class="w-full px-4 py-2 border rounded-lg"></div>
+          <div><label class="block text-sm font-semibold mb-2">Curso</label><select id="questionCourse" class="w-full px-4 py-2 border rounded-lg"><option value="">Sem curso</option>${this.courses.map(c => `<option value="${c.id}" ${question?.course_id == c.id ? 'selected' : ''}>${this.escapeHtml(c.title)}</option>`).join('')}</select></div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-semibold mb-2">Base legal, jurisprudencial ou fundamento tecnico</label>
+          <textarea id="questionLegalBasis" rows="3" class="w-full px-4 py-2 border rounded-lg">${this.escapeHtml(question?.legal_basis || '')}</textarea>
+        </div>
+        <div>
+          <label class="block text-sm font-semibold mb-2">Tags</label>
+          <input id="questionTags" value="${this.escapeHtml((question?.tags || []).join(', '))}" class="w-full px-4 py-2 border rounded-lg" placeholder="horas extras, DSR, reflexos">
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 border rounded-lg p-4 bg-slate-50">
+          <div><label class="block text-xs font-semibold text-gray-500 mb-1">Usos</label><input type="number" id="questionUsageCount" value="${question?.usage_count || 0}" class="w-full px-3 py-2 border rounded"></div>
+          <div><label class="block text-xs font-semibold text-gray-500 mb-1">Tentativas</label><input type="number" id="questionAttemptsCount" value="${question?.attempts_count || 0}" class="w-full px-3 py-2 border rounded"></div>
+          <div><label class="block text-xs font-semibold text-gray-500 mb-1">Acertos</label><input type="number" id="questionCorrectCount" value="${question?.correct_count || 0}" class="w-full px-3 py-2 border rounded"></div>
+          <div><label class="block text-xs font-semibold text-gray-500 mb-1">Erros</label><input type="number" id="questionWrongCount" value="${question?.wrong_count || 0}" class="w-full px-3 py-2 border rounded"></div>
+        </div>
+        <div class="flex gap-3 pt-2">
+          <button type="submit" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold"><i class="fas fa-save mr-2"></i>Salvar</button>
+          <button type="button" onclick="adminUI.renderQuestionsTab()" class="px-6 py-2 bg-gray-400 hover:bg-gray-500 text-white rounded-lg font-semibold">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  `
+  this.formAlternatives = JSON.parse(JSON.stringify(alternatives))
+  this.renderAlternativesList()
+  this.updateQuestionTypeUI()
+}
+
+adminUI.renderAlternativesList = function() {
+  const list = document.getElementById('alternativesList')
+  if (!list) return
+  list.innerHTML = (this.formAlternatives || []).map((alt, idx) => {
+    const editorId = 'altEditor' + idx
+    return `
+      <div class="bg-white border rounded-lg p-3">
+        <div class="flex items-center gap-3 mb-2">
+          <input value="${this.escapeHtml(alt.label || String.fromCharCode(65 + idx))}" onchange="adminUI.formAlternatives[${idx}].label=this.value" class="w-14 px-2 py-2 border rounded font-bold text-center">
+          <label class="flex items-center gap-2 text-sm"><input type="checkbox" ${alt.is_correct ? 'checked' : ''} onchange="adminUI.formAlternatives[${idx}].is_correct=this.checked"> Gabarito</label>
+          <button type="button" onclick="adminUI.removeAlternative(${idx})" class="ml-auto px-2 py-1 bg-red-100 text-red-700 rounded"><i class="fas fa-times"></i></button>
+        </div>
+        ${this.richEditor(editorId, alt.text_html || '', 80)}
+      </div>
+    `
+  }).join('')
+}
+
+adminUI.syncAlternativeEditors = function() {
+  ;(this.formAlternatives || []).forEach((alt, idx) => {
+    const el = document.getElementById('altEditor' + idx)
+    if (el) alt.text_html = el.innerHTML
+  })
+}
+
+adminUI.addAlternative = function() {
+  this.syncAlternativeEditors()
+  const next = String.fromCharCode(65 + (this.formAlternatives || []).length)
+  this.formAlternatives.push({ label: next, text_html: '', is_correct: false })
+  this.renderAlternativesList()
+}
+
+adminUI.removeAlternative = function(idx) {
+  this.syncAlternativeEditors()
+  this.formAlternatives.splice(idx, 1)
+  this.renderAlternativesList()
+}
+
+adminUI.updateQuestionTypeUI = function() {
+  const type = document.getElementById('questionType')?.value
+  const alternativesArea = document.getElementById('alternativesArea')
+  const discursiveArea = document.getElementById('discursiveAnswerArea')
+  if (!alternativesArea || !discursiveArea) return
+  alternativesArea.classList.toggle('hidden', type === 'discursive')
+  discursiveArea.classList.toggle('hidden', type !== 'discursive')
+  if (type === 'true_false') {
+    this.syncAlternativeEditors()
+    this.formAlternatives = [
+      this.formAlternatives?.[0] || { label: 'Certo', text_html: 'Certo', is_correct: true },
+      this.formAlternatives?.[1] || { label: 'Errado', text_html: 'Errado', is_correct: false }
+    ]
+    this.formAlternatives[0].label = 'Certo'
+    this.formAlternatives[1].label = 'Errado'
+    this.renderAlternativesList()
+  }
+}
+
+adminUI.collectQuestionPayload = function() {
+  this.syncAlternativeEditors()
+  const type = document.getElementById('questionType').value
+  const alternatives = type === 'discursive' ? [] : (this.formAlternatives || [])
+  return {
+    title: document.getElementById('questionTitle').value,
+    statement_html: document.getElementById('questionStatement').innerHTML,
+    question_type: type,
+    alternatives,
+    answer_key: type === 'discursive'
+      ? { text: document.getElementById('discursiveAnswer').value }
+      : { correct_labels: alternatives.filter(a => a.is_correct).map(a => a.label) },
+    technical_comment_html: document.getElementById('questionComment').innerHTML,
+    difficulty: document.getElementById('questionDifficulty').value,
+    theme: document.getElementById('questionTheme').value,
+    subtheme: document.getElementById('questionSubtheme').value,
+    legal_basis: document.getElementById('questionLegalBasis').value,
+    weight: parseFloat(document.getElementById('questionWeight').value) || 1,
+    estimated_minutes: parseInt(document.getElementById('questionMinutes').value) || 5,
+    tags: document.getElementById('questionTags').value.split(',').map(t => t.trim()).filter(Boolean),
+    status: document.getElementById('questionStatus').value,
+    professor: document.getElementById('questionProfessor').value,
+    course_id: document.getElementById('questionCourse').value || null,
+    usage_count: parseInt(document.getElementById('questionUsageCount').value) || 0,
+    attempts_count: parseInt(document.getElementById('questionAttemptsCount').value) || 0,
+    correct_count: parseInt(document.getElementById('questionCorrectCount').value) || 0,
+    wrong_count: parseInt(document.getElementById('questionWrongCount').value) || 0,
+    ai_generated: this.currentQuestion?.ai_generated || false,
+    lesson_id: this.currentQuestion?.lesson_id || null,
+    source_transcript: this.currentQuestion?.source_transcript || null
+  }
+}
+
+adminUI.saveQuestion = async function(event, id) {
+  event.preventDefault()
+  try {
+    const payload = this.collectQuestionPayload()
+    if (id) await adminManager.updateQuestion(id, payload)
+    else await adminManager.createQuestion(payload)
+    alert('Questao salva com sucesso.')
+    await this.renderQuestionsTab()
+  } catch (e) {
+    alert('Erro ao salvar questao: ' + (e.response?.data?.error || e.message))
+  }
+}
+
+adminUI.deleteQuestion = async function(id) {
+  if (!confirm('Excluir esta questao?')) return
+  try {
+    await adminManager.deleteQuestion(id)
+    await this.renderQuestionsTab()
+  } catch (e) {
+    alert('Erro ao excluir: ' + (e.response?.data?.error || e.message))
+  }
+}
+
+adminUI.duplicateQuestion = async function(id) {
+  try {
+    await adminManager.duplicateQuestion(id)
+    await this.renderQuestionsTab()
+  } catch (e) {
+    alert('Erro ao duplicar: ' + (e.response?.data?.error || e.message))
+  }
+}
+
+adminUI.showQuestionVersions = async function(id) {
+  try {
+    const res = await axios.get('/api/admin/questions/' + id + '/versions')
+    const versions = res.data.versions || []
+    const modal = document.createElement('div')
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4'
+    modal.innerHTML = '<div class="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[80vh] overflow-auto p-6"><div class="flex justify-between items-center mb-4"><h3 class="text-xl font-bold">Historico de alteracoes</h3><button onclick="this.closest(&quot;.fixed&quot;).remove()" class="text-2xl">&times;</button></div>' +
+      (versions.map(v => '<div class="border rounded-lg p-3 mb-2"><p class="font-semibold">Versao ' + v.version + '</p><p class="text-xs text-gray-500">' + new Date(v.created_at).toLocaleString('pt-BR') + ' - ' + this.escapeHtml(v.changed_by || '') + '</p><p class="text-sm text-gray-600 mt-1">' + this.escapeHtml(v.change_note || '') + '</p></div>').join('') || '<p class="text-gray-500">Sem historico.</p>') +
+      '</div>'
+    document.body.appendChild(modal)
+  } catch (e) {
+    alert('Erro ao carregar historico: ' + (e.response?.data?.error || e.message))
+  }
+}
+
+adminUI.showAIGenerator = function() {
+  const content = document.getElementById('adminContent')
+  content.innerHTML = `
+    <div class="bg-white rounded-lg shadow-md p-6">
+      <div class="flex items-center justify-between mb-5">
+        <h3 class="text-xl font-bold text-gray-800"><i class="fas fa-magic mr-2 text-purple-600"></i>Geracao automatica com IA</h3>
+        <button onclick="adminUI.drawQuestionsTab()" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-semibold"><i class="fas fa-arrow-left mr-2"></i>Voltar</button>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+        <div class="md:col-span-2"><label class="block text-sm font-semibold mb-2">Aula com transcricao</label><select id="aiLessonSelect" class="w-full px-4 py-2 border rounded-lg"><option value="">Usar texto colado abaixo</option></select></div>
+        <div><label class="block text-sm font-semibold mb-2">Quantidade</label><input type="number" id="aiQuestionCount" value="5" min="1" max="20" class="w-full px-4 py-2 border rounded-lg"></div>
+        <div><label class="block text-sm font-semibold mb-2">Dificuldade</label><select id="aiDifficulty" class="w-full px-4 py-2 border rounded-lg"><option value="misto">Misto</option><option value="facil">Facil</option><option value="medio">Medio</option><option value="dificil">Dificil</option></select></div>
+      </div>
+      <div class="flex flex-wrap gap-4 mb-4 text-sm">
+        <label><input type="checkbox" class="aiType" value="multiple_choice" checked> Multipla escolha</label>
+        <label><input type="checkbox" class="aiType" value="true_false" checked> Certo/Errado</label>
+        <label><input type="checkbox" class="aiType" value="discursive" checked> Discursiva</label>
+      </div>
+      <textarea id="aiTranscript" rows="8" class="w-full px-4 py-2 border rounded-lg font-mono text-sm" placeholder="Cole aqui a transcricao da aula se preferir nao selecionar uma aula cadastrada."></textarea>
+      <textarea id="aiContext" rows="3" class="w-full px-4 py-2 border rounded-lg mt-3" placeholder="Instrucoes adicionais para a IA, criterios da prova ou temas prioritarios."></textarea>
+      <button id="aiGenerateQuestionsBtn" onclick="adminUI.generateQuestionsAI()" class="mt-4 px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold"><i class="fas fa-wand-magic-sparkles mr-2"></i>Gerar questoes para revisao</button>
+      <div id="aiQuestionsReview" class="mt-6"></div>
+    </div>
+  `
+  this.populateAILessons()
+}
+
+adminUI.populateAILessons = async function() {
+  const select = document.getElementById('aiLessonSelect')
+  if (!select) return
+  for (const course of this.courses) {
+    await this.loadModulesForCourse(course.id)
+    ;(course.modules || []).forEach(module => {
+      ;(module.lessons || []).filter(l => l.transcript).forEach(lesson => {
+        select.innerHTML += `<option value="${lesson.id}">${this.escapeHtml(course.title)} - ${this.escapeHtml(lesson.title)}</option>`
+      })
+    })
+  }
+}
+
+adminUI.generateQuestionsAI = async function() {
+  const btn = document.getElementById('aiGenerateQuestionsBtn')
+  const review = document.getElementById('aiQuestionsReview')
+  const types = Array.from(document.querySelectorAll('.aiType:checked')).map(el => el.value)
+  btn.disabled = true
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Gerando...'
+  review.innerHTML = ''
+  try {
+    this.generatedQuestions = await adminManager.generateQuestionsAI({
+      lesson_id: document.getElementById('aiLessonSelect').value || null,
+      transcript: document.getElementById('aiTranscript').value,
+      count: parseInt(document.getElementById('aiQuestionCount').value) || 5,
+      difficulty: document.getElementById('aiDifficulty').value,
+      types,
+      context: document.getElementById('aiContext').value
+    })
+    review.innerHTML = '<div class="border rounded-lg overflow-hidden"><div class="px-4 py-3 bg-purple-50 font-bold text-purple-800">Revisao manual antes da publicacao</div>' +
+      this.generatedQuestions.map((q, idx) => '<div class="p-4 border-t"><div class="flex justify-between gap-3"><div><p class="font-bold">' + this.escapeHtml(q.title || ('Questao ' + (idx + 1))) + '</p><p class="text-sm text-gray-500">' + this.questionTypeLabel(q.question_type) + ' - ' + this.escapeHtml(q.difficulty || '') + ' - ' + this.escapeHtml(q.theme || '') + '</p></div><div class="flex gap-2"><button onclick="adminUI.reviewGeneratedQuestion(' + idx + ')" class="px-3 py-2 bg-blue-600 text-white rounded text-sm">Revisar</button><button onclick="adminUI.publishGeneratedQuestion(' + idx + ')" class="px-3 py-2 bg-green-600 text-white rounded text-sm">Publicar</button></div></div><div class="text-sm mt-2">' + (q.statement_html || '') + '</div></div>').join('') +
+      '<div class="p-4 border-t bg-gray-50"><button onclick="adminUI.publishAllGeneratedQuestions()" class="px-4 py-2 bg-green-700 hover:bg-green-800 text-white rounded-lg font-semibold"><i class="fas fa-check-double mr-2"></i>Publicar todas como revisao</button></div></div>'
+  } catch (e) {
+    review.innerHTML = '<div class="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">' + this.escapeHtml(e.response?.data?.error || e.message) + '</div>'
+  } finally {
+    btn.disabled = false
+    btn.innerHTML = '<i class="fas fa-wand-magic-sparkles mr-2"></i>Gerar questoes para revisao'
+  }
+}
+
+adminUI.reviewGeneratedQuestion = function(idx) {
+  this.showQuestionForm(this.generatedQuestions[idx])
+}
+
+adminUI.publishGeneratedQuestion = async function(idx) {
+  try {
+    const q = { ...this.generatedQuestions[idx], status: 'review', ai_generated: true }
+    await adminManager.createQuestion(q)
+    alert('Questao enviada para revisao.')
+  } catch (e) {
+    alert('Erro ao publicar: ' + (e.response?.data?.error || e.message))
+  }
+}
+
+adminUI.publishAllGeneratedQuestions = async function() {
+  try {
+    for (const q of this.generatedQuestions) {
+      await adminManager.createQuestion({ ...q, status: 'review', ai_generated: true })
+    }
+    alert('Questoes geradas enviadas para revisao.')
+    await this.renderQuestionsTab()
+  } catch (e) {
+    alert('Erro ao publicar: ' + (e.response?.data?.error || e.message))
+  }
+}
+
+adminUI.exportQuestions = function() {
+  const blob = new Blob([JSON.stringify(this.questions || [], null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'banco-questoes-cct2026.json'
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+adminUI.showQuestionImport = function() {
+  const modal = document.createElement('div')
+  modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4'
+  modal.innerHTML = '<div class="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6"><div class="flex justify-between items-center mb-4"><h3 class="text-xl font-bold">Importar questoes</h3><button onclick="this.closest(&quot;.fixed&quot;).remove()" class="text-2xl">&times;</button></div><input type="file" id="questionImportFile" accept="application/json" class="w-full border rounded p-3"><p class="text-sm text-gray-500 mt-2">Use o JSON exportado pelo sistema ou um array de questoes compativel.</p><button onclick="adminUI.importQuestionsFromFile()" class="mt-4 px-5 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-semibold">Importar</button></div>'
+  document.body.appendChild(modal)
+}
+
+adminUI.importQuestionsFromFile = function() {
+  const file = document.getElementById('questionImportFile')?.files?.[0]
+  if (!file) return alert('Selecione um arquivo JSON.')
+  const reader = new FileReader()
+  reader.onload = async () => {
+    try {
+      const parsed = JSON.parse(reader.result)
+      const questions = Array.isArray(parsed) ? parsed : (parsed.questions || [])
+      const res = await adminManager.importQuestions(questions)
+      alert('Importacao concluida: ' + res.created + ' questoes criadas.')
+      document.querySelector('.fixed.inset-0')?.remove()
+      await adminUI.renderQuestionsTab()
+    } catch (e) {
+      alert('Erro ao importar: ' + (e.response?.data?.error || e.message))
+    }
+  }
+  reader.readAsText(file)
+}
+
+adminUI.initQuestionDragDrop = function() {
+  const rows = document.querySelectorAll('.question-bank-row')
+  let dragged = null
+  rows.forEach(row => {
+    row.addEventListener('dragstart', () => { dragged = row; row.classList.add('opacity-40') })
+    row.addEventListener('dragend', () => { row.classList.remove('opacity-40'); dragged = null })
+    row.addEventListener('dragover', e => {
+      e.preventDefault()
+      if (!dragged || dragged === row) return
+      row.style.borderTop = '3px solid #2563eb'
+    })
+    row.addEventListener('dragleave', () => { row.style.borderTop = '' })
+    row.addEventListener('drop', async e => {
+      e.preventDefault()
+      row.style.borderTop = ''
+      if (!dragged || dragged === row) return
+      row.parentElement.insertBefore(dragged, row)
+      const updates = Array.from(document.querySelectorAll('.question-bank-row')).map((el, idx) => ({ id: parseInt(el.dataset.questionId), order_index: idx }))
+      const status = document.getElementById('questionReorderStatus')
+      if (status) status.textContent = 'Salvando ordem...'
+      try {
+        await axios.post('/api/admin/questions-reorder', { questions: updates })
+        if (status) status.textContent = 'Ordem salva'
+        setTimeout(() => { if (status) status.textContent = '' }, 1500)
+      } catch (err) {
+        if (status) status.textContent = 'Erro ao salvar ordem'
+      }
+    })
+  })
 }
 
 // Add findUserByEmail to adminManager
