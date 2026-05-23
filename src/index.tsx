@@ -2442,6 +2442,32 @@ function normalizeQuestionPayload(body: any, userEmail?: string) {
   }
 }
 
+function removeTranscriptMentions(value: any): any {
+  if (typeof value === 'string') {
+    return value
+      .replace(/\b(conforme|segundo|de acordo com|com base na|a partir da)\s+a\s+transcri[cç][aã]o\b/gi, '')
+      .replace(/\bna\s+transcri[cç][aã]o\b/gi, 'no material de estudo')
+      .replace(/\bda\s+transcri[cç][aã]o\b/gi, 'do material de estudo')
+      .replace(/\btranscri[cç][aã]o\b/gi, 'material de estudo')
+      .replace(/\s{2,}/g, ' ')
+      .replace(/\s+([,.;:!?])/g, '$1')
+      .trim()
+  }
+  if (Array.isArray(value)) {
+    return value
+      .map(removeTranscriptMentions)
+      .filter((item) => !(typeof item === 'string' && /transcri[cç][aã]o/i.test(item)))
+  }
+  if (value && typeof value === 'object') {
+    const cleaned: any = {}
+    for (const [key, item] of Object.entries(value)) {
+      cleaned[key] = removeTranscriptMentions(item)
+    }
+    return cleaned
+  }
+  return value
+}
+
 // Question bank - admin only
 app.get('/api/admin/questions', requireAdmin, async (c) => {
   try {
@@ -2718,12 +2744,13 @@ app.post('/api/admin/questions/generate-ai', requireAdmin, async (c) => {
     const apiKey = (c.env as any).VITE_OPENROUTER_API_KEY
     if (!apiKey) return c.json({ error: 'VITE_OPENROUTER_API_KEY nao configurada' }, 500)
 
-    const prompt = `Gere questoes para prova de proficiencia e certificacao em calculos trabalhistas a partir da transcricao abaixo.
+    const prompt = `Gere questoes para prova de proficiencia e certificacao em calculos trabalhistas usando exclusivamente o conteudo-base fornecido abaixo.
 Retorne somente JSON valido, sem markdown, no formato {"questions":[...]}.
 Cada item deve conter: title, statement_html, question_type ("discursive", "multiple_choice" ou "true_false"), alternatives (array com {label,text_html,is_correct}), answer_key, technical_comment_html, difficulty ("facil","medio","dificil"), theme, subtheme, legal_basis, weight, estimated_minutes, tags.
 Crie alternativas plausiveis, gabarito comentado e fundamentacao tecnica. Tipos desejados: ${types.join(', ')}. Dificuldade: ${difficulty}. Quantidade: ${count}.
+Nao mencione "transcricao", "aula transcrita", "texto transcrito" ou a origem do conteudo em nenhum enunciado, alternativa, comentario, gabarito, tag, tema ou titulo. As questoes devem parecer itens independentes de prova.
 Contexto adicional: ${context || 'nenhum'}.
-Transcricao:
+Conteudo-base:
 ---
 ${sourceText.slice(0, 24000)}
 ---`
@@ -2750,7 +2777,7 @@ ${sourceText.slice(0, 24000)}
     const raw = data.choices?.[0]?.message?.content || '{"questions":[]}'
     const parsed = JSON.parse(raw)
     const questions = (parsed.questions || []).map((q: any) => ({
-      ...q,
+      ...removeTranscriptMentions(q),
       lesson_id: lesson?.id || lesson_id || null,
       course_id: lesson?.course_id || null,
       professor: lesson?.instructor || null,

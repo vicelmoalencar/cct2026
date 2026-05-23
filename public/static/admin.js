@@ -1212,6 +1212,9 @@ const adminUI = {
     const groqBtn = isEdit
       ? '<button type="button" id="groqTranscribeBtn" onclick="adminUI.groqTranscribe(' + lesson.id + ')" class="inline-flex items-center gap-1 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm"><i class="fas fa-bolt"></i> Transcrever com Groq</button>'
       : ''
+    const questionAiBtn = isEdit
+      ? '<button type="button" onclick="adminUI.showLessonQuestionGenerator(' + lesson.id + ')" class="inline-flex items-center gap-1 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm"><i class="fas fa-clipboard-question"></i> Gerar questões</button>'
+      : ''
 
     content.innerHTML = `
       <div class="bg-white rounded-lg shadow-md p-6">
@@ -1357,6 +1360,7 @@ const adminUI = {
                 ${aiBtn}
                 ${whisperBtn}
                 ${groqBtn}
+                ${questionAiBtn}
               </div>
             </label>
             <textarea id="lessonTranscript" rows="8"
@@ -3452,6 +3456,182 @@ const adminUI = {
     if (output && target) {
       target.value = output.value
       this.closeGenerateTranscriptModal()
+    }
+  },
+
+  showLessonQuestionGenerator(lessonId) {
+    const transcript = (document.getElementById('lessonTranscript')?.value || '').trim()
+    if (!transcript) {
+      alert('Informe ou carregue a transcrição do vídeo antes de gerar questões.')
+      return
+    }
+
+    const existing = document.getElementById('lessonQuestionGeneratorModal')
+    if (existing) existing.remove()
+
+    const modal = document.createElement('div')
+    modal.id = 'lessonQuestionGeneratorModal'
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4'
+    modal.innerHTML = `
+      <div class="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[92vh] overflow-y-auto">
+        <div class="p-6 border-b border-gray-200 flex items-start justify-between gap-4">
+          <div>
+            <h3 class="text-lg font-bold text-gray-800">
+              <i class="fas fa-clipboard-question mr-2 text-indigo-600"></i>Gerar questões por IA
+            </h3>
+            <p class="text-xs text-gray-500 mt-1">As questões geradas podem ser salvas diretamente como revisão.</p>
+          </div>
+          <button onclick="adminUI.closeLessonQuestionGenerator()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+        </div>
+
+        <div class="p-6 space-y-4">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label class="block text-sm font-semibold text-gray-700 mb-2">Quantidade</label>
+              <input type="number" id="lessonQuestionCount" min="1" max="20" value="5"
+                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-gray-700 mb-2">Dificuldade</label>
+              <select id="lessonQuestionDifficulty"
+                      class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <option value="misto">Misto</option>
+                <option value="facil">Fácil</option>
+                <option value="medio">Médio</option>
+                <option value="dificil">Difícil</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-gray-700 mb-2">Formatos</label>
+              <div class="flex flex-wrap gap-3 text-sm border border-gray-300 rounded-lg px-4 py-2 min-h-[42px]">
+                <label class="flex items-center gap-1"><input type="checkbox" class="lessonQuestionType" value="multiple_choice" checked> Múltipla</label>
+                <label class="flex items-center gap-1"><input type="checkbox" class="lessonQuestionType" value="true_false" checked> Certo/Errado</label>
+                <label class="flex items-center gap-1"><input type="checkbox" class="lessonQuestionType" value="discursive" checked> Discursiva</label>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-2">Orientações adicionais</label>
+            <textarea id="lessonQuestionContext" rows="3"
+                      class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      placeholder="Ex: priorizar reflexos, prazos, cálculos de verbas rescisórias..."></textarea>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-3">
+            <button id="lessonQuestionGenerateBtn" onclick="adminUI.generateQuestionsFromLessonTranscript(${lessonId})"
+                    class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold transition-colors">
+              <i class="fas fa-wand-magic-sparkles mr-2"></i>Gerar questões
+            </button>
+            <button id="lessonQuestionSaveAllBtn" onclick="adminUI.saveGeneratedLessonQuestions()" disabled
+                    class="px-5 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+              <i class="fas fa-check-double mr-2"></i>Salvar como revisão
+            </button>
+          </div>
+
+          <div id="lessonQuestionResult" class="hidden border border-indigo-100 rounded-lg overflow-hidden"></div>
+        </div>
+      </div>
+    `
+    document.body.appendChild(modal)
+    modal.addEventListener('click', (e) => { if (e.target === modal) this.closeLessonQuestionGenerator() })
+  },
+
+  closeLessonQuestionGenerator() {
+    const modal = document.getElementById('lessonQuestionGeneratorModal')
+    if (modal) modal.remove()
+  },
+
+  async generateQuestionsFromLessonTranscript(lessonId) {
+    const transcript = (document.getElementById('lessonTranscript')?.value || '').trim()
+    const btn = document.getElementById('lessonQuestionGenerateBtn')
+    const saveBtn = document.getElementById('lessonQuestionSaveAllBtn')
+    const result = document.getElementById('lessonQuestionResult')
+    const types = Array.from(document.querySelectorAll('.lessonQuestionType:checked')).map(el => el.value)
+
+    if (!transcript) {
+      alert('Informe a transcrição antes de gerar questões.')
+      return
+    }
+    if (!types.length) {
+      alert('Selecione pelo menos um formato de questão.')
+      return
+    }
+
+    btn.disabled = true
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Gerando...'
+    saveBtn.disabled = true
+    result.classList.remove('hidden')
+    result.innerHTML = '<div class="p-5 text-gray-500"><i class="fas fa-spinner fa-spin mr-2 text-indigo-600"></i>Gerando questões para revisão...</div>'
+
+    try {
+      this.generatedLessonQuestions = await adminManager.generateQuestionsAI({
+        lesson_id: lessonId,
+        transcript,
+        count: parseInt(document.getElementById('lessonQuestionCount').value) || 5,
+        difficulty: document.getElementById('lessonQuestionDifficulty').value,
+        types,
+        context: document.getElementById('lessonQuestionContext').value
+      })
+
+      result.innerHTML = `
+        <div class="px-4 py-3 bg-indigo-50 font-bold text-indigo-800">
+          ${this.generatedLessonQuestions.length} questão(ões) gerada(s) para revisão
+        </div>
+        ${this.generatedLessonQuestions.map((q, idx) => `
+          <div class="p-4 border-t border-indigo-100">
+            <div class="flex flex-col md:flex-row md:items-start justify-between gap-3">
+              <div class="min-w-0">
+                <p class="font-bold text-gray-800">${this.escapeHtml(q.title || ('Questão ' + (idx + 1)))}</p>
+                <p class="text-xs text-gray-500 mt-1">
+                  ${this.questionTypeLabel(q.question_type)} • ${this.escapeHtml(q.difficulty || 'misto')} • ${this.escapeHtml(q.theme || 'Sem tema')}
+                </p>
+              </div>
+              <button onclick="adminUI.reviewGeneratedLessonQuestion(${idx})"
+                      class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm font-semibold flex-shrink-0">
+                <i class="fas fa-edit mr-1"></i>Revisar
+              </button>
+            </div>
+            <div class="text-sm text-gray-700 mt-3 leading-relaxed">${q.statement_html || ''}</div>
+          </div>
+        `).join('')}
+      `
+      saveBtn.disabled = this.generatedLessonQuestions.length === 0
+    } catch (error) {
+      result.innerHTML = '<div class="p-5 bg-red-50 text-red-700">' + this.escapeHtml(error.response?.data?.error || error.message) + '</div>'
+    } finally {
+      btn.disabled = false
+      btn.innerHTML = '<i class="fas fa-wand-magic-sparkles mr-2"></i>Gerar questões'
+    }
+  },
+
+  reviewGeneratedLessonQuestion(idx) {
+    const question = this.generatedLessonQuestions?.[idx]
+    if (!question) return
+    this.closeLessonQuestionGenerator()
+    this.showQuestionForm({ ...question, status: 'review', ai_generated: true })
+  },
+
+  async saveGeneratedLessonQuestions() {
+    if (!this.generatedLessonQuestions || this.generatedLessonQuestions.length === 0) {
+      alert('Gere as questões antes de salvar.')
+      return
+    }
+
+    const btn = document.getElementById('lessonQuestionSaveAllBtn')
+    btn.disabled = true
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Salvando...'
+
+    try {
+      for (const question of this.generatedLessonQuestions) {
+        await adminManager.createQuestion({ ...question, status: 'review', ai_generated: true })
+      }
+      alert('Questões salvas como revisão.')
+      this.closeLessonQuestionGenerator()
+    } catch (error) {
+      alert('Erro ao salvar questões: ' + (error.response?.data?.error || error.message))
+      btn.disabled = false
+      btn.innerHTML = '<i class="fas fa-check-double mr-2"></i>Salvar como revisão'
     }
   },
 
