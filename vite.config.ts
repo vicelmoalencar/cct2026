@@ -4,12 +4,14 @@ import devServer from '@hono/vite-dev-server'
 import adapter from '@hono/vite-dev-server/node'
 import { defineConfig } from 'vite'
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [
     build(),
-    devServer({
-      adapter,
-      entry: 'src/index.tsx'
-    })
-  ]
-})
+    command === 'serve'
+      ? devServer({
+          adapter,
+          entry: 'src/index.tsx'
+        })
+      : null
+  ].filter(Boolean)
+}))
