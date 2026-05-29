@@ -247,8 +247,12 @@ const accessManager = {
   },
   
   // Show upgrade modal
-  showUpgradeModal() {
+  showUpgradeModal(lesson = null) {
     const { accessType } = this.userAccessStatus
+    const lessonId = lesson?.id || lesson?.lesson_id
+    const lessonTitle = lesson?.title || lesson?.lesson_title || 'esta aula'
+    const isRentable = lesson?.rentable && lesson?.rental_credits > 0
+    const rentalCredits = lesson?.rental_credits || 0
     
     let modalTitle = ''
     let modalMessage = ''
@@ -338,7 +342,7 @@ const accessManager = {
             ${modalMessage}
             
             <div class="flex flex-col gap-3 justify-center">
-              <div class="flex gap-3 justify-center">
+              <div class="flex gap-3 justify-center flex-wrap">
                 <a href="https://pay.hotmart.com/I68113150G?off=q7xf5t1z" target="_blank"
                    class="bg-red-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-red-700 transition-all flex items-center gap-2">
                   <i class="fas fa-credit-card"></i> Renovar com Cartão
@@ -348,6 +352,17 @@ const accessManager = {
                   <i class="fas fa-coins"></i> Renovar com Créditos
                 </a>
               </div>
+              ${isRentable ? `
+              <div class="relative flex items-center gap-3 my-1">
+                <div class="flex-1 border-t border-gray-200"></div>
+                <span class="text-xs text-gray-400 font-medium">ou acesse só esta aula</span>
+                <div class="flex-1 border-t border-gray-200"></div>
+              </div>
+              <button onclick="accessManager.closeUpgradeModal(); app.showRentModal(${lessonId}, '${lessonTitle.replace(/'/g, "\\'")}', ${rentalCredits})"
+                      class="bg-teal-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-teal-700 transition-all flex items-center justify-center gap-2">
+                <i class="fas fa-shopping-cart"></i> Alugar esta aula (${rentalCredits} crédito${rentalCredits !== 1 ? 's' : ''})
+              </button>
+              ` : ''}
               <button onclick="accessManager.closeUpgradeModal()" class="bg-gray-200 text-gray-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-300 transition-colors">
                 Agora Não
               </button>

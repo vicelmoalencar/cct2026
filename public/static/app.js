@@ -793,9 +793,11 @@ const app = {
       
       // Check if access was denied (403)
       if (response.status === 403 || response.data.error === 'Access denied') {
-        // Show upgrade modal
-        if (typeof accessManager !== 'undefined') {
-          accessManager.showUpgradeModal()
+        const d = response.data
+        if (d.rentable && d.rental_credits && typeof app !== 'undefined' && app.showRentModal) {
+          app.showRentModal(lessonId, d.lesson_title || 'esta aula', d.rental_credits)
+        } else if (typeof accessManager !== 'undefined') {
+          accessManager.showUpgradeModal({ id: lessonId, lesson_title: d.lesson_title, rentable: d.rentable, rental_credits: d.rental_credits })
         }
         this.showCourses()
         return
