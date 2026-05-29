@@ -477,6 +477,7 @@ const app = {
   
   // Load course with modules and lessons
   async loadCourse(courseId) {
+    this.currentTrailContext = null
     try {
       // Show loading state
       this.showLoadingState('Carregando curso...')
@@ -837,11 +838,11 @@ const app = {
       
       // Check if completed
       const isCompleted = (progressResponse.data.progress || []).find(p => p.lesson_id == lessonId)?.completed || false
-      
-      const lessonDetail = document.getElementById('lessonDetail')
-      lessonDetail.innerHTML = `
-        <!-- Breadcrumb Navigation -->
-        <div class="mb-4 flex items-center text-sm text-gray-600">
+
+      // Trail context navigation
+      let trailNavHtml = ''
+      let breadcrumbHtml = `
+        <div class="mb-4 flex items-center text-sm text-gray-600 flex-wrap gap-y-1">
           <button onclick="app.showCourses()" class="hover:text-blue-600 transition-colors">
             <i class="fas fa-home mr-1"></i>Cursos
           </button>
@@ -851,7 +852,72 @@ const app = {
           </button>
           <i class="fas fa-chevron-right mx-2 text-gray-400 text-xs"></i>
           <span class="text-gray-800 font-semibold">${lesson.module_title}</span>
-        </div>
+        </div>`
+      if (this.currentTrailContext) {
+        const trailLessons = this.currentTrailContext.lessons
+        const trailIdx = trailLessons.findIndex(l => l.lesson_id === lessonId)
+        if (trailIdx !== -1) {
+          const { trailId: ctxTrailId, trail: ctxTrail } = this.currentTrailContext
+          const prevTL = trailIdx > 0 ? trailLessons[trailIdx - 1] : null
+          const nextTL = trailIdx < trailLessons.length - 1 ? trailLessons[trailIdx + 1] : null
+          const hasFullAccess = accessManager?.userAccessStatus?.accessType === 'COMPLETO'
+
+          const prevBtn = prevTL ? (() => {
+            const canAccess = prevTL.teste_gratis || this.activeRentals.has(prevTL.lesson_id) || hasFullAccess
+            const action = canAccess ? `app.loadLesson(${prevTL.lesson_id})` : `accessManager.showUpgradeModal()`
+            return `<button onclick="${action}" class="flex-1 flex items-center gap-2 px-4 py-2 bg-white border border-indigo-200 rounded-lg text-sm font-semibold text-indigo-700 hover:bg-indigo-50 transition-colors min-w-0">
+              <i class="fas fa-chevron-left flex-shrink-0"></i>
+              <span class="truncate text-left">${prevTL.title}</span>
+            </button>`
+          })() : '<div class="flex-1"></div>'
+
+          const nextBtn = nextTL ? (() => {
+            const canAccess = nextTL.teste_gratis || this.activeRentals.has(nextTL.lesson_id) || hasFullAccess
+            const action = canAccess ? `app.loadLesson(${nextTL.lesson_id})` : `accessManager.showUpgradeModal()`
+            return `<button onclick="${action}" class="flex-1 flex items-center gap-2 justify-end px-4 py-2 bg-indigo-600 rounded-lg text-sm font-semibold text-white hover:bg-indigo-700 transition-colors min-w-0">
+              <span class="truncate text-right">${nextTL.title}</span>
+              <i class="fas fa-chevron-right flex-shrink-0"></i>
+            </button>`
+          })() : '<div class="flex-1"></div>'
+
+          trailNavHtml = `
+            <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4 mb-4">
+              <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2 text-indigo-700 min-w-0">
+                  <i class="fas fa-route text-sm flex-shrink-0"></i>
+                  <span class="font-semibold text-sm truncate">${ctxTrail.title}</span>
+                  <span class="text-xs bg-indigo-200 text-indigo-700 px-2 py-0.5 rounded-full flex-shrink-0">${trailIdx + 1}/${trailLessons.length}</span>
+                </div>
+                <button onclick="app.showTrail(${ctxTrailId})" class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold whitespace-nowrap ml-3">
+                  <i class="fas fa-list mr-1"></i>Ver trilha
+                </button>
+              </div>
+              <div class="flex gap-3">
+                ${prevBtn}
+                ${nextBtn}
+              </div>
+            </div>`
+
+          breadcrumbHtml = `
+            <div class="mb-4 flex items-center text-sm text-gray-600 flex-wrap gap-y-1">
+              <button onclick="app.showTrails()" class="hover:text-indigo-600 transition-colors">
+                <i class="fas fa-route mr-1"></i>Trilhas
+              </button>
+              <i class="fas fa-chevron-right mx-2 text-gray-400 text-xs"></i>
+              <button onclick="app.showTrail(${ctxTrailId})" class="hover:text-indigo-600 transition-colors">
+                ${ctxTrail.title}
+              </button>
+              <i class="fas fa-chevron-right mx-2 text-gray-400 text-xs"></i>
+              <span class="text-gray-800 font-semibold">${lesson.module_title}</span>
+            </div>`
+        }
+      }
+
+      const lessonDetail = document.getElementById('lessonDetail')
+      lessonDetail.innerHTML = `
+        <!-- Breadcrumb Navigation -->
+        ${breadcrumbHtml}
+        ${trailNavHtml}
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <!-- Main Content (Video + Info) -->
@@ -1422,6 +1488,7 @@ const app = {
   
   // View management
   showCourses() {
+    this.currentTrailContext = null
     this.hideLoadingState()
     this._hideAllViews()
     document.getElementById('coursesView').classList.remove('hidden')
@@ -1860,6 +1927,7 @@ const app = {
   },
 
   async showTrails() {
+    this.currentTrailContext = null
     this._hideAllViews()
 
     let view = document.getElementById('trailsView')
@@ -1952,6 +2020,7 @@ const app = {
         axios.get('/api/user/rentals').catch(() => ({ data: { rentals: [] } }))
       ])
       const { trail, lessons } = res.data
+      this.currentTrailContext = { trailId, trail, lessons }
 
       const now = new Date()
       const activeRentalIds = new Set(
