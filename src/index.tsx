@@ -4315,8 +4315,38 @@ app.get('/api/lessons/:id', async (c) => {
       filters: { lesson_id: lessonId },
       order: 'created_at DESC'
     })
-    
-    return c.json({ lesson, comments })
+
+    // Get trails containing this lesson with prev/next navigation
+    const trailsQuery = `
+      SELECT
+        t.id as trail_id,
+        t.title as trail_title,
+        tl.order_index,
+        (SELECT COUNT(*)::int FROM trail_lessons WHERE trail_id = t.id) as total_lessons,
+        (SELECT l2.id FROM trail_lessons tl2
+         JOIN lessons l2 ON l2.id = tl2.lesson_id
+         WHERE tl2.trail_id = t.id AND tl2.order_index < tl.order_index
+         ORDER BY tl2.order_index DESC LIMIT 1) as prev_lesson_id,
+        (SELECT l2.title FROM trail_lessons tl2
+         JOIN lessons l2 ON l2.id = tl2.lesson_id
+         WHERE tl2.trail_id = t.id AND tl2.order_index < tl.order_index
+         ORDER BY tl2.order_index DESC LIMIT 1) as prev_lesson_title,
+        (SELECT l2.id FROM trail_lessons tl2
+         JOIN lessons l2 ON l2.id = tl2.lesson_id
+         WHERE tl2.trail_id = t.id AND tl2.order_index > tl.order_index
+         ORDER BY tl2.order_index ASC LIMIT 1) as next_lesson_id,
+        (SELECT l2.title FROM trail_lessons tl2
+         JOIN lessons l2 ON l2.id = tl2.lesson_id
+         WHERE tl2.trail_id = t.id AND tl2.order_index > tl.order_index
+         ORDER BY tl2.order_index ASC LIMIT 1) as next_lesson_title
+      FROM trail_lessons tl
+      JOIN trails t ON t.id = tl.trail_id
+      WHERE tl.lesson_id = $1 AND t.is_published = true
+      ORDER BY t.order_index
+    `
+    const lessonTrails = await db.sql(trailsQuery, [parseInt(lessonId)])
+
+    return c.json({ lesson, comments, trails: lessonTrails })
   } catch (error) {
     console.error('Error fetching lesson:', error)
     return c.json({ error: 'Failed to fetch lesson' }, 500)

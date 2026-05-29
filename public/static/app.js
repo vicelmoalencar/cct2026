@@ -801,7 +801,7 @@ const app = {
         return
       }
       
-      const { lesson, comments } = response.data
+      const { lesson, comments, trails = [] } = response.data
       
       // Get course info and progress in parallel
       const [courseResponse, progressResponse, playerFavResponse] = await Promise.all([
@@ -1076,12 +1076,22 @@ const app = {
                   </button>
                 ` : ''}
                 ${lesson.transcript ? `
-                  <button onclick="app.switchLessonTab('transcript')" 
+                  <button onclick="app.switchLessonTab('transcript')"
                           id="tabTranscript"
                           class="flex-1 py-4 px-6 font-semibold text-gray-500 border-b-2 border-transparent hover:text-blue-600 transition-colors">
                     <i class="fas fa-closed-captioning mr-2"></i>
                     <span class="hidden sm:inline">Transcrição</span>
                     <span class="sm:hidden">Trans.</span>
+                  </button>
+                ` : ''}
+                ${trails.length > 0 ? `
+                  <button onclick="app.switchLessonTab('trails')"
+                          id="tabTrails"
+                          class="flex-1 py-4 px-6 font-semibold text-gray-500 border-b-2 border-transparent hover:text-indigo-600 transition-colors">
+                    <i class="fas fa-route mr-2"></i>
+                    <span class="hidden sm:inline">Trilhas</span>
+                    <span class="sm:hidden">Trilhas</span>
+                    <span class="ml-1 text-xs bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-full">${trails.length}</span>
                   </button>
                 ` : ''}
               </div>
@@ -1162,6 +1172,51 @@ const app = {
                 <div id="contentTranscript" class="p-6 hidden">
                   <div class="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-6 border border-purple-100">
                     <div class="md-body text-sm text-gray-700 leading-relaxed">${app.renderMd(lesson.transcript)}</div>
+                  </div>
+                </div>
+              ` : ''}
+
+              <!-- Trails Tab -->
+              ${trails.length > 0 ? `
+                <div id="contentTrails" class="p-6 hidden">
+                  <h3 class="text-lg font-bold text-gray-800 mb-4">
+                    <i class="fas fa-route mr-2 text-indigo-500"></i>
+                    Esta aula faz parte de ${trails.length} trilha${trails.length !== 1 ? 's' : ''}
+                  </h3>
+                  <div class="space-y-4">
+                    ${trails.map(trail => `
+                      <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
+                        <div class="flex items-center justify-between mb-3">
+                          <div class="flex items-center gap-2 min-w-0">
+                            <i class="fas fa-route text-indigo-500 flex-shrink-0"></i>
+                            <span class="font-semibold text-indigo-800 truncate">${trail.trail_title}</span>
+                            <span class="text-xs bg-indigo-200 text-indigo-700 px-2 py-0.5 rounded-full flex-shrink-0">
+                              ${trail.order_index + 1} / ${trail.total_lessons}
+                            </span>
+                          </div>
+                          <button onclick="app.showTrail(${trail.trail_id})"
+                                  class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold whitespace-nowrap ml-3 flex-shrink-0">
+                            <i class="fas fa-list mr-1"></i>Ver trilha
+                          </button>
+                        </div>
+                        <div class="flex gap-3">
+                          ${trail.prev_lesson_id ? `
+                            <button onclick="app.loadLesson(${trail.prev_lesson_id})"
+                                    class="flex-1 flex items-center gap-2 px-3 py-2 bg-white border border-indigo-200 rounded-lg text-sm font-semibold text-indigo-700 hover:bg-indigo-50 transition-colors min-w-0">
+                              <i class="fas fa-chevron-left flex-shrink-0"></i>
+                              <span class="truncate text-left">${trail.prev_lesson_title}</span>
+                            </button>
+                          ` : '<div class="flex-1"></div>'}
+                          ${trail.next_lesson_id ? `
+                            <button onclick="app.loadLesson(${trail.next_lesson_id})"
+                                    class="flex-1 flex items-center gap-2 justify-end px-3 py-2 bg-indigo-600 rounded-lg text-sm font-semibold text-white hover:bg-indigo-700 transition-colors min-w-0">
+                              <span class="truncate text-right">${trail.next_lesson_title}</span>
+                              <i class="fas fa-chevron-right flex-shrink-0"></i>
+                            </button>
+                          ` : '<div class="flex-1"></div>'}
+                        </div>
+                      </div>
+                    `).join('')}
                   </div>
                 </div>
               ` : ''}
@@ -2280,7 +2335,7 @@ const app = {
   
   // Switch lesson content tabs
   switchLessonTab(tab) {
-    const tabs = ['comments', 'support', 'attachments', 'transcript']
+    const tabs = ['comments', 'support', 'attachments', 'transcript', 'trails']
     
     tabs.forEach(t => {
       const tabBtn = document.getElementById(`tab${t.charAt(0).toUpperCase() + t.slice(1)}`)
