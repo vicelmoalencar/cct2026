@@ -853,9 +853,11 @@ const app = {
           <i class="fas fa-chevron-right mx-2 text-gray-400 text-xs"></i>
           <span class="text-gray-800 font-semibold">${lesson.module_title}</span>
         </div>`
+      console.log('[Trail] context:', this.currentTrailContext, 'lessonId:', lessonId)
       if (this.currentTrailContext) {
         const trailLessons = this.currentTrailContext.lessons
-        const trailIdx = trailLessons.findIndex(l => l.lesson_id === lessonId)
+        const trailIdx = trailLessons.findIndex(l => l.lesson_id == lessonId)
+        console.log('[Trail] trailIdx:', trailIdx)
         if (trailIdx !== -1) {
           const { trailId: ctxTrailId, trail: ctxTrail } = this.currentTrailContext
           const prevTL = trailIdx > 0 ? trailLessons[trailIdx - 1] : null
