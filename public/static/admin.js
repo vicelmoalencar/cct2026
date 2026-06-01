@@ -5180,15 +5180,7 @@ const csvImport = {
         try {
           // Check if member subscription already exists
           const existing = await adminManager.findMemberSubscriptionByEmail(row.email_membro)
-          
-          if (existing && existing.length > 0) {
-            skipped++
-            if (i % 50 === 0) {
-              log(`⏭️  Pulado (duplicado): ${row.email_membro}`)
-            }
-            continue
-          }
-          
+
           // Parse date from "Aug 10, 2023 12:00 am" to ISO format
           let data_expiracao = null
           if (row.data_expiracao) {
@@ -5201,18 +5193,28 @@ const csvImport = {
               log(`⚠️  Data inválida para ${row.email_membro}: ${row.data_expiracao}`, 'error')
             }
           }
-          
-          // Create member subscription
-          await axios.post('/api/admin/member-subscriptions', {
+
+          const payload = {
             email_membro: row.email_membro,
             data_expiracao: data_expiracao,
             detalhe: row.detalhe || null,
             origem: row.origem || null,
             teste_gratis: row.teste_gratis.toLowerCase() === 'sim',
             ativo: true
-          })
-          
-          created++
+          }
+
+          if (existing && existing.length > 0) {
+            // Update existing record
+            await axios.put(`/api/admin/member-subscriptions/${existing[0].id}`, payload)
+            skipped++
+            if (i % 50 === 0) {
+              log(`🔄 Atualizado: ${row.email_membro}`)
+            }
+          } else {
+            // Create new record
+            await axios.post('/api/admin/member-subscriptions', payload)
+            created++
+          }
           
           if (i % 100 === 0 && i > 0) {
             log(`✅ ${created} criados até agora...`, 'success')
@@ -5234,14 +5236,14 @@ const csvImport = {
       log(`✅ Importação concluída!`, 'success')
       log(`📊 Resumo:`, 'info')
       log(`   ✅ Criados: ${created}`, 'success')
-      log(`   ⏭️  Pulados (duplicados): ${skipped}`, 'info')
+      log(`   🔄 Atualizados: ${skipped}`, 'info')
       log(`   ❌ Erros: ${errors}`, errors > 0 ? 'error' : 'info')
       log('═'.repeat(50), 'info')
-      
+
       setTimeout(() => {
         this.closeMemberModal()
         adminUI.loadSubscriptionsTable()
-        alert(`✅ Importação concluída!\n\n${created} criados\n${skipped} pulados\n${errors} erros`)
+        alert(`✅ Importação concluída!\n\n${created} criados\n${skipped} atualizados\n${errors} erros`)
       }, 2000)
       
     } catch (error) {
