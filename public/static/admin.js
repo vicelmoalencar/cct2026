@@ -3151,6 +3151,7 @@ const adminUI = {
                       <div>
                         <div class="text-sm font-medium text-gray-900">${user.nome || user.first_name || 'Sem nome'}</div>
                         ${user.telefone ? `<div class="text-xs text-gray-500">${user.telefone}</div>` : ''}
+                        ${user.is_virtual ? `<div class="text-xs text-purple-600 font-semibold">Importado de assinaturas</div>` : ''}
                       </div>
                     </div>
                   </td>
@@ -3169,12 +3170,14 @@ const adminUI = {
                             class="text-green-600 hover:text-green-900" title="Logar como este usuário">
                       <i class="fas fa-sign-in-alt"></i>
                     </button>
-                    <button onclick="adminUI.editUser(${user.id})" class="text-blue-600 hover:text-blue-900" title="Editar usuário">
-                      <i class="fas fa-edit"></i>
-                    </button>
-                    <button onclick="adminUI.deleteUser(${user.id})" class="text-red-600 hover:text-red-900" title="Deletar usuário">
-                      <i class="fas fa-trash"></i>
-                    </button>
+                    ${user.id ? `
+                      <button onclick="adminUI.editUser(${user.id})" class="text-blue-600 hover:text-blue-900" title="Editar usuário">
+                        <i class="fas fa-edit"></i>
+                      </button>
+                      <button onclick="adminUI.deleteUser(${user.id})" class="text-red-600 hover:text-red-900" title="Deletar usuário">
+                        <i class="fas fa-trash"></i>
+                      </button>
+                    ` : ''}
                   </td>
                 </tr>
               `).join('')}

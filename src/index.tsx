@@ -1266,12 +1266,23 @@ app.post('/api/admin/impersonate', requireAdmin, async (c) => {
     
     console.log(`🎭 Admin impersonating user: ${user_email}`)
     
-    // Check if user exists in users table
+    // Check if user exists in users table or in imported member subscriptions
     const db = getDB(c)
-    const users = await db.query('users', {
-      select: '*',
-      filters: { email: user_email }
-    })
+    let users = await db.sql(
+      `SELECT id, email, nome FROM users WHERE lower(email) = lower($1) LIMIT 1`,
+      [user_email]
+    )
+
+    if (!users || users.length === 0) {
+      users = await db.sql(
+        `SELECT NULL::integer AS id, email_membro AS email, NULL::text AS nome
+         FROM member_subscriptions
+         WHERE lower(email_membro) = lower($1)
+         ORDER BY data_expiracao DESC NULLS LAST
+         LIMIT 1`,
+        [user_email]
+      )
+    }
     
     if (!users || users.length === 0) {
       return c.json({ error: 'User not found' }, 404)
@@ -2825,10 +2836,66 @@ app.post('/api/admin/run-migration-lesson-fields', requireAdmin, async (c) => {
 app.get('/api/admin/users', requireAdmin, async (c) => {
   try {
     const db = getDB(c)
-    const users = await db.query('users', {
-      select: '*',
-      order: 'created_at DESC'
-    })
+    const users = await db.sql(`
+      SELECT *
+      FROM (
+        SELECT
+          id,
+          email,
+          nome,
+          first_name,
+          last_name,
+          cpf,
+          telefone,
+          whatsapp,
+          foto,
+          end_cep,
+          end_logradouro,
+          end_numero,
+          end_cidade,
+          end_estado,
+          ativo,
+          teste_gratis,
+          dt_expiracao,
+          created_at,
+          updated_at,
+          'users'::text AS source,
+          false AS is_virtual
+        FROM users
+
+        UNION ALL
+
+        SELECT
+          NULL::integer AS id,
+          ms.email_membro AS email,
+          NULL::varchar(255) AS nome,
+          NULL::varchar(100) AS first_name,
+          NULL::varchar(100) AS last_name,
+          NULL::varchar(14) AS cpf,
+          NULL::varchar(20) AS telefone,
+          NULL::varchar(20) AS whatsapp,
+          NULL::text AS foto,
+          NULL::varchar(10) AS end_cep,
+          NULL::varchar(255) AS end_logradouro,
+          NULL::varchar(20) AS end_numero,
+          NULL::varchar(100) AS end_cidade,
+          NULL::varchar(2) AS end_estado,
+          COALESCE(bool_or(ms.ativo), true) AS ativo,
+          bool_or(COALESCE(ms.teste_gratis, false)) AS teste_gratis,
+          MAX(ms.data_expiracao) AS dt_expiracao,
+          MIN(ms.created_at) AS created_at,
+          MAX(ms.updated_at) AS updated_at,
+          'member_subscriptions'::text AS source,
+          true AS is_virtual
+        FROM member_subscriptions ms
+        LEFT JOIN users u ON lower(u.email) = lower(ms.email_membro)
+        WHERE u.id IS NULL
+          AND ms.email_membro IS NOT NULL
+          AND btrim(ms.email_membro) <> ''
+        GROUP BY lower(ms.email_membro), ms.email_membro
+      ) all_users
+      ORDER BY created_at DESC NULLS LAST, email ASC
+    `)
     return c.json({ users })
   } catch (error: any) {
     console.error('Get users error:', error)
@@ -5920,7 +5987,7 @@ app.get('/', (c) => {
         <script defer src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
         <script defer src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
         <script defer src="/static/auth.js?v=forgot-password-suiteplus-20260601"></script>
-        <script defer src="/static/admin.js?v=7"></script>
+        <script defer src="/static/admin.js?v=8"></script>
         <script defer src="/static/access-control.js?v=3"></script>
         <script defer src="/static/app.js?v=14"></script>
         <script defer src="/static/search.js?v=4"></script>
