@@ -250,10 +250,7 @@ const authUI = {
                 </button>
               </form>
               
-              <div class="mt-6 text-center text-sm text-gray-600">
-                <p>Use qualquer email para testar</p>
-                <p class="text-xs mt-1 text-gray-400">Exemplo: teste@email.com / senha123</p>
-              </div>
+
             </div>
             
             <!-- Register Form -->
