@@ -2205,18 +2205,41 @@ const adminUI = {
   
   async loadSubscriptionsTable(filters = {}) {
     try {
-      const response = await axios.get('/api/admin/suiteplus-subscriptions')
-      // Normaliza campos do SuitePlus para o formato da tela
-      let subscriptions = (response.data.subscriptions || []).map(s => ({
-        id: s.id,
-        email_membro: s.user_email,
-        data_expiracao: s.expires_at,
-        ativo: s.status === 'active',
-        origem: s.payment_source || 'SuitePlus',
-        detalhe: `Produto #${s.product_id}`,
-        teste_gratis: false,
-        _suiteplus: true
-      }))
+      const [suiteRes, memberRes] = await Promise.allSettled([
+        axios.get('/api/admin/suiteplus-subscriptions'),
+        axios.get('/api/admin/member-subscriptions')
+      ])
+
+      const suitePlus = suiteRes.status === 'fulfilled'
+        ? (suiteRes.value.data.subscriptions || []).map(s => ({
+            id: s.id,
+            email_membro: s.user_email,
+            data_expiracao: s.expires_at,
+            ativo: s.status === 'active',
+            origem: s.payment_source || 'SuitePlus',
+            detalhe: `Produto #${s.product_id}`,
+            teste_gratis: false,
+            _suiteplus: true
+          }))
+        : []
+
+      const members = memberRes.status === 'fulfilled'
+        ? (memberRes.value.data.subscriptions || []).map(s => ({
+            id: s.id,
+            email_membro: s.email_membro,
+            data_expiracao: s.data_expiracao,
+            ativo: s.ativo,
+            origem: s.origem,
+            detalhe: s.detalhe,
+            teste_gratis: s.teste_gratis,
+            _suiteplus: false
+          }))
+        : []
+
+      // Merge: member_subscriptions takes priority; skip SuitePlus entries that exist in members
+      const memberEmails = new Set(members.map(m => m.email_membro?.toLowerCase()))
+      const suiteFiltered = suitePlus.filter(s => !memberEmails.has(s.email_membro?.toLowerCase()))
+      let subscriptions = [...members, ...suiteFiltered]
 
       const container = document.getElementById('subscriptionsTableContainer')
 
@@ -5181,13 +5204,21 @@ const csvImport = {
           // Check if member subscription already exists
           const existing = await adminManager.findMemberSubscriptionByEmail(row.email_membro)
 
-          // Parse date from "Aug 10, 2023 12:00 am" to ISO format
+          // Parse date supporting DD/MM/YYYY and other formats
           let data_expiracao = null
           if (row.data_expiracao) {
             try {
-              const parsedDate = new Date(row.data_expiracao)
+              let dateStr = row.data_expiracao.trim()
+              // Convert DD/MM/YYYY → YYYY-MM-DD
+              const ddmmyyyy = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+              if (ddmmyyyy) {
+                dateStr = `${ddmmyyyy[3]}-${ddmmyyyy[2].padStart(2, '0')}-${ddmmyyyy[1].padStart(2, '0')}T23:59:59`
+              }
+              const parsedDate = new Date(dateStr)
               if (!isNaN(parsedDate.getTime())) {
                 data_expiracao = parsedDate.toISOString()
+              } else {
+                log(`⚠️  Data inválida para ${row.email_membro}: ${row.data_expiracao}`, 'error')
               }
             } catch (e) {
               log(`⚠️  Data inválida para ${row.email_membro}: ${row.data_expiracao}`, 'error')
