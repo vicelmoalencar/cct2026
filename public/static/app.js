@@ -855,11 +855,9 @@ const app = {
           <i class="fas fa-chevron-right mx-2 text-gray-400 text-xs"></i>
           <span class="text-gray-800 font-semibold">${lesson.module_title}</span>
         </div>`
-      console.log('[Trail] context:', this.currentTrailContext, 'lessonId:', lessonId)
       if (this.currentTrailContext) {
         const trailLessons = this.currentTrailContext.lessons
         const trailIdx = trailLessons.findIndex(l => l.lesson_id == lessonId)
-        console.log('[Trail] trailIdx:', trailIdx)
         if (trailIdx !== -1) {
           const { trailId: ctxTrailId, trail: ctxTrail } = this.currentTrailContext
           const prevTL = trailIdx > 0 ? trailLessons[trailIdx - 1] : null
@@ -915,6 +913,55 @@ const app = {
               <span class="text-gray-800 font-semibold">${lesson.module_title}</span>
             </div>`
         }
+      }
+
+      // Fallback: show trail nav bar from API data when no context nav was built
+      if (!trailNavHtml && trails.length > 0) {
+        const t = trails[0]
+        const prevBtn = t.prev_lesson_id
+          ? `<button onclick="app.loadLesson(${t.prev_lesson_id})" class="flex-1 flex items-center gap-2 px-4 py-2 bg-white border border-indigo-200 rounded-lg text-sm font-semibold text-indigo-700 hover:bg-indigo-50 transition-colors min-w-0">
+              <i class="fas fa-chevron-left flex-shrink-0"></i>
+              <span class="truncate text-left">${t.prev_lesson_title}</span>
+            </button>`
+          : '<div class="flex-1"></div>'
+
+        const nextBtn = t.next_lesson_id
+          ? `<button onclick="app.loadLesson(${t.next_lesson_id})" class="flex-1 flex items-center gap-2 justify-end px-4 py-2 bg-indigo-600 rounded-lg text-sm font-semibold text-white hover:bg-indigo-700 transition-colors min-w-0">
+              <span class="truncate text-right">${t.next_lesson_title}</span>
+              <i class="fas fa-chevron-right flex-shrink-0"></i>
+            </button>`
+          : '<div class="flex-1"></div>'
+
+        trailNavHtml = `
+          <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4 mb-4">
+            <div class="flex items-center justify-between mb-3">
+              <div class="flex items-center gap-2 text-indigo-700 min-w-0">
+                <i class="fas fa-route text-sm flex-shrink-0"></i>
+                <span class="font-semibold text-sm truncate">${t.trail_title}</span>
+                <span class="text-xs bg-indigo-200 text-indigo-700 px-2 py-0.5 rounded-full flex-shrink-0">${t.order_index + 1}/${t.total_lessons}</span>
+              </div>
+              <button onclick="app.showTrail(${t.trail_id})" class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold whitespace-nowrap ml-3">
+                <i class="fas fa-list mr-1"></i>Ver trilha
+              </button>
+            </div>
+            <div class="flex gap-3">
+              ${prevBtn}
+              ${nextBtn}
+            </div>
+          </div>`
+
+        breadcrumbHtml = `
+          <div class="mb-4 flex items-center text-sm text-gray-600 flex-wrap gap-y-1">
+            <button onclick="app.showTrails()" class="hover:text-indigo-600 transition-colors">
+              <i class="fas fa-route mr-1"></i>Trilhas
+            </button>
+            <i class="fas fa-chevron-right mx-2 text-gray-400 text-xs"></i>
+            <button onclick="app.showTrail(${t.trail_id})" class="hover:text-indigo-600 transition-colors">
+              ${t.trail_title}
+            </button>
+            <i class="fas fa-chevron-right mx-2 text-gray-400 text-xs"></i>
+            <span class="text-gray-800 font-semibold">${lesson.module_title}</span>
+          </div>`
       }
 
       const lessonDetail = document.getElementById('lessonDetail')
