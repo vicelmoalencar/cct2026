@@ -237,7 +237,7 @@ const authUI = {
                 
                 <div class="text-right">
                   <button type="button" 
-                          onclick="authUI.showForgotPassword()"
+                          onclick="window.location.href='https://suiteplus.ensinoplus.com.br/reset-password'"
                           class="text-sm text-blue-600 hover:text-blue-800 font-semibold">
                     Esqueceu sua senha?
                   </button>
