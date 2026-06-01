@@ -249,8 +249,6 @@ const authUI = {
                   Entrar
                 </button>
               </form>
-              
-
             </div>
             
             <!-- Register Form -->
