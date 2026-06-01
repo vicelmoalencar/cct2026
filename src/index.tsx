@@ -381,6 +381,10 @@ app.post('/api/auth/login', async (c) => {
 app.post('/api/auth/register', async (c) => {
   try {
     const { email, password, name } = await c.req.json()
+
+    if (!email || !password || !name) {
+      return c.json({ error: 'Nome, email e senha são obrigatórios' }, 400)
+    }
     
     const response = await fetch(`${c.env.SUPABASE_URL}/auth/v1/signup`, {
       method: 'POST',
@@ -398,7 +402,13 @@ app.post('/api/auth/register', async (c) => {
     const data = await response.json()
     
     if (!response.ok) {
-      return c.json({ error: data.error_description || 'Registration failed' }, 400)
+      const errorMessage = data.error_description || data.message || data.msg || data.error || 'Registration failed'
+      console.error('❌ Supabase signup failed:', {
+        status: response.status,
+        error: errorMessage,
+        raw: data
+      })
+      return c.json({ error: errorMessage }, response.status as any)
     }
     
     // Create user record in users table
