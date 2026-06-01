@@ -841,7 +841,29 @@ const app = {
       // Check if completed
       const isCompleted = (progressResponse.data.progress || []).find(p => p.lesson_id == lessonId)?.completed || false
 
-      // Trail context navigation
+      // Resolve trail context: use existing context or fetch from API if lesson is in a trail
+      let activeTrail = null // { trailId, trail, lessons, trailIdx }
+
+      if (this.currentTrailContext) {
+        const trailIdx = this.currentTrailContext.lessons.findIndex(l => l.lesson_id == lessonId)
+        if (trailIdx !== -1) {
+          activeTrail = { trailId: this.currentTrailContext.trailId, trail: this.currentTrailContext.trail, lessons: this.currentTrailContext.lessons, trailIdx }
+        }
+      }
+
+      if (!activeTrail && trails.length > 0) {
+        try {
+          const trailRes = await axios.get(`/api/trails/${trails[0].trail_id}`)
+          const { trail: fetchedTrail, lessons: fetchedLessons } = trailRes.data
+          const trailIdx = fetchedLessons.findIndex(l => l.lesson_id == lessonId)
+          if (trailIdx !== -1) {
+            activeTrail = { trailId: trails[0].trail_id, trail: fetchedTrail, lessons: fetchedLessons, trailIdx }
+            this.currentTrailContext = { trailId: trails[0].trail_id, trail: fetchedTrail, lessons: fetchedLessons }
+          }
+        } catch (e) { /* ignore, trail nav won't show */ }
+      }
+
+      // Build trail nav bar and breadcrumb
       let trailNavHtml = ''
       let breadcrumbHtml = `
         <div class="mb-4 flex items-center text-sm text-gray-600 flex-wrap gap-y-1">
@@ -855,92 +877,40 @@ const app = {
           <i class="fas fa-chevron-right mx-2 text-gray-400 text-xs"></i>
           <span class="text-gray-800 font-semibold">${lesson.module_title}</span>
         </div>`
-      if (this.currentTrailContext) {
-        const trailLessons = this.currentTrailContext.lessons
-        const trailIdx = trailLessons.findIndex(l => l.lesson_id == lessonId)
-        if (trailIdx !== -1) {
-          const { trailId: ctxTrailId, trail: ctxTrail } = this.currentTrailContext
-          const prevTL = trailIdx > 0 ? trailLessons[trailIdx - 1] : null
-          const nextTL = trailIdx < trailLessons.length - 1 ? trailLessons[trailIdx + 1] : null
-          const hasFullAccess = accessManager?.userAccessStatus?.accessType === 'COMPLETO'
 
-          const prevBtn = prevTL ? (() => {
-            const canAccess = prevTL.teste_gratis || this.activeRentals.has(prevTL.lesson_id) || hasFullAccess
-            const action = canAccess ? `app.loadLesson(${prevTL.lesson_id})` : `accessManager.showUpgradeModal()`
-            return `<button onclick="${action}" class="flex-1 flex items-center gap-2 px-4 py-2 bg-white border border-indigo-200 rounded-lg text-sm font-semibold text-indigo-700 hover:bg-indigo-50 transition-colors min-w-0">
-              <i class="fas fa-chevron-left flex-shrink-0"></i>
-              <span class="truncate text-left">${prevTL.title}</span>
-            </button>`
-          })() : '<div class="flex-1"></div>'
+      if (activeTrail) {
+        const { trailId: activeTrailId, trail: activeTrailData, lessons: trailLessons, trailIdx } = activeTrail
+        const prevTL = trailIdx > 0 ? trailLessons[trailIdx - 1] : null
+        const nextTL = trailIdx < trailLessons.length - 1 ? trailLessons[trailIdx + 1] : null
+        const hasFullAccess = accessManager?.userAccessStatus?.accessType === 'COMPLETO'
 
-          const nextBtn = nextTL ? (() => {
-            const canAccess = nextTL.teste_gratis || this.activeRentals.has(nextTL.lesson_id) || hasFullAccess
-            const action = canAccess ? `app.loadLesson(${nextTL.lesson_id})` : `accessManager.showUpgradeModal()`
-            return `<button onclick="${action}" class="flex-1 flex items-center gap-2 justify-end px-4 py-2 bg-indigo-600 rounded-lg text-sm font-semibold text-white hover:bg-indigo-700 transition-colors min-w-0">
-              <span class="truncate text-right">${nextTL.title}</span>
-              <i class="fas fa-chevron-right flex-shrink-0"></i>
-            </button>`
-          })() : '<div class="flex-1"></div>'
+        const prevBtn = prevTL ? (() => {
+          const canAccess = prevTL.teste_gratis || this.activeRentals.has(prevTL.lesson_id) || hasFullAccess
+          const action = canAccess ? `app.loadLesson(${prevTL.lesson_id})` : `accessManager.showUpgradeModal()`
+          return `<button onclick="${action}" class="flex-1 flex items-center gap-2 px-4 py-2 bg-white border border-indigo-200 rounded-lg text-sm font-semibold text-indigo-700 hover:bg-indigo-50 transition-colors min-w-0">
+            <i class="fas fa-chevron-left flex-shrink-0"></i>
+            <span class="truncate text-left">${prevTL.title}</span>
+          </button>`
+        })() : '<div class="flex-1"></div>'
 
-          trailNavHtml = `
-            <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4 mb-4">
-              <div class="flex items-center justify-between mb-3">
-                <div class="flex items-center gap-2 text-indigo-700 min-w-0">
-                  <i class="fas fa-route text-sm flex-shrink-0"></i>
-                  <span class="font-semibold text-sm truncate">${ctxTrail.title}</span>
-                  <span class="text-xs bg-indigo-200 text-indigo-700 px-2 py-0.5 rounded-full flex-shrink-0">${trailIdx + 1}/${trailLessons.length}</span>
-                </div>
-                <button onclick="app.showTrail(${ctxTrailId})" class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold whitespace-nowrap ml-3">
-                  <i class="fas fa-list mr-1"></i>Ver trilha
-                </button>
-              </div>
-              <div class="flex gap-3">
-                ${prevBtn}
-                ${nextBtn}
-              </div>
-            </div>`
-
-          breadcrumbHtml = `
-            <div class="mb-4 flex items-center text-sm text-gray-600 flex-wrap gap-y-1">
-              <button onclick="app.showTrails()" class="hover:text-indigo-600 transition-colors">
-                <i class="fas fa-route mr-1"></i>Trilhas
-              </button>
-              <i class="fas fa-chevron-right mx-2 text-gray-400 text-xs"></i>
-              <button onclick="app.showTrail(${ctxTrailId})" class="hover:text-indigo-600 transition-colors">
-                ${ctxTrail.title}
-              </button>
-              <i class="fas fa-chevron-right mx-2 text-gray-400 text-xs"></i>
-              <span class="text-gray-800 font-semibold">${lesson.module_title}</span>
-            </div>`
-        }
-      }
-
-      // Fallback: show trail nav bar from API data when no context nav was built
-      if (!trailNavHtml && trails.length > 0) {
-        const t = trails[0]
-        const prevBtn = t.prev_lesson_id
-          ? `<button onclick="app.loadLesson(${t.prev_lesson_id})" class="flex-1 flex items-center gap-2 px-4 py-2 bg-white border border-indigo-200 rounded-lg text-sm font-semibold text-indigo-700 hover:bg-indigo-50 transition-colors min-w-0">
-              <i class="fas fa-chevron-left flex-shrink-0"></i>
-              <span class="truncate text-left">${t.prev_lesson_title}</span>
-            </button>`
-          : '<div class="flex-1"></div>'
-
-        const nextBtn = t.next_lesson_id
-          ? `<button onclick="app.loadLesson(${t.next_lesson_id})" class="flex-1 flex items-center gap-2 justify-end px-4 py-2 bg-indigo-600 rounded-lg text-sm font-semibold text-white hover:bg-indigo-700 transition-colors min-w-0">
-              <span class="truncate text-right">${t.next_lesson_title}</span>
-              <i class="fas fa-chevron-right flex-shrink-0"></i>
-            </button>`
-          : '<div class="flex-1"></div>'
+        const nextBtn = nextTL ? (() => {
+          const canAccess = nextTL.teste_gratis || this.activeRentals.has(nextTL.lesson_id) || hasFullAccess
+          const action = canAccess ? `app.loadLesson(${nextTL.lesson_id})` : `accessManager.showUpgradeModal()`
+          return `<button onclick="${action}" class="flex-1 flex items-center gap-2 justify-end px-4 py-2 bg-indigo-600 rounded-lg text-sm font-semibold text-white hover:bg-indigo-700 transition-colors min-w-0">
+            <span class="truncate text-right">${nextTL.title}</span>
+            <i class="fas fa-chevron-right flex-shrink-0"></i>
+          </button>`
+        })() : '<div class="flex-1"></div>'
 
         trailNavHtml = `
           <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4 mb-4">
             <div class="flex items-center justify-between mb-3">
               <div class="flex items-center gap-2 text-indigo-700 min-w-0">
                 <i class="fas fa-route text-sm flex-shrink-0"></i>
-                <span class="font-semibold text-sm truncate">${t.trail_title}</span>
-                <span class="text-xs bg-indigo-200 text-indigo-700 px-2 py-0.5 rounded-full flex-shrink-0">${t.order_index + 1}/${t.total_lessons}</span>
+                <span class="font-semibold text-sm truncate">${activeTrailData.title}</span>
+                <span class="text-xs bg-indigo-200 text-indigo-700 px-2 py-0.5 rounded-full flex-shrink-0">${trailIdx + 1}/${trailLessons.length}</span>
               </div>
-              <button onclick="app.showTrail(${t.trail_id})" class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold whitespace-nowrap ml-3">
+              <button onclick="app.showTrail(${activeTrailId})" class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold whitespace-nowrap ml-3">
                 <i class="fas fa-list mr-1"></i>Ver trilha
               </button>
             </div>
@@ -956,8 +926,8 @@ const app = {
               <i class="fas fa-route mr-1"></i>Trilhas
             </button>
             <i class="fas fa-chevron-right mx-2 text-gray-400 text-xs"></i>
-            <button onclick="app.showTrail(${t.trail_id})" class="hover:text-indigo-600 transition-colors">
-              ${t.trail_title}
+            <button onclick="app.showTrail(${activeTrailId})" class="hover:text-indigo-600 transition-colors">
+              ${activeTrailData.title}
             </button>
             <i class="fas fa-chevron-right mx-2 text-gray-400 text-xs"></i>
             <span class="text-gray-800 font-semibold">${lesson.module_title}</span>
@@ -1272,9 +1242,111 @@ const app = {
             </div>
           </div>
           
-          <!-- Sidebar: Module Lessons -->
+          <!-- Sidebar: Trail or Module Lessons -->
           <div class="lg:col-span-1">
             <div class="bg-white rounded-xl shadow-lg overflow-hidden sticky top-6">
+              ${activeTrail ? `
+              <div class="bg-gradient-to-r from-indigo-600 to-purple-600 p-4 text-white">
+                <h3 class="font-bold text-lg">
+                  <i class="fas fa-route mr-2"></i>
+                  Aulas da Trilha
+                </h3>
+                <p class="text-sm text-indigo-100 mt-1 truncate">${activeTrail.trail.title}</p>
+              </div>
+              <div class="max-h-[600px] overflow-y-auto">
+                ${activeTrail.lessons.map((l, index) => {
+                  const lid = l.lesson_id
+                  const isFree = l.teste_gratis || false
+                  const isPremium = !isFree
+                  const isRentedSidebar = app.activeRentals.has(lid)
+                  const isRentableSidebar = !isFree && !isRentedSidebar && l.rentable && l.rental_credits > 0
+                  const isWatched = l.is_completed || !!lessonProgressMap[lid]
+                  const isActive = lid == lessonId
+
+                  const rowBg = isActive
+                    ? 'bg-indigo-50 border-l-4 border-l-indigo-600'
+                    : isWatched
+                      ? 'bg-green-50 border-l-4 border-l-green-500 hover:bg-green-100'
+                      : isRentedSidebar
+                        ? 'bg-teal-50 border-l-4 border-l-teal-500 hover:bg-teal-100'
+                        : isRentableSidebar
+                          ? 'bg-amber-50 border-l-4 border-l-amber-400 hover:bg-amber-100'
+                          : 'hover:bg-gray-50'
+
+                  const circleClass = isActive
+                    ? 'bg-indigo-600 text-white'
+                    : isWatched
+                      ? 'bg-green-500 text-white'
+                      : isRentedSidebar
+                        ? 'bg-teal-500 text-white'
+                        : isRentableSidebar
+                          ? 'bg-amber-400 text-white'
+                          : isPremium
+                            ? 'bg-orange-100 text-orange-600'
+                            : 'bg-gray-200 text-gray-600'
+
+                  const circleContent = isWatched && !isActive
+                    ? '<i class="fas fa-check"></i>'
+                    : index + 1
+
+                  const rightIcon = isActive
+                    ? '<i class="fas fa-play text-indigo-600"></i>'
+                    : isWatched
+                      ? '<i class="fas fa-check-circle text-green-500 text-sm"></i>'
+                      : isRentedSidebar
+                        ? '<i class="fas fa-key text-teal-500 text-sm"></i>'
+                        : isRentableSidebar
+                          ? '<i class="fas fa-shopping-cart text-amber-500 text-sm"></i>'
+                          : isPremium
+                            ? '<i class="fas fa-lock text-orange-500 text-sm"></i>'
+                            : ''
+
+                  const hasFullAccess = accessManager?.userAccessStatus?.accessType === 'COMPLETO'
+                  const canAccess = isFree || isRentedSidebar || hasFullAccess
+                  const clickAction = canAccess ? `app.loadLesson(${lid})` : (isRentableSidebar ? `app.showRentModal(${lid}, '${l.title.replace(/'/g, "\\'")}', ${l.rental_credits})` : `accessManager.showUpgradeModal()`)
+
+                  return `
+                  <div class="relative group">
+                  <button onclick="${clickAction}"
+                          class="w-full text-left p-4 border-b border-gray-100 transition-all ${rowBg}">
+                    <div class="flex items-start gap-3">
+                      <div class="w-8 h-8 ${circleClass} rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm">
+                        ${circleContent}
+                      </div>
+                      <div class="flex-1 min-w-0 pr-2">
+                        <p class="font-semibold text-gray-800 text-sm mb-1 line-clamp-2">
+                          ${l.title}
+                          ${isRentedSidebar ? '<i class="fas fa-key text-teal-500 ml-1 text-xs"></i>' : ''}
+                          ${isPremium && !isWatched && !isRentableSidebar && !isRentedSidebar ? '<i class="fas fa-lock text-red-500 ml-1 text-xs"></i>' : ''}
+                          ${isRentableSidebar && !isWatched ? '<i class="fas fa-shopping-cart text-amber-500 ml-1 text-xs"></i>' : ''}
+                        </p>
+                        <div class="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
+                          <span><i class="fas fa-clock mr-1"></i>${l.duration_minutes}min</span>
+                          ${isFree
+                            ? '<span class="text-green-600 font-semibold"><i class="fas fa-gift mr-1"></i>Grátis</span>'
+                            : isRentedSidebar
+                              ? '<span class="text-teal-600 font-semibold"><i class="fas fa-key mr-1"></i>Alugada</span>'
+                              : isRentableSidebar && !isWatched
+                                ? '<span class="text-amber-600 font-semibold"><i class="fas fa-coins mr-1"></i>' + l.rental_credits + ' créditos</span>'
+                                : '<span class="text-orange-600 font-semibold"><i class="fas fa-crown mr-1"></i>Premium</span>'
+                          }
+                          ${isWatched ? '<span class="text-green-700 font-semibold bg-green-100 px-1.5 py-0.5 rounded-full">✓ Assistida</span>' : ''}
+                        </div>
+                      </div>
+                      ${rightIcon}
+                    </div>
+                  </button>
+                  </div>
+                `}).join('')}
+              </div>
+              <div class="p-4 bg-gray-50 border-t border-gray-200">
+                <button onclick="app.showTrail(${activeTrail.trailId})"
+                        class="w-full px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-lg font-semibold transition-all shadow-md hover:shadow-lg text-sm">
+                  <i class="fas fa-route mr-2"></i>
+                  Ver Trilha Completa
+                </button>
+              </div>
+              ` : `
               <div class="bg-gradient-to-r from-blue-600 to-blue-700 p-4 text-white">
                 <h3 class="font-bold text-lg">
                   <i class="fas fa-list mr-2"></i>
@@ -1282,7 +1354,6 @@ const app = {
                 </h3>
                 <p class="text-sm text-blue-100 mt-1">${currentModule ? currentModule.title : ''}</p>
               </div>
-              
               <div class="max-h-[600px] overflow-y-auto">
                 ${moduleLessons.map((l, index) => {
                   const isFree = l.teste_gratis || l.free_trial || false
@@ -1378,7 +1449,6 @@ const app = {
                   </div>
                 `}).join('')}
               </div>
-              
               <div class="p-4 bg-gray-50 border-t border-gray-200">
                 <button onclick="app.loadCourse(${lesson.course_id})"
                         class="w-full px-4 py-2 bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white rounded-lg font-semibold transition-all shadow-md hover:shadow-lg text-sm">
@@ -1386,6 +1456,7 @@ const app = {
                   Ver Todos os Módulos
                 </button>
               </div>
+              `}
             </div>
           </div>
         </div>
