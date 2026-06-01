@@ -841,26 +841,69 @@ const app = {
       // Check if completed
       const isCompleted = (progressResponse.data.progress || []).find(p => p.lesson_id == lessonId)?.completed || false
 
-      // Resolve trail context: use existing context or fetch from API if lesson is in a trail
+      // Resolve trail context from the active view first, then from the lesson API summary.
       let activeTrail = null // { trailId, trail, lessons, trailIdx }
+      const currentTrailContextLessons = Array.isArray(this.currentTrailContext?.lessons)
+        ? this.currentTrailContext.lessons
+        : []
 
-      if (this.currentTrailContext) {
-        const trailIdx = this.currentTrailContext.lessons.findIndex(l => l.lesson_id == lessonId)
+      if (this.currentTrailContext && currentTrailContextLessons.length > 0) {
+        const trailIdx = currentTrailContextLessons.findIndex(l => (l.lesson_id || l.id) == lessonId)
         if (trailIdx !== -1) {
-          activeTrail = { trailId: this.currentTrailContext.trailId, trail: this.currentTrailContext.trail, lessons: this.currentTrailContext.lessons, trailIdx }
+          activeTrail = {
+            trailId: this.currentTrailContext.trailId || this.currentTrailContext.trail?.id,
+            trail: this.currentTrailContext.trail,
+            lessons: currentTrailContextLessons,
+            trailIdx
+          }
         }
       }
 
       if (!activeTrail && trails.length > 0) {
+        const trailSummary = trails[0]
+        const trailId = trailSummary.trail_id || trailSummary.id
         try {
-          const trailRes = await axios.get(`/api/trails/${trails[0].trail_id}`)
-          const { trail: fetchedTrail, lessons: fetchedLessons } = trailRes.data
-          const trailIdx = fetchedLessons.findIndex(l => l.lesson_id == lessonId)
+          const trailRes = await axios.get(`/api/trails/${trailId}`)
+          const { trail: fetchedTrail, lessons: fetchedLessons = [] } = trailRes.data
+          const trailIdx = fetchedLessons.findIndex(l => (l.lesson_id || l.id) == lessonId)
           if (trailIdx !== -1) {
-            activeTrail = { trailId: trails[0].trail_id, trail: fetchedTrail, lessons: fetchedLessons, trailIdx }
-            this.currentTrailContext = { trailId: trails[0].trail_id, trail: fetchedTrail, lessons: fetchedLessons }
+            activeTrail = { trailId, trail: fetchedTrail, lessons: fetchedLessons, trailIdx }
+            this.currentTrailContext = { trailId, trail: fetchedTrail, lessons: fetchedLessons }
           }
-        } catch (e) { /* ignore, trail nav won't show */ }
+        } catch (e) {
+          console.warn('Não foi possível carregar a trilha completa da aula:', e)
+        }
+
+        if (!activeTrail && trailId) {
+          const fallbackLessons = []
+          if (trailSummary.prev_lesson_id) {
+            fallbackLessons.push({
+              lesson_id: trailSummary.prev_lesson_id,
+              title: trailSummary.prev_lesson_title || 'Aula anterior',
+              teste_gratis: true
+            })
+          }
+          fallbackLessons.push({
+            lesson_id: lessonId,
+            title: lesson.title,
+            duration_minutes: lesson.duration_minutes,
+            teste_gratis: lesson.teste_gratis || lesson.free_trial || false,
+            is_completed: isCompleted
+          })
+          if (trailSummary.next_lesson_id) {
+            fallbackLessons.push({
+              lesson_id: trailSummary.next_lesson_id,
+              title: trailSummary.next_lesson_title || 'Próxima aula',
+              teste_gratis: true
+            })
+          }
+          activeTrail = {
+            trailId,
+            trail: { id: trailId, title: trailSummary.trail_title || 'Trilha' },
+            lessons: fallbackLessons,
+            trailIdx: trailSummary.prev_lesson_id ? 1 : 0
+          }
+        }
       }
 
       // Build trail nav bar and breadcrumb
