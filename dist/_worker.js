@@ -1682,7 +1682,7 @@ ${f.slice(0,24e3)}
         <script defer src="/static/auth.js?v=forgot-password-suiteplus-20260601"><\/script>
         <script defer src="/static/admin.js?v=7"><\/script>
         <script defer src="/static/access-control.js?v=3"><\/script>
-        <script defer src="/static/app.js?v=13"><\/script>
+        <script defer src="/static/app.js?v=14"><\/script>
         <script defer src="/static/search.js?v=4"><\/script>
     </body>
     </html>
