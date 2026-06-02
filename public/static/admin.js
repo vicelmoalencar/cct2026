@@ -188,6 +188,25 @@ const adminManager = {
   async importQuestions(questions) {
     const response = await axios.post('/api/admin/questions/import', { questions })
     return response.data
+  },
+
+  async getComments(params = {}) {
+    const query = new URLSearchParams(params)
+    const suffix = query.toString() ? '?' + query.toString() : ''
+    const response = await axios.get('/api/admin/comments' + suffix)
+    return response.data.comments || []
+  },
+
+  async replyComment(id, adminReply) {
+    const response = await axios.put(`/api/admin/comments/${id}/reply`, {
+      admin_reply: adminReply
+    })
+    return response.data
+  },
+
+  async deleteComment(id) {
+    const response = await axios.delete(`/api/admin/comments/${id}`)
+    return response.data
   }
 }
 
@@ -201,6 +220,7 @@ const adminUI = {
   plans: [],
   subscriptions: [],
   questions: [],
+  comments: [],
   questionStats: null,
   generatedQuestions: [],
   
@@ -333,6 +353,11 @@ const adminUI = {
                   class="flex-1 py-4 px-6 font-semibold text-gray-400 border-b-2 border-transparent hover:text-blue-600 transition-colors whitespace-nowrap">
             <i class="fas fa-route mr-2"></i> Trilhas
           </button>
+          <button onclick="adminUI.switchTab('comments')"
+                  id="tabComments"
+                  class="flex-1 py-4 px-6 font-semibold text-gray-400 border-b-2 border-transparent hover:text-blue-600 transition-colors whitespace-nowrap">
+            <i class="fas fa-comments mr-2"></i> Comentários
+          </button>
           <button onclick="adminUI.switchTab('questions')"
                   id="tabQuestions"
                   class="flex-1 py-4 px-6 font-semibold text-gray-400 border-b-2 border-transparent hover:text-blue-600 transition-colors whitespace-nowrap">
@@ -358,7 +383,7 @@ const adminUI = {
     this.currentView = tab
     
     // Update tab styles
-    const tabs = ['courses', 'modules', 'lessons', 'plans', 'subscriptions', 'users', 'certificates', 'trails', 'questions', 'import']
+    const tabs = ['courses', 'modules', 'lessons', 'plans', 'subscriptions', 'users', 'certificates', 'trails', 'comments', 'questions', 'import']
     tabs.forEach(t => {
       const tabEl = document.getElementById(`tab${t.charAt(0).toUpperCase() + t.slice(1)}`)
       if (t === tab) {
@@ -380,6 +405,7 @@ const adminUI = {
     if (tab === 'users') this.renderUsersTab()
     if (tab === 'import') this.renderImportTab()
     if (tab === 'trails') await adminUI.renderTrailsTab()
+    if (tab === 'comments') await adminUI.renderCommentsTab()
     if (tab === 'questions') await adminUI.renderQuestionsTab()
   },
   
@@ -725,30 +751,45 @@ const adminUI = {
           <h3 class="text-xl font-bold text-gray-800">
             <i class="fas fa-folder mr-2"></i>Gestão de Módulos
           </h3>
-          <button onclick="adminUI.showModuleForm()" 
-                  class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors">
-            <i class="fas fa-plus mr-2"></i>Novo Módulo
-          </button>
+          <div class="flex items-center gap-3">
+            <span id="moduleReorderStatus" class="text-sm font-semibold"></span>
+            <button onclick="adminUI.showModuleForm()" 
+                    class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors">
+              <i class="fas fa-plus mr-2"></i>Novo Módulo
+            </button>
+          </div>
         </div>
         
         <div class="space-y-6">
           ${this.courses.map(course => `
             <div class="border-2 border-blue-200 rounded-lg p-4 bg-blue-50">
-              <h4 class="text-lg font-bold text-blue-900 mb-3">
-                <i class="fas fa-book mr-2"></i>${course.title}
-              </h4>
+              <div class="flex items-center justify-between gap-3 mb-3">
+                <h4 class="text-lg font-bold text-blue-900">
+                  <i class="fas fa-book mr-2"></i>${course.title}
+                </h4>
+                ${(course.modules || []).length > 1 ? `
+                  <span class="text-xs text-blue-700 hidden sm:flex items-center gap-1">
+                    <i class="fas fa-grip-vertical"></i>Arraste para reordenar
+                  </span>
+                ` : ''}
+              </div>
               
-              <div class="space-y-2">
+              <div class="space-y-2 modules-sortable" data-course-id="${course.id}">
                 ${(course.modules || []).length === 0 ? 
                   '<p class="text-sm text-gray-500 italic pl-4">Nenhum módulo cadastrado</p>' 
                   : 
-                  (course.modules || []).map(module => `
-                    <div class="bg-white border border-gray-200 rounded p-3 flex items-center justify-between">
+                  (course.modules || []).slice().sort((a, b) => (a.order_index || 0) - (b.order_index || 0)).map(module => `
+                    <div class="module-drag-item bg-white border border-gray-200 rounded p-3 flex items-center gap-3 justify-between select-none hover:border-blue-300 transition-colors"
+                         draggable="true"
+                         data-module-id="${module.id}">
+                      <div class="flex-shrink-0 text-gray-300 cursor-grab active:cursor-grabbing">
+                        <i class="fas fa-grip-vertical text-lg"></i>
+                      </div>
                       <div class="flex-1">
                         <h5 class="font-semibold text-gray-800">${module.title}</h5>
                         <p class="text-xs text-gray-600">${module.description || 'Sem descrição'}</p>
                         <p class="text-xs text-gray-500 mt-1">
-                          <i class="fas fa-sort mr-1"></i>Ordem: ${module.order_index} • 
+                          <i class="fas fa-sort mr-1"></i>Ordem: <span class="module-order-label">${module.order_index}</span> • 
                           <i class="fas fa-play-circle mr-1"></i>${(module.lessons || []).length} aulas
                         </p>
                       </div>
@@ -773,6 +814,95 @@ const adminUI = {
         </div>
       </div>
     `
+    this.initModuleDragAndDrop()
+  },
+
+  initModuleDragAndDrop() {
+    const clearIndicators = () => {
+      document.querySelectorAll('.module-drag-item').forEach(el => el.style.borderTop = '')
+    }
+
+    document.querySelectorAll('.module-drag-item').forEach(item => {
+      item.addEventListener('dragstart', e => {
+        this.dragState.el = item
+        e.dataTransfer.effectAllowed = 'move'
+        e.dataTransfer.setData('text/plain', item.dataset.moduleId)
+        requestAnimationFrame(() => item.classList.add('opacity-40'))
+      })
+      item.addEventListener('dragend', () => {
+        item.classList.remove('opacity-40')
+        clearIndicators()
+        this.dragState.el = null
+      })
+    })
+
+    document.querySelectorAll('.modules-sortable').forEach(container => {
+      container.addEventListener('dragover', e => {
+        e.preventDefault()
+        if (!this.dragState.el || !this.dragState.el.classList.contains('module-drag-item')) return
+        e.dataTransfer.dropEffect = 'move'
+        const target = e.target.closest('.module-drag-item')
+        if (!target || target === this.dragState.el || target.parentElement !== container) return
+        clearIndicators()
+        target.style.borderTop = '3px solid #3b82f6'
+      })
+
+      container.addEventListener('dragleave', e => {
+        if (!container.contains(e.relatedTarget)) clearIndicators()
+      })
+
+      container.addEventListener('drop', e => {
+        e.preventDefault()
+        clearIndicators()
+        if (!this.dragState.el || !this.dragState.el.classList.contains('module-drag-item')) return
+        const target = e.target.closest('.module-drag-item')
+        if (!target || target === this.dragState.el || target.parentElement !== container) return
+        container.insertBefore(this.dragState.el, target)
+        this.saveModuleOrder(container)
+      })
+    })
+  },
+
+  async saveModuleOrder(container) {
+    const items = container.querySelectorAll('.module-drag-item, .lesson-module-drag-item')
+    const modules = Array.from(items).map((el, idx) => ({
+      id: parseInt(el.dataset.moduleId),
+      order_index: idx
+    }))
+
+    const statusEl = document.getElementById('moduleReorderStatus') || document.getElementById('reorderStatus')
+    if (statusEl) {
+      statusEl.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Salvando...'
+      statusEl.className = 'text-gray-500 text-sm font-semibold'
+    }
+
+    try {
+      await axios.post('/api/admin/modules-reorder', { modules })
+
+      modules.forEach(({ id, order_index }) => {
+        this.courses.forEach(course => {
+          const module = (course.modules || []).find(m => m.id == id)
+          if (module) module.order_index = order_index
+        })
+      })
+
+      items.forEach((el, idx) => {
+        const label = el.querySelector('.module-order-label')
+        if (label) label.textContent = idx
+      })
+
+      if (statusEl) {
+        statusEl.innerHTML = '<i class="fas fa-check mr-1"></i>Ordem salva'
+        statusEl.className = 'text-green-600 text-sm font-semibold'
+        setTimeout(() => { if (statusEl) statusEl.innerHTML = '' }, 2000)
+      }
+    } catch (error) {
+      console.error('Error saving module order:', error)
+      if (statusEl) {
+        statusEl.innerHTML = '<i class="fas fa-times mr-1"></i>Erro ao salvar'
+        statusEl.className = 'text-red-600 text-sm font-semibold'
+      }
+    }
   },
   
   // Show module form
@@ -1002,8 +1132,9 @@ const adminUI = {
     const course = this.courses.find(c => c.id == courseId)
     if (!course) return
 
-    let modules = course.modules || []
+    let modules = (course.modules || []).slice().sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
     if (moduleId) modules = modules.filter(m => m.id == moduleId)
+    const canReorderModules = !moduleId && !searchText
 
     const filtered = modules.map(m => ({
       ...m,
@@ -1013,25 +1144,27 @@ const adminUI = {
     })).filter(m => m.filteredLessons.length > 0)
 
     const total = filtered.reduce((sum, m) => sum + m.filteredLessons.length, 0)
-    document.getElementById('lessonsContainer').innerHTML = this.renderModulesWithLessons(filtered)
+    document.getElementById('lessonsContainer').innerHTML = this.renderModulesWithLessons(filtered, canReorderModules)
     this.updateLessonCount(total)
     this.initDragAndDrop()
   },
 
-  renderModulesWithLessons(modules) {
+  renderModulesWithLessons(modules, canReorderModules = false) {
     if (modules.length === 0) {
       return '<p class="text-center text-gray-500 py-10">Nenhuma aula encontrada.</p>'
     }
     return modules.map(module => `
-      <div class="border border-gray-200 rounded-lg overflow-hidden mb-4">
-        <div class="bg-blue-50 px-4 py-3 border-b border-blue-100 flex items-center justify-between">
+      <div class="lesson-module-drag-item border border-gray-200 rounded-lg overflow-hidden mb-4"
+           ${canReorderModules ? 'draggable="true"' : ''}
+           data-module-id="${module.id}">
+        <div class="module-drag-handle bg-blue-50 px-4 py-3 border-b border-blue-100 flex items-center justify-between ${canReorderModules ? 'cursor-grab active:cursor-grabbing' : ''}">
           <h5 class="font-semibold text-gray-800 flex items-center gap-2">
             <i class="fas fa-folder text-blue-600"></i>
             ${module.title}
             <span class="text-sm font-normal text-gray-500">(${module.filteredLessons.length} aulas)</span>
           </h5>
           <span class="text-xs text-gray-400 hidden sm:flex items-center gap-1">
-            <i class="fas fa-grip-vertical"></i>Arraste para reordenar
+            <i class="fas fa-grip-vertical"></i>${canReorderModules ? 'Arraste o módulo ou as aulas' : 'Arraste para reordenar aulas'}
           </span>
         </div>
         <div class="lessons-sortable" data-module-id="${module.id}">
@@ -1082,6 +1215,49 @@ const adminUI = {
   initDragAndDrop() {
     const clearIndicators = () => {
       document.querySelectorAll('.lesson-drag-item').forEach(el => el.style.borderTop = '')
+      document.querySelectorAll('.lesson-module-drag-item').forEach(el => el.style.borderTop = '')
+    }
+
+    document.querySelectorAll('.lesson-module-drag-item[draggable="true"]').forEach(item => {
+      item.addEventListener('dragstart', e => {
+        if (e.target.closest('.lesson-drag-item')) return
+        this.dragState.el = item
+        e.dataTransfer.effectAllowed = 'move'
+        e.dataTransfer.setData('text/plain', item.dataset.moduleId)
+        requestAnimationFrame(() => item.classList.add('opacity-40'))
+      })
+      item.addEventListener('dragend', () => {
+        item.classList.remove('opacity-40')
+        clearIndicators()
+        this.dragState.el = null
+      })
+    })
+
+    const moduleContainer = document.getElementById('lessonsContainer')
+    if (moduleContainer) {
+      moduleContainer.addEventListener('dragover', e => {
+        if (!this.dragState.el || !this.dragState.el.classList.contains('lesson-module-drag-item')) return
+        e.preventDefault()
+        e.dataTransfer.dropEffect = 'move'
+        const target = e.target.closest('.lesson-module-drag-item')
+        if (!target || target === this.dragState.el || target.parentElement !== moduleContainer) return
+        clearIndicators()
+        target.style.borderTop = '3px solid #3b82f6'
+      })
+
+      moduleContainer.addEventListener('dragleave', e => {
+        if (!moduleContainer.contains(e.relatedTarget)) clearIndicators()
+      })
+
+      moduleContainer.addEventListener('drop', e => {
+        if (!this.dragState.el || !this.dragState.el.classList.contains('lesson-module-drag-item')) return
+        e.preventDefault()
+        clearIndicators()
+        const target = e.target.closest('.lesson-module-drag-item')
+        if (!target || target === this.dragState.el || target.parentElement !== moduleContainer) return
+        moduleContainer.insertBefore(this.dragState.el, target)
+        this.saveModuleOrder(moduleContainer)
+      })
     }
 
     // dragstart/dragend on each item
@@ -5853,6 +6029,183 @@ adminUI.escapeHtml = function(value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;')
+}
+
+adminUI.formatDateTime = function(value) {
+  if (!value) return ''
+  return new Date(value).toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
+adminUI.renderCommentsTab = async function() {
+  const content = document.getElementById('adminContent')
+  content.innerHTML = `
+    <div class="bg-white rounded-lg shadow-md p-6">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <div>
+          <h3 class="text-xl font-bold text-gray-800">
+            <i class="fas fa-comments mr-2 text-blue-600"></i>Comentários das Aulas
+          </h3>
+          <p class="text-sm text-gray-500 mt-1">Responda dúvidas dos alunos e abra o vídeo relacionado quando precisar conferir o contexto.</p>
+        </div>
+        <button onclick="adminUI.renderCommentsTab()"
+                class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-semibold transition-colors">
+          <i class="fas fa-rotate-right mr-2"></i>Atualizar
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-5">
+        <input id="commentSearch" onkeydown="if(event.key==='Enter') adminUI.loadCommentsFromFilters()" placeholder="Buscar aluno, comentário ou aula"
+               class="md:col-span-2 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <select id="commentStatus" onchange="adminUI.loadCommentsFromFilters()"
+                class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="all">Todos</option>
+          <option value="pending">Pendentes</option>
+          <option value="answered">Respondidos</option>
+        </select>
+        <button onclick="adminUI.loadCommentsFromFilters()"
+                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors">
+          <i class="fas fa-filter mr-2"></i>Filtrar
+        </button>
+      </div>
+
+      <div id="adminCommentsList" class="space-y-4">
+        <div class="flex items-center justify-center py-12 text-gray-500">
+          <i class="fas fa-spinner fa-spin text-2xl mr-3 text-blue-600"></i>
+          <span>Carregando comentários...</span>
+        </div>
+      </div>
+    </div>
+  `
+  await this.loadCommentsFromFilters()
+}
+
+adminUI.loadCommentsFromFilters = async function() {
+  const list = document.getElementById('adminCommentsList')
+  if (!list) return
+  list.innerHTML = `
+    <div class="flex items-center justify-center py-12 text-gray-500">
+      <i class="fas fa-spinner fa-spin text-2xl mr-3 text-blue-600"></i>
+      <span>Carregando comentários...</span>
+    </div>
+  `
+  try {
+    this.comments = await adminManager.getComments({
+      status: document.getElementById('commentStatus')?.value || 'all',
+      search: document.getElementById('commentSearch')?.value || ''
+    })
+    list.innerHTML = this.renderCommentRows(this.comments)
+  } catch (e) {
+    list.innerHTML = '<div class="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">Erro ao carregar comentários: ' + this.escapeHtml(e.response?.data?.error || e.message) + '</div>'
+  }
+}
+
+adminUI.renderCommentRows = function(comments) {
+  if (!comments || comments.length === 0) {
+    return '<div class="text-center py-12 text-gray-500"><i class="fas fa-inbox text-4xl mb-3 block text-gray-300"></i><p class="font-semibold">Nenhum comentário encontrado</p></div>'
+  }
+
+  return comments.map(comment => {
+    const hasReply = !!(comment.admin_reply && comment.admin_reply.trim())
+    const videoLink = comment.lesson_video_link || ''
+    return `
+      <div class="border border-gray-200 rounded-lg overflow-hidden">
+        <div class="p-4 bg-gray-50 border-b border-gray-200">
+          <div class="flex flex-col lg:flex-row lg:items-start justify-between gap-3">
+            <div class="min-w-0">
+              <div class="flex flex-wrap items-center gap-2 mb-2">
+                <span class="text-xs font-bold px-2 py-1 rounded ${hasReply ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">
+                  <i class="fas fa-${hasReply ? 'check' : 'clock'} mr-1"></i>${hasReply ? 'Respondido' : 'Pendente'}
+                </span>
+                <span class="text-xs text-gray-500">#${comment.id}</span>
+                <span class="text-xs text-gray-500">${this.formatDateTime(comment.created_at)}</span>
+              </div>
+              <h4 class="font-bold text-gray-800 break-words">${this.escapeHtml(comment.lesson_title || 'Aula sem título')}</h4>
+              <p class="text-xs text-gray-500 mt-1 break-words">
+                ${this.escapeHtml(comment.course_title || 'Curso não identificado')}
+                ${comment.module_title ? ' / ' + this.escapeHtml(comment.module_title) : ''}
+              </p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <a href="/?lesson=${comment.lesson_id}" target="_blank"
+                 class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-sm font-semibold">
+                <i class="fas fa-arrow-up-right-from-square mr-1"></i>Abrir aula
+              </a>
+              ${videoLink ? `
+                <a href="${this.escapeHtml(videoLink)}" target="_blank" rel="noopener"
+                   class="px-3 py-2 bg-gray-800 hover:bg-gray-900 text-white rounded text-sm font-semibold">
+                  <i class="fas fa-video mr-1"></i>Abrir vídeo
+                </a>
+              ` : ''}
+            </div>
+          </div>
+        </div>
+        <div class="p-4">
+          <div class="mb-4">
+            <p class="text-sm font-semibold text-gray-700">
+              <i class="fas fa-user-circle mr-2 text-blue-600"></i>${this.escapeHtml(comment.user_name)}
+              <span class="font-normal text-gray-400 break-all">(${this.escapeHtml(comment.user_email)})</span>
+            </p>
+            <p class="mt-2 text-gray-700 whitespace-pre-line break-words">${this.escapeHtml(comment.comment_text)}</p>
+          </div>
+          <label class="block text-sm font-semibold text-gray-700 mb-2">Resposta</label>
+          <textarea id="commentReply${comment.id}" rows="4"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Digite a resposta que aparecerá para o aluno na aula...">${this.escapeHtml(comment.admin_reply || '')}</textarea>
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-3">
+            <p class="text-xs text-gray-500">
+              ${comment.admin_replied_at ? 'Última resposta em ' + this.formatDateTime(comment.admin_replied_at) + (comment.admin_replied_by ? ' por ' + this.escapeHtml(comment.admin_replied_by) : '') : 'Sem resposta publicada'}
+            </p>
+            <div class="flex gap-2">
+              <button onclick="adminUI.clearCommentReply(${comment.id})"
+                      class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-semibold">
+                <i class="fas fa-eraser mr-1"></i>Limpar
+              </button>
+              <button onclick="adminUI.deleteComment(${comment.id})"
+                      class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold">
+                <i class="fas fa-trash mr-1"></i>Excluir comentário
+              </button>
+              <button onclick="adminUI.saveCommentReply(${comment.id})"
+                      class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold">
+                <i class="fas fa-paper-plane mr-1"></i>Salvar resposta
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `
+  }).join('')
+}
+
+adminUI.clearCommentReply = function(id) {
+  const textarea = document.getElementById('commentReply' + id)
+  if (textarea) textarea.value = ''
+}
+
+adminUI.saveCommentReply = async function(id) {
+  const textarea = document.getElementById('commentReply' + id)
+  if (!textarea) return
+  try {
+    await adminManager.replyComment(id, textarea.value)
+    await this.loadCommentsFromFilters()
+  } catch (e) {
+    alert('Erro ao salvar resposta: ' + (e.response?.data?.error || e.message))
+  }
+}
+
+adminUI.deleteComment = async function(id) {
+  if (!confirm('Excluir este comentário do aluno? A resposta vinculada também será removida.')) return
+  try {
+    await adminManager.deleteComment(id)
+    await this.loadCommentsFromFilters()
+  } catch (e) {
+    alert('Erro ao excluir comentário: ' + (e.response?.data?.error || e.message))
+  }
 }
 
 adminUI.questionTypeLabel = function(type) {

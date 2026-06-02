@@ -1,4 +1,33 @@
 // Auth Manager
+const whatsappFloatingButton = {
+  phone: '558596641461',
+  message: 'Olá, preciso de ajuda com a plataforma.',
+
+  render() {
+    if (document.getElementById('floatingWhatsappButton')) return
+
+    const button = document.createElement('a')
+    button.id = 'floatingWhatsappButton'
+    button.href = `https://wa.me/${this.phone}?text=${encodeURIComponent(this.message)}`
+    button.target = '_blank'
+    button.rel = 'noopener noreferrer'
+    button.setAttribute('aria-label', 'Falar no WhatsApp')
+    button.className = 'fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full bg-green-500 px-4 py-3 text-white shadow-lg transition-all hover:bg-green-600 hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-green-200'
+    button.innerHTML = `
+      <i class="fab fa-whatsapp text-2xl"></i>
+      <span class="hidden sm:inline font-semibold">WhatsApp</span>
+    `
+
+    document.body.appendChild(button)
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => whatsappFloatingButton.render())
+} else {
+  whatsappFloatingButton.render()
+}
+
 const authManager = {
   currentUser: null,
   

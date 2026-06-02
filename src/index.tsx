@@ -17,6 +17,7 @@ type Bindings = {
 const app = new Hono<{ Bindings: Bindings }>()
 const creditsSchemaReady = new Map<string, Promise<void>>()
 const lessonRentalSchemaReady = new Map<string, Promise<void>>()
+const commentsReplySchemaReady = new Map<string, Promise<void>>()
 const questionBankSchemaReady = new Map<string, Promise<void>>()
 
 // Helper: retorna cliente PostgreSQL para dados do CCT
@@ -109,6 +110,19 @@ async function ensureLessonRentalSchema(db: PostgresClient): Promise<void> {
   }
 
   await lessonRentalSchemaReady.get(key)
+}
+
+async function ensureCommentsReplySchema(db: PostgresClient): Promise<void> {
+  const key = (db as any).connectionString || 'comments-replies'
+  if (!commentsReplySchemaReady.has(key)) {
+    commentsReplySchemaReady.set(key, (async () => {
+      await db.sql(`ALTER TABLE comments ADD COLUMN IF NOT EXISTS admin_reply TEXT`)
+      await db.sql(`ALTER TABLE comments ADD COLUMN IF NOT EXISTS admin_replied_at TIMESTAMPTZ`)
+      await db.sql(`ALTER TABLE comments ADD COLUMN IF NOT EXISTS admin_replied_by TEXT`)
+      await db.sql(`CREATE INDEX IF NOT EXISTS idx_comments_admin_replied_at ON comments(admin_replied_at)`)
+    })())
+  }
+  await commentsReplySchemaReady.get(key)
 }
 
 async function ensureQuestionBankSchema(db: PostgresClient): Promise<void> {
@@ -1424,6 +1438,24 @@ app.post('/api/admin/modules', requireAdmin, async (c) => {
   } catch (error: any) {
     console.error('Create module error:', error)
     return c.json({ error: error.message || 'Failed to create module' }, 500)
+  }
+})
+
+// Reorder modules in bulk (admin only) - POST to avoid conflict with PUT /:id
+app.post('/api/admin/modules-reorder', requireAdmin, async (c) => {
+  try {
+    const { modules } = await c.req.json()
+    if (!Array.isArray(modules)) return c.json({ error: 'modules must be an array' }, 400)
+
+    const db = getDB(c)
+    for (const { id, order_index } of modules) {
+      await db.update('modules', { id: Number(id) }, { order_index: Number(order_index) })
+    }
+
+    return c.json({ success: true })
+  } catch (error: any) {
+    console.error('Reorder modules error:', error)
+    return c.json({ error: error.message || 'Failed to reorder modules' }, 500)
   }
 })
 
@@ -4386,6 +4418,8 @@ app.get('/api/lessons/:id', async (c) => {
     
     const lesson = lessonResult[0]
     
+    await ensureCommentsReplySchema(db)
+
     // Get comments
     const comments = await db.query('comments', {
       select: '*',
@@ -4433,6 +4467,106 @@ app.get('/api/lessons/:id', async (c) => {
 // ============================================
 // API ROUTES - COMMENTS
 // ============================================
+
+// List comments with lesson context (admin only)
+app.get('/api/admin/comments', requireAdmin, async (c) => {
+  try {
+    const status = c.req.query('status') || 'all'
+    const search = (c.req.query('search') || '').trim()
+    const db = getDB(c)
+    await ensureCommentsReplySchema(db)
+
+    const filters: string[] = []
+    const values: any[] = []
+
+    if (status === 'pending') {
+      filters.push(`NULLIF(TRIM(COALESCE(c.admin_reply, '')), '') IS NULL`)
+    } else if (status === 'answered') {
+      filters.push(`NULLIF(TRIM(COALESCE(c.admin_reply, '')), '') IS NOT NULL`)
+    }
+
+    if (search) {
+      values.push(`%${search}%`)
+      filters.push(`(
+        c.comment_text ILIKE $${values.length}
+        OR c.user_name ILIKE $${values.length}
+        OR c.user_email ILIKE $${values.length}
+        OR l.title ILIKE $${values.length}
+        OR m.title ILIKE $${values.length}
+        OR co.title ILIKE $${values.length}
+      )`)
+    }
+
+    const whereClause = filters.length ? `WHERE ${filters.join(' AND ')}` : ''
+    const comments = await db.sql(`
+      SELECT
+        c.*,
+        l.title AS lesson_title,
+        l.video_provider,
+        l.video_id,
+        l.video_url,
+        m.title AS module_title,
+        co.title AS course_title,
+        CASE
+          WHEN l.video_url IS NOT NULL AND l.video_url <> '' THEN l.video_url
+          WHEN l.video_provider = 'youtube' AND l.video_id IS NOT NULL AND l.video_id <> '' THEN 'https://www.youtube.com/watch?v=' || l.video_id
+          WHEN l.video_provider = 'vimeo' AND l.video_id IS NOT NULL AND l.video_id <> '' THEN 'https://vimeo.com/' || l.video_id
+          WHEN l.video_provider = 'url' THEN l.video_id
+          ELSE NULL
+        END AS lesson_video_link
+      FROM comments c
+      JOIN lessons l ON l.id = c.lesson_id
+      LEFT JOIN modules m ON m.id = l.module_id
+      LEFT JOIN courses co ON co.id = m.course_id
+      ${whereClause}
+      ORDER BY c.created_at DESC
+      LIMIT 200
+    `, values)
+
+    return c.json({ comments })
+  } catch (error: any) {
+    console.error('List admin comments error:', error)
+    return c.json({ error: error.message || 'Failed to list comments' }, 500)
+  }
+})
+
+// Reply to a comment (admin only)
+app.put('/api/admin/comments/:id/reply', requireAdmin, async (c) => {
+  try {
+    const id = parseInt(c.req.param('id'))
+    const { admin_reply } = await c.req.json()
+    const user = c.get('user')
+    const reply = String(admin_reply || '').trim()
+    const db = getDB(c)
+    await ensureCommentsReplySchema(db)
+
+    const rows = await db.update('comments', { id }, {
+      admin_reply: reply || null,
+      admin_replied_at: reply ? new Date().toISOString() : null,
+      admin_replied_by: reply ? (user?.email || null) : null
+    })
+
+    return c.json({ success: true, comment: rows[0] || null })
+  } catch (error: any) {
+    console.error('Reply comment error:', error)
+    return c.json({ error: error.message || 'Failed to reply comment' }, 500)
+  }
+})
+
+// Delete a student comment (admin only)
+app.delete('/api/admin/comments/:id', requireAdmin, async (c) => {
+  try {
+    const id = parseInt(c.req.param('id'))
+    const db = getDB(c)
+    await ensureCommentsReplySchema(db)
+    await db.delete('comments', { id })
+
+    return c.json({ success: true })
+  } catch (error: any) {
+    console.error('Delete comment error:', error)
+    return c.json({ error: error.message || 'Failed to delete comment' }, 500)
+  }
+})
 
 // Add comment to lesson
 app.post('/api/lessons/:id/comments', async (c) => {
@@ -5622,7 +5756,7 @@ app.get('/admin', (c) => {
 
   <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <script src="/static/auth.js?v=forgot-password-suiteplus-20260601"></script>
+  <script src="/static/auth.js?v=whatsapp-floating-20260602"></script>
   <script src="/static/admin.js?v=8"></script>
   <script>
     document.addEventListener('DOMContentLoaded', async () => {
@@ -5986,7 +6120,7 @@ app.get('/', (c) => {
 
         <script defer src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
         <script defer src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-        <script defer src="/static/auth.js?v=forgot-password-suiteplus-20260601"></script>
+        <script defer src="/static/auth.js?v=whatsapp-floating-20260602"></script>
         <script defer src="/static/admin.js?v=8"></script>
         <script defer src="/static/access-control.js?v=3"></script>
         <script defer src="/static/app.js?v=14"></script>
@@ -6185,7 +6319,7 @@ app.get('/favorites', (c) => {
 </div>
 
 <script defer src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
-<script defer src="/static/auth.js?v=forgot-password-suiteplus-20260601"></script>
+<script defer src="/static/auth.js?v=whatsapp-floating-20260602"></script>
 <script>
 let allFavorites = []
 let activeFilter = null
@@ -6361,7 +6495,7 @@ app.get('/certificates', (c) => {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
-    <script src="/static/auth.js?v=forgot-password-suiteplus-20260601"></script>
+    <script src="/static/auth.js?v=whatsapp-floating-20260602"></script>
     <script>
         let currentUser = null;
 
@@ -6889,7 +7023,7 @@ app.get('/profile', (c) => {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
-    <script src="/static/auth.js?v=forgot-password-suiteplus-20260601"></script>
+    <script src="/static/auth.js?v=whatsapp-floating-20260602"></script>
     <script>
         const messageDiv = document.getElementById('messageDiv')
         const profileForm = document.getElementById('profileForm')
@@ -7437,7 +7571,7 @@ app.get('/certificates', (c) => {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
-    <script src="/static/auth.js?v=forgot-password-suiteplus-20260601"></script>
+    <script src="/static/auth.js?v=whatsapp-floating-20260602"></script>
     <script>
         const loadingState = document.getElementById('loadingState')
         const emptyState = document.getElementById('emptyState')

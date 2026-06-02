@@ -11,6 +11,15 @@ const app = {
     return text.replace(/</g, '&lt;').replace(/>/g, '&gt;')
   },
 
+  escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+  },
+
   // Initialize app
   async init() {
     // Check authentication
@@ -1187,11 +1196,23 @@ const app = {
                 <div class="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
                   <div class="flex items-center gap-2">
                     <i class="fas fa-user-circle text-blue-600 text-lg md:text-xl"></i>
-                    <span class="font-semibold text-gray-800 text-sm md:text-base break-all">${comment.user_name}</span>
+                    <span class="font-semibold text-gray-800 text-sm md:text-base break-all">${app.escapeHtml(comment.user_name)}</span>
                   </div>
                   <span class="text-xs md:text-sm text-gray-500 sm:ml-auto">${new Date(comment.created_at).toLocaleDateString('pt-BR')}</span>
                 </div>
-                <p class="text-sm md:text-base text-gray-700 break-words">${comment.comment_text}</p>
+                <p class="text-sm md:text-base text-gray-700 break-words whitespace-pre-line">${app.escapeHtml(comment.comment_text)}</p>
+                ${comment.admin_reply ? `
+                  <div class="mt-4 ml-0 md:ml-6 border-l-4 border-green-500 bg-white p-3 md:p-4 rounded-r-lg">
+                    <div class="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
+                      <div class="flex items-center gap-2">
+                        <i class="fas fa-reply text-green-600"></i>
+                        <span class="font-semibold text-green-800 text-sm md:text-base">Resposta do professor</span>
+                      </div>
+                      ${comment.admin_replied_at ? `<span class="text-xs md:text-sm text-gray-500 sm:ml-auto">${new Date(comment.admin_replied_at).toLocaleDateString('pt-BR')}</span>` : ''}
+                    </div>
+                    <p class="text-sm md:text-base text-gray-700 break-words whitespace-pre-line">${app.escapeHtml(comment.admin_reply)}</p>
+                  </div>
+                ` : ''}
               </div>
             `).join('')}
           </div>

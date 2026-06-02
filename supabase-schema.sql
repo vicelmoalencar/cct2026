@@ -74,6 +74,9 @@ CREATE TABLE IF NOT EXISTS comments (
   user_name TEXT NOT NULL,
   user_email TEXT NOT NULL,
   comment_text TEXT NOT NULL,
+  admin_reply TEXT,
+  admin_replied_at TIMESTAMPTZ,
+  admin_replied_by TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -101,6 +104,7 @@ CREATE INDEX IF NOT EXISTS idx_lessons_order ON lessons(module_id, order_index);
 CREATE INDEX IF NOT EXISTS idx_lessons_video ON lessons(video_provider, video_id);
 CREATE INDEX IF NOT EXISTS idx_comments_lesson_id ON comments(lesson_id);
 CREATE INDEX IF NOT EXISTS idx_comments_user ON comments(user_id);
+CREATE INDEX IF NOT EXISTS idx_comments_admin_replied_at ON comments(admin_replied_at);
 CREATE INDEX IF NOT EXISTS idx_progress_user_email ON user_progress(user_email);
 CREATE INDEX IF NOT EXISTS idx_progress_lesson_id ON user_progress(lesson_id);
 CREATE INDEX IF NOT EXISTS idx_progress_user_lesson ON user_progress(user_id, lesson_id);
@@ -201,6 +205,11 @@ CREATE POLICY "Usuários autenticados podem inserir comentários" ON comments
 
 CREATE POLICY "Usuários podem deletar seus próprios comentários" ON comments
   FOR DELETE USING (auth.uid() = user_id);
+
+CREATE POLICY "Admins podem responder comentários" ON comments
+  FOR UPDATE USING (
+    EXISTS (SELECT 1 FROM admins WHERE email = auth.jwt()->>'email')
+  );
 
 -- Políticas para USER_PROGRESS (usuários podem ver e modificar apenas seu próprio progresso)
 CREATE POLICY "Usuários podem ver seu próprio progresso" ON user_progress
