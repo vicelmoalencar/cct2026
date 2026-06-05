@@ -1306,10 +1306,12 @@ const app = {
             </div>
           </div>
           
-          <!-- Sidebar: Trail or Module Lessons -->
-          <div class="lg:col-span-1">
+          <!-- Sidebar: Trail + Module Lessons -->
+          <div class="lg:col-span-1 space-y-4">
+
+            ${activeTrail ? `
+            <!-- Trail Lessons -->
             <div class="bg-white rounded-xl shadow-lg overflow-hidden sticky top-6">
-              ${activeTrail ? `
               <div class="bg-gradient-to-r from-indigo-600 to-purple-600 p-4 text-white">
                 <h3 class="font-bold text-lg">
                   <i class="fas fa-route mr-2"></i>
@@ -1317,7 +1319,7 @@ const app = {
                 </h3>
                 <p class="text-sm text-indigo-100 mt-1 truncate">${activeTrail.trail.title}</p>
               </div>
-              <div class="max-h-[600px] overflow-y-auto">
+              <div class="max-h-[400px] overflow-y-auto">
                 ${activeTrail.lessons.map((l, index) => {
                   const lid = l.lesson_id
                   const isFree = l.teste_gratis || false
@@ -1326,91 +1328,41 @@ const app = {
                   const isRentableSidebar = !isFree && !isRentedSidebar && l.rentable && l.rental_credits > 0
                   const isWatched = l.is_completed || !!lessonProgressMap[lid]
                   const isActive = lid == lessonId
-
-                  const rowBg = isActive
-                    ? 'bg-indigo-50 border-l-4 border-l-indigo-600'
-                    : isWatched
-                      ? 'bg-green-50 border-l-4 border-l-green-500 hover:bg-green-100'
-                      : isRentedSidebar
-                        ? 'bg-teal-50 border-l-4 border-l-teal-500 hover:bg-teal-100'
-                        : isRentableSidebar
-                          ? 'bg-amber-50 border-l-4 border-l-amber-400 hover:bg-amber-100'
-                          : 'hover:bg-gray-50'
-
-                  const circleClass = isActive
-                    ? 'bg-indigo-600 text-white'
-                    : isWatched
-                      ? 'bg-green-500 text-white'
-                      : isRentedSidebar
-                        ? 'bg-teal-500 text-white'
-                        : isRentableSidebar
-                          ? 'bg-amber-400 text-white'
-                          : isPremium
-                            ? 'bg-orange-100 text-orange-600'
-                            : 'bg-gray-200 text-gray-600'
-
-                  const circleContent = isWatched && !isActive
-                    ? '<i class="fas fa-check"></i>'
-                    : index + 1
-
-                  const rightIcon = isActive
-                    ? '<i class="fas fa-play text-indigo-600"></i>'
-                    : isWatched
-                      ? '<i class="fas fa-check-circle text-green-500 text-sm"></i>'
-                      : isRentedSidebar
-                        ? '<i class="fas fa-key text-teal-500 text-sm"></i>'
-                        : isRentableSidebar
-                          ? '<i class="fas fa-shopping-cart text-amber-500 text-sm"></i>'
-                          : isPremium
-                            ? '<i class="fas fa-lock text-orange-500 text-sm"></i>'
-                            : ''
-
+                  const rowBg = isActive ? 'bg-indigo-50 border-l-4 border-l-indigo-600' : isWatched ? 'bg-green-50 border-l-4 border-l-green-500 hover:bg-green-100' : isRentedSidebar ? 'bg-teal-50 border-l-4 border-l-teal-500 hover:bg-teal-100' : isRentableSidebar ? 'bg-amber-50 border-l-4 border-l-amber-400 hover:bg-amber-100' : 'hover:bg-gray-50'
+                  const circleClass = isActive ? 'bg-indigo-600 text-white' : isWatched ? 'bg-green-500 text-white' : isRentedSidebar ? 'bg-teal-500 text-white' : isRentableSidebar ? 'bg-amber-400 text-white' : isPremium ? 'bg-orange-100 text-orange-600' : 'bg-gray-200 text-gray-600'
+                  const circleContent = isWatched && !isActive ? '<i class="fas fa-check"></i>' : index + 1
+                  const rightIcon = isActive ? '<i class="fas fa-play text-indigo-600"></i>' : isWatched ? '<i class="fas fa-check-circle text-green-500 text-sm"></i>' : isRentedSidebar ? '<i class="fas fa-key text-teal-500 text-sm"></i>' : isRentableSidebar ? '<i class="fas fa-shopping-cart text-amber-500 text-sm"></i>' : isPremium ? '<i class="fas fa-lock text-orange-500 text-sm"></i>' : ''
                   const hasFullAccess = accessManager?.userAccessStatus?.accessType === 'COMPLETO'
                   const canAccess = isFree || isRentedSidebar || hasFullAccess
                   const clickAction = canAccess ? `app.loadLesson(${lid})` : (isRentableSidebar ? `app.showRentModal(${lid}, '${l.title.replace(/'/g, "\\'")}', ${l.rental_credits})` : `accessManager.showUpgradeModal()`)
-
                   return `
-                  <div class="relative group">
-                  <button onclick="${clickAction}"
-                          class="w-full text-left p-4 border-b border-gray-100 transition-all ${rowBg}">
+                  <button onclick="${clickAction}" class="w-full text-left p-4 border-b border-gray-100 transition-all ${rowBg}">
                     <div class="flex items-start gap-3">
-                      <div class="w-8 h-8 ${circleClass} rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm">
-                        ${circleContent}
-                      </div>
-                      <div class="flex-1 min-w-0 pr-2">
-                        <p class="font-semibold text-gray-800 text-sm mb-1 line-clamp-2">
-                          ${l.title}
-                          ${isRentedSidebar ? '<i class="fas fa-key text-teal-500 ml-1 text-xs"></i>' : ''}
-                          ${isPremium && !isWatched && !isRentableSidebar && !isRentedSidebar ? '<i class="fas fa-lock text-red-500 ml-1 text-xs"></i>' : ''}
-                          ${isRentableSidebar && !isWatched ? '<i class="fas fa-shopping-cart text-amber-500 ml-1 text-xs"></i>' : ''}
-                        </p>
+                      <div class="w-8 h-8 ${circleClass} rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm">${circleContent}</div>
+                      <div class="flex-1 min-w-0">
+                        <p class="font-semibold text-gray-800 text-sm mb-1 line-clamp-2">${l.title}</p>
                         <div class="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
                           <span><i class="fas fa-clock mr-1"></i>${l.duration_minutes}min</span>
-                          ${isFree
-                            ? '<span class="text-green-600 font-semibold"><i class="fas fa-gift mr-1"></i>Grátis</span>'
-                            : isRentedSidebar
-                              ? '<span class="text-teal-600 font-semibold"><i class="fas fa-key mr-1"></i>Alugada</span>'
-                              : isRentableSidebar && !isWatched
-                                ? '<span class="text-amber-600 font-semibold"><i class="fas fa-coins mr-1"></i>' + l.rental_credits + ' créditos</span>'
-                                : '<span class="text-orange-600 font-semibold"><i class="fas fa-crown mr-1"></i>Premium</span>'
-                          }
+                          ${isFree ? '<span class="text-green-600 font-semibold"><i class="fas fa-gift mr-1"></i>Grátis</span>' : isRentedSidebar ? '<span class="text-teal-600 font-semibold"><i class="fas fa-key mr-1"></i>Alugada</span>' : isRentableSidebar && !isWatched ? '<span class="text-amber-600 font-semibold"><i class="fas fa-coins mr-1"></i>' + l.rental_credits + ' créditos</span>' : '<span class="text-orange-600 font-semibold"><i class="fas fa-crown mr-1"></i>Premium</span>'}
                           ${isWatched ? '<span class="text-green-700 font-semibold bg-green-100 px-1.5 py-0.5 rounded-full">✓ Assistida</span>' : ''}
                         </div>
                       </div>
                       ${rightIcon}
                     </div>
-                  </button>
-                  </div>
-                `}).join('')}
+                  </button>`
+                }).join('')}
               </div>
-              <div class="p-4 bg-gray-50 border-t border-gray-200">
+              <div class="p-3 bg-gray-50 border-t border-gray-200">
                 <button onclick="app.showTrail(${activeTrail.trailId})"
-                        class="w-full px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-lg font-semibold transition-all shadow-md hover:shadow-lg text-sm">
-                  <i class="fas fa-route mr-2"></i>
-                  Ver Trilha Completa
+                        class="w-full px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-lg font-semibold transition-all text-sm">
+                  <i class="fas fa-route mr-2"></i>Ver Trilha Completa
                 </button>
               </div>
-              ` : `
+            </div>
+            ` : ''}
+
+            <!-- Module Lessons -->
+            <div class="bg-white rounded-xl shadow-lg overflow-hidden ${activeTrail ? '' : 'sticky top-6'}">
               <div class="bg-gradient-to-r from-blue-600 to-blue-700 p-4 text-white">
                 <h3 class="font-bold text-lg">
                   <i class="fas fa-list mr-2"></i>
@@ -1418,7 +1370,7 @@ const app = {
                 </h3>
                 <p class="text-sm text-blue-100 mt-1">${currentModule ? currentModule.title : ''}</p>
               </div>
-              <div class="max-h-[600px] overflow-y-auto">
+              <div class="${activeTrail ? 'max-h-[350px]' : 'max-h-[600px]'} overflow-y-auto">
                 ${moduleLessons.map((l, index) => {
                   const isFree = l.teste_gratis || l.free_trial || false
                   const isPremium = !isFree
@@ -1426,60 +1378,20 @@ const app = {
                   const isRentableSidebar = !isFree && !isRentedSidebar && l.rentable && l.rental_credits > 0
                   const isWatched = !!lessonProgressMap[l.id]
                   const isActive = l.id === lessonId
-
-                  const rowBg = isActive
-                    ? 'bg-blue-50 border-l-4 border-l-blue-600'
-                    : isWatched
-                      ? 'bg-green-50 border-l-4 border-l-green-500 hover:bg-green-100'
-                      : isRentedSidebar
-                        ? 'bg-teal-50 border-l-4 border-l-teal-500 hover:bg-teal-100'
-                        : isRentableSidebar
-                          ? 'bg-amber-50 border-l-4 border-l-amber-400 hover:bg-amber-100'
-                          : 'hover:bg-gray-50'
-
-                  const circleClass = isActive
-                    ? 'bg-blue-600 text-white'
-                    : isWatched
-                      ? 'bg-green-500 text-white'
-                      : isRentedSidebar
-                        ? 'bg-teal-500 text-white'
-                        : isRentableSidebar
-                          ? 'bg-amber-400 text-white'
-                          : isPremium
-                            ? 'bg-orange-100 text-orange-600'
-                            : 'bg-gray-200 text-gray-600'
-
-                  const circleContent = isWatched && !isActive
-                    ? '<i class="fas fa-check"></i>'
-                    : index + 1
-
-                  const rightIcon = isActive
-                    ? '<i class="fas fa-play text-blue-600"></i>'
-                    : isWatched
-                      ? '<i class="fas fa-check-circle text-green-500 text-sm"></i>'
-                      : isRentedSidebar
-                        ? '<i class="fas fa-key text-teal-500 text-sm"></i>'
-                        : isRentableSidebar
-                          ? '<i class="fas fa-shopping-cart text-amber-500 text-sm"></i>'
-                          : isPremium
-                            ? '<i class="fas fa-lock text-orange-500 text-sm"></i>'
-                            : ''
-
+                  const rowBg = isActive ? 'bg-blue-50 border-l-4 border-l-blue-600' : isWatched ? 'bg-green-50 border-l-4 border-l-green-500 hover:bg-green-100' : isRentedSidebar ? 'bg-teal-50 border-l-4 border-l-teal-500 hover:bg-teal-100' : isRentableSidebar ? 'bg-amber-50 border-l-4 border-l-amber-400 hover:bg-amber-100' : 'hover:bg-gray-50'
+                  const circleClass = isActive ? 'bg-blue-600 text-white' : isWatched ? 'bg-green-500 text-white' : isRentedSidebar ? 'bg-teal-500 text-white' : isRentableSidebar ? 'bg-amber-400 text-white' : isPremium ? 'bg-orange-100 text-orange-600' : 'bg-gray-200 text-gray-600'
+                  const circleContent = isWatched && !isActive ? '<i class="fas fa-check"></i>' : index + 1
+                  const rightIcon = isActive ? '<i class="fas fa-play text-blue-600"></i>' : isWatched ? '<i class="fas fa-check-circle text-green-500 text-sm"></i>' : isRentedSidebar ? '<i class="fas fa-key text-teal-500 text-sm"></i>' : isRentableSidebar ? '<i class="fas fa-shopping-cart text-amber-500 text-sm"></i>' : isPremium ? '<i class="fas fa-lock text-orange-500 text-sm"></i>' : ''
                   const isFavSidebar = !!playerFavMap[l.id]
                   return `
                   <div class="relative group">
                   <button onclick="accessManager.navigateToLesson(${l.id}, ${JSON.stringify(l).replace(/"/g, '&quot;')})"
-                          data-lesson-id="${l.id}"
-                          data-is-premium="${isPremium}"
-                          data-rentable="${isRentableSidebar}"
-                          data-is-rented="${isRentedSidebar}"
-                          data-rental-credits="${l.rental_credits || 0}"
+                          data-lesson-id="${l.id}" data-is-premium="${isPremium}" data-rentable="${isRentableSidebar}"
+                          data-is-rented="${isRentedSidebar}" data-rental-credits="${l.rental_credits || 0}"
                           data-lesson-title="${l.title.replace(/"/g, '&quot;')}"
                           class="w-full text-left p-4 border-b border-gray-100 transition-all ${rowBg}">
                     <div class="flex items-start gap-3">
-                      <div class="w-8 h-8 ${circleClass} rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm">
-                        ${circleContent}
-                      </div>
+                      <div class="w-8 h-8 ${circleClass} rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm">${circleContent}</div>
                       <div class="flex-1 min-w-0 pr-6">
                         <p class="font-semibold text-gray-800 text-sm mb-1 line-clamp-2">
                           ${l.title}
@@ -1489,14 +1401,7 @@ const app = {
                         </p>
                         <div class="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
                           <span><i class="fas fa-clock mr-1"></i>${l.duration_minutes}min</span>
-                          ${isFree
-                            ? '<span class="text-green-600 font-semibold"><i class="fas fa-gift mr-1"></i>Grátis</span>'
-                            : isRentedSidebar
-                              ? '<span class="text-teal-600 font-semibold"><i class="fas fa-key mr-1"></i>Alugada</span>'
-                              : isRentableSidebar && !isWatched
-                                ? '<span class="text-amber-600 font-semibold"><i class="fas fa-coins mr-1"></i>' + l.rental_credits + ' créditos</span>'
-                                : '<span class="text-orange-600 font-semibold"><i class="fas fa-crown mr-1"></i>Premium</span>'
-                          }
+                          ${isFree ? '<span class="text-green-600 font-semibold"><i class="fas fa-gift mr-1"></i>Grátis</span>' : isRentedSidebar ? '<span class="text-teal-600 font-semibold"><i class="fas fa-key mr-1"></i>Alugada</span>' : isRentableSidebar && !isWatched ? '<span class="text-amber-600 font-semibold"><i class="fas fa-coins mr-1"></i>' + l.rental_credits + ' créditos</span>' : '<span class="text-orange-600 font-semibold"><i class="fas fa-crown mr-1"></i>Premium</span>'}
                           ${isWatched ? '<span class="text-green-700 font-semibold bg-green-100 px-1.5 py-0.5 rounded-full">✓ Assistida</span>' : ''}
                         </div>
                       </div>
@@ -1504,24 +1409,22 @@ const app = {
                     </div>
                   </button>
                   <button class="absolute top-3 right-3 fav-btn ${isFavSidebar ? 'text-red-500' : 'text-gray-300'} hover:text-red-500 transition-colors p-1"
-                          data-lesson-id="${l.id}"
-                          data-fav="${isFavSidebar ? '1' : '0'}"
+                          data-lesson-id="${l.id}" data-fav="${isFavSidebar ? '1' : '0'}"
                           onclick="event.stopPropagation(); app.toggleFavorite(${l.id}, this)"
                           title="${isFavSidebar ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}">
                     <i class="fas fa-heart text-sm"></i>
                   </button>
-                  </div>
-                `}).join('')}
+                  </div>`
+                }).join('')}
               </div>
-              <div class="p-4 bg-gray-50 border-t border-gray-200">
+              <div class="p-3 bg-gray-50 border-t border-gray-200">
                 <button onclick="app.loadCourse(${lesson.course_id})"
-                        class="w-full px-4 py-2 bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white rounded-lg font-semibold transition-all shadow-md hover:shadow-lg text-sm">
-                  <i class="fas fa-th-list mr-2"></i>
-                  Ver Todos os Módulos
+                        class="w-full px-4 py-2 bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white rounded-lg font-semibold transition-all text-sm">
+                  <i class="fas fa-th-list mr-2"></i>Ver Todos os Módulos
                 </button>
               </div>
-              `}
             </div>
+
           </div>
         </div>
       `
