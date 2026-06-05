@@ -4332,21 +4332,11 @@ app.get('/api/lessons/:id', async (c) => {
 
     if (userEmail) {
       try {
-        const accessResult = await db.rpc('user_has_lesson_access', {
-          email_usuario: userEmail,
-          lesson_id: parseInt(lessonId) 
-        })
-        
-        console.log('Access check result:', accessResult)
-        
-        // Handle different return formats
-        if (Array.isArray(accessResult) && accessResult.length > 0) {
-          hasAccess = accessResult[0].user_has_lesson_access || accessResult[0] === true || !!accessResult[0]
-        } else if (typeof accessResult === 'boolean') {
-          hasAccess = accessResult
-        } else if (accessResult && typeof accessResult === 'object') {
-          hasAccess = !!accessResult.user_has_lesson_access
-        }
+        const accessRows = await db.sql(
+          `SELECT user_has_lesson_access($1::text, $2::integer) AS has_access`,
+          [userEmail, parseInt(lessonId)]
+        )
+        hasAccess = !!accessRows[0]?.has_access
         
         console.log('Has access:', hasAccess, 'User:', userEmail, 'Lesson:', lessonId)
         
@@ -5220,19 +5210,11 @@ app.get('/api/lessons/:id/access', async (c) => {
     const db = getDB(c)
     
     // Use the database function to check access
-    const result = await db.rpc('user_has_lesson_access', {
-      email_usuario: user.email,
-      lesson_id: parseInt(lessonId)
-    })
-    
-    let hasAccess = false
-    if (Array.isArray(result) && result.length > 0) {
-      hasAccess = result[0].user_has_lesson_access || result[0] === true || !!result[0]
-    } else if (typeof result === 'boolean') {
-      hasAccess = result
-    } else if (result && typeof result === 'object') {
-      hasAccess = !!result.user_has_lesson_access
-    }
+    const accessRows = await db.sql(
+      `SELECT user_has_lesson_access($1::text, $2::integer) AS has_access`,
+      [user.email, parseInt(lessonId)]
+    )
+    let hasAccess = !!accessRows[0]?.has_access
     
     // Fallback: verificar suiteplus (produto ID 4) se ainda sem acesso
     if (!hasAccess) {
@@ -6123,7 +6105,7 @@ app.get('/', (c) => {
         <script defer src="/static/auth.js?v=whatsapp-floating-20260602"></script>
         <script defer src="/static/admin.js?v=8"></script>
         <script defer src="/static/access-control.js?v=3"></script>
-        <script defer src="/static/app.js?v=14"></script>
+        <script defer src="/static/app.js?v=15"></script>
         <script defer src="/static/search.js?v=4"></script>
     </body>
     </html>
