@@ -1306,61 +1306,9 @@ const app = {
             </div>
           </div>
           
-          <!-- Sidebar: Trail + Module Lessons -->
+          <!-- Sidebar: Module Lessons -->
           <div class="lg:col-span-1">
-            <div class="sticky top-6 space-y-4">
-
-            ${activeTrail ? `
-            <!-- Trail Lessons -->
-            <div class="bg-white rounded-xl shadow-lg overflow-hidden">
-              <div class="bg-gradient-to-r from-indigo-600 to-purple-600 p-4 text-white">
-                <h3 class="font-bold text-lg">
-                  <i class="fas fa-route mr-2"></i>
-                  Aulas da Trilha
-                </h3>
-                <p class="text-sm text-indigo-100 mt-1 truncate">${activeTrail.trail.title}</p>
-              </div>
-              <div class="max-h-[400px] overflow-y-auto">
-                ${activeTrail.lessons.map((l, index) => {
-                  const lid = l.lesson_id
-                  const isFree = l.teste_gratis || false
-                  const isPremium = !isFree
-                  const isRentedSidebar = app.activeRentals.has(lid)
-                  const isRentableSidebar = !isFree && !isRentedSidebar && l.rentable && l.rental_credits > 0
-                  const isWatched = l.is_completed || !!lessonProgressMap[lid]
-                  const isActive = lid == lessonId
-                  const rowBg = isActive ? 'bg-indigo-50 border-l-4 border-l-indigo-600' : isWatched ? 'bg-green-50 border-l-4 border-l-green-500 hover:bg-green-100' : isRentedSidebar ? 'bg-teal-50 border-l-4 border-l-teal-500 hover:bg-teal-100' : isRentableSidebar ? 'bg-amber-50 border-l-4 border-l-amber-400 hover:bg-amber-100' : 'hover:bg-gray-50'
-                  const circleClass = isActive ? 'bg-indigo-600 text-white' : isWatched ? 'bg-green-500 text-white' : isRentedSidebar ? 'bg-teal-500 text-white' : isRentableSidebar ? 'bg-amber-400 text-white' : isPremium ? 'bg-orange-100 text-orange-600' : 'bg-gray-200 text-gray-600'
-                  const circleContent = isWatched && !isActive ? '<i class="fas fa-check"></i>' : index + 1
-                  const rightIcon = isActive ? '<i class="fas fa-play text-indigo-600"></i>' : isWatched ? '<i class="fas fa-check-circle text-green-500 text-sm"></i>' : isRentedSidebar ? '<i class="fas fa-key text-teal-500 text-sm"></i>' : isRentableSidebar ? '<i class="fas fa-shopping-cart text-amber-500 text-sm"></i>' : isPremium ? '<i class="fas fa-lock text-orange-500 text-sm"></i>' : ''
-                  const hasFullAccess = accessManager?.userAccessStatus?.accessType === 'COMPLETO'
-                  const canAccess = isFree || isRentedSidebar || hasFullAccess
-                  const clickAction = canAccess ? `app.loadLesson(${lid})` : (isRentableSidebar ? `app.showRentModal(${lid}, '${l.title.replace(/'/g, "\\'")}', ${l.rental_credits})` : `accessManager.showUpgradeModal()`)
-                  return `
-                  <button onclick="${clickAction}" class="w-full text-left p-4 border-b border-gray-100 transition-all ${rowBg}">
-                    <div class="flex items-start gap-3">
-                      <div class="w-8 h-8 ${circleClass} rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm">${circleContent}</div>
-                      <div class="flex-1 min-w-0">
-                        <p class="font-semibold text-gray-800 text-sm mb-1 line-clamp-2">${l.title}</p>
-                        <div class="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
-                          <span><i class="fas fa-clock mr-1"></i>${l.duration_minutes}min</span>
-                          ${isFree ? '<span class="text-green-600 font-semibold"><i class="fas fa-gift mr-1"></i>Grátis</span>' : isRentedSidebar ? '<span class="text-teal-600 font-semibold"><i class="fas fa-key mr-1"></i>Alugada</span>' : isRentableSidebar && !isWatched ? '<span class="text-amber-600 font-semibold"><i class="fas fa-coins mr-1"></i>' + l.rental_credits + ' créditos</span>' : '<span class="text-orange-600 font-semibold"><i class="fas fa-crown mr-1"></i>Premium</span>'}
-                          ${isWatched ? '<span class="text-green-700 font-semibold bg-green-100 px-1.5 py-0.5 rounded-full">✓ Assistida</span>' : ''}
-                        </div>
-                      </div>
-                      ${rightIcon}
-                    </div>
-                  </button>`
-                }).join('')}
-              </div>
-              <div class="p-3 bg-gray-50 border-t border-gray-200">
-                <button onclick="app.showTrail(${activeTrail.trailId})"
-                        class="w-full px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-lg font-semibold transition-all text-sm">
-                  <i class="fas fa-route mr-2"></i>Ver Trilha Completa
-                </button>
-              </div>
-            </div>
-            ` : ''}
+            <div class="sticky top-6">
 
             <!-- Module Lessons -->
             <div class="bg-white rounded-xl shadow-lg overflow-hidden">
@@ -1371,7 +1319,7 @@ const app = {
                 </h3>
                 <p class="text-sm text-blue-100 mt-1">${currentModule ? currentModule.title : ''}</p>
               </div>
-              <div class="${activeTrail ? 'max-h-[350px]' : 'max-h-[600px]'} overflow-y-auto">
+              <div class="max-h-[600px] overflow-y-auto">
                 ${moduleLessons.map((l, index) => {
                   const isFree = l.teste_gratis || l.free_trial || false
                   const isPremium = !isFree
@@ -1426,7 +1374,7 @@ const app = {
               </div>
             </div>
 
-            </div><!-- /sticky wrapper -->
+            </div><!-- /sticky -->
           </div>
         </div>
       `
