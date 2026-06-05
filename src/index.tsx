@@ -790,50 +790,50 @@ app.get('/api/user/access-status', requireAuth, async (c) => {
       return c.json({ error: 'Email do usuário não encontrado' }, 400)
     }
     
-    // Get user access type using database function
     const db = getDB(c)
-    const accessTypeResult = await db.rpc('user_tipo_acesso', {
-      email_usuario: userEmail
-    })
-    
-    console.log('🔍 Access type result for', userEmail, ':', accessTypeResult)
-    
-    // Handle different return formats from RPC
     let accessType = 'SEM_ACESSO'
-    if (typeof accessTypeResult === 'string') {
-      // Direct string return
-      accessType = accessTypeResult
-    } else if (Array.isArray(accessTypeResult) && accessTypeResult.length > 0) {
-      // Array return: [{user_tipo_acesso: "COMPLETO"}] or ["COMPLETO"]
-      accessType = accessTypeResult[0].user_tipo_acesso || accessTypeResult[0]
-    } else if (accessTypeResult && typeof accessTypeResult === 'object') {
-      // Object return: {user_tipo_acesso: "COMPLETO"}
-      accessType = accessTypeResult.user_tipo_acesso
+
+    // Try RPC but don't fail if it errors (ambiguity or missing function)
+    try {
+      const accessTypeResult = await db.rpc('user_tipo_acesso', {
+        email_usuario: userEmail
+      })
+      console.log('🔍 Access type result for', userEmail, ':', accessTypeResult)
+      if (typeof accessTypeResult === 'string') {
+        accessType = accessTypeResult
+      } else if (Array.isArray(accessTypeResult) && accessTypeResult.length > 0) {
+        accessType = accessTypeResult[0].user_tipo_acesso || accessTypeResult[0]
+      } else if (accessTypeResult && typeof accessTypeResult === 'object') {
+        accessType = accessTypeResult.user_tipo_acesso
+      }
+    } catch (rpcError: any) {
+      console.log('⚠️ user_tipo_acesso RPC error, will fallback to member_subscriptions:', rpcError?.message)
     }
-    
-    console.log('✅ Determined access type:', accessType)
-    
-    // Get active subscription details
+
+    console.log('🔍 RPC accessType:', accessType)
+
+    // Check member_subscriptions directly — overrides RPC if active subscription exists
     const activeSubscription = await db.query('member_subscriptions', {
       select: 'data_expiracao, teste_gratis, detalhe',
-      filters: { 
-        email_membro: userEmail
+      filters: {
+        email_membro: userEmail,
+        ativo: true
       },
       order: 'data_expiracao.desc',
       limit: 1
     })
-    
+
     let expirationDate = null
     let subscriptionDetail = null
-    
+
     if (activeSubscription && activeSubscription.length > 0) {
       const sub = activeSubscription[0]
       const expDate = new Date(sub.data_expiracao)
 
-      // Only include if not expired
       if (expDate > new Date()) {
         expirationDate = sub.data_expiracao
         subscriptionDetail = sub.detalhe
+        if (accessType === 'SEM_ACESSO') accessType = 'COMPLETO'
       }
     }
 
@@ -848,6 +848,8 @@ app.get('/api/user/access-status', requireAuth, async (c) => {
         }
       }
     }
+
+    console.log('✅ Final accessType for', userEmail, ':', accessType)
 
     return c.json({
       email: userEmail,
