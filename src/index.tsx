@@ -4349,19 +4349,39 @@ app.get('/api/lessons/:id', async (c) => {
           if (rental.length > 0) {
             hasAccess = true
           } else {
-            const lessonMeta = await db.sql(
-              'SELECT rentable, rental_credits, title FROM lessons WHERE id = $1',
-              [parseInt(lessonId)]
+            // Check member_subscriptions directly (user_has_lesson_access may be incomplete)
+            const activeSub = await db.sql(
+              `SELECT id FROM member_subscriptions WHERE email_membro = $1 AND data_expiracao > NOW() AND ativo = true LIMIT 1`,
+              [userEmail]
             )
-            console.log('❌ Access denied for user:', userEmail, 'lesson:', lessonId)
-            return c.json({
-              error: 'Access denied',
-              message: 'Você não tem permissão para acessar esta aula.',
-              needsUpgrade: true,
-              rentable: lessonMeta[0]?.rentable || false,
-              rental_credits: lessonMeta[0]?.rental_credits || 0,
-              lesson_title: lessonMeta[0]?.title || ''
-            }, 403)
+            if (activeSub.length > 0) {
+              hasAccess = true
+            } else {
+              // Check SuitesPLUS as final fallback
+              const suiteplusConn = (c.env as any).DATABASE_SUITEPLUS
+              if (suiteplusConn) {
+                const suiteplusExpires = await getSuiteplusExpiration(userEmail, suiteplusConn)
+                if (suiteplusExpires && suiteplusExpires > new Date()) {
+                  hasAccess = true
+                }
+              }
+            }
+
+            if (!hasAccess) {
+              const lessonMeta = await db.sql(
+                'SELECT rentable, rental_credits, title FROM lessons WHERE id = $1',
+                [parseInt(lessonId)]
+              )
+              console.log('❌ Access denied for user:', userEmail, 'lesson:', lessonId)
+              return c.json({
+                error: 'Access denied',
+                message: 'Você não tem permissão para acessar esta aula.',
+                needsUpgrade: true,
+                rentable: lessonMeta[0]?.rentable || false,
+                rental_credits: lessonMeta[0]?.rental_credits || 0,
+                lesson_title: lessonMeta[0]?.title || ''
+              }, 403)
+            }
           }
         }
         
