@@ -507,7 +507,7 @@ const app = {
       )
 
       const { course, modules } = courseResponse.data
-      const progress = progressResponse.data.progress
+      const progress = progressResponse.data.progress || []
 
       // Create progress map
       const progressMap = {}
@@ -2321,6 +2321,11 @@ const app = {
       clearTimeout(this._overlayTimeout)
       this._overlayTimeout = null
     }
+    // Cancel any pending hide-animation timeout so it doesn't close this new spinner
+    if (this._hideAnimTimeout) {
+      clearTimeout(this._hideAnimTimeout)
+      this._hideAnimTimeout = null
+    }
 
     let overlay = document.getElementById('loadingOverlay')
 
@@ -2363,7 +2368,8 @@ const app = {
     const overlay = document.getElementById('loadingOverlay')
     if (overlay && !overlay.classList.contains('hidden')) {
       overlay.style.opacity = '0'
-      setTimeout(() => {
+      this._hideAnimTimeout = setTimeout(() => {
+        this._hideAnimTimeout = null
         overlay.classList.add('hidden')
         overlay.style.opacity = ''
       }, 200)
