@@ -1307,11 +1307,12 @@ const app = {
           </div>
           
           <!-- Sidebar: Trail + Module Lessons -->
-          <div class="lg:col-span-1 space-y-4">
+          <div class="lg:col-span-1">
+            <div class="sticky top-6 space-y-4">
 
             ${activeTrail ? `
             <!-- Trail Lessons -->
-            <div class="bg-white rounded-xl shadow-lg overflow-hidden sticky top-6">
+            <div class="bg-white rounded-xl shadow-lg overflow-hidden">
               <div class="bg-gradient-to-r from-indigo-600 to-purple-600 p-4 text-white">
                 <h3 class="font-bold text-lg">
                   <i class="fas fa-route mr-2"></i>
@@ -1362,7 +1363,7 @@ const app = {
             ` : ''}
 
             <!-- Module Lessons -->
-            <div class="bg-white rounded-xl shadow-lg overflow-hidden ${activeTrail ? '' : 'sticky top-6'}">
+            <div class="bg-white rounded-xl shadow-lg overflow-hidden">
               <div class="bg-gradient-to-r from-blue-600 to-blue-700 p-4 text-white">
                 <h3 class="font-bold text-lg">
                   <i class="fas fa-list mr-2"></i>
@@ -1425,10 +1426,11 @@ const app = {
               </div>
             </div>
 
+            </div><!-- /sticky wrapper -->
           </div>
         </div>
       `
-      
+
       this.showLessonView()
       this.hideLoadingState()
       window.scrollTo({ top: 0, behavior: 'smooth' })
