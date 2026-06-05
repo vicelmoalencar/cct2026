@@ -916,7 +916,6 @@ const app = {
       }
 
       // Build trail nav bar and breadcrumb
-      let trailNavHtml = ''
       let breadcrumbHtml = `
         <div class="mb-4 flex items-center text-sm text-gray-600 flex-wrap gap-y-1">
           <button onclick="app.showCourses()" class="hover:text-blue-600 transition-colors">
@@ -932,45 +931,6 @@ const app = {
 
       if (activeTrail) {
         const { trailId: activeTrailId, trail: activeTrailData, lessons: trailLessons, trailIdx } = activeTrail
-        const prevTL = trailIdx > 0 ? trailLessons[trailIdx - 1] : null
-        const nextTL = trailIdx < trailLessons.length - 1 ? trailLessons[trailIdx + 1] : null
-        const hasFullAccess = accessManager?.userAccessStatus?.accessType === 'COMPLETO'
-
-        const prevBtn = prevTL ? (() => {
-          const canAccess = prevTL.teste_gratis || this.activeRentals.has(prevTL.lesson_id) || hasFullAccess
-          const action = canAccess ? `app.loadLesson(${prevTL.lesson_id})` : `accessManager.showUpgradeModal()`
-          return `<button onclick="${action}" class="flex-1 flex items-center gap-2 px-4 py-2 bg-white border border-indigo-200 rounded-lg text-sm font-semibold text-indigo-700 hover:bg-indigo-50 transition-colors min-w-0">
-            <i class="fas fa-chevron-left flex-shrink-0"></i>
-            <span class="truncate text-left">${prevTL.title}</span>
-          </button>`
-        })() : '<div class="flex-1"></div>'
-
-        const nextBtn = nextTL ? (() => {
-          const canAccess = nextTL.teste_gratis || this.activeRentals.has(nextTL.lesson_id) || hasFullAccess
-          const action = canAccess ? `app.loadLesson(${nextTL.lesson_id})` : `accessManager.showUpgradeModal()`
-          return `<button onclick="${action}" class="flex-1 flex items-center gap-2 justify-end px-4 py-2 bg-indigo-600 rounded-lg text-sm font-semibold text-white hover:bg-indigo-700 transition-colors min-w-0">
-            <span class="truncate text-right">${nextTL.title}</span>
-            <i class="fas fa-chevron-right flex-shrink-0"></i>
-          </button>`
-        })() : '<div class="flex-1"></div>'
-
-        trailNavHtml = `
-          <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4 mb-4">
-            <div class="flex items-center justify-between mb-3">
-              <div class="flex items-center gap-2 text-indigo-700 min-w-0">
-                <i class="fas fa-route text-sm flex-shrink-0"></i>
-                <span class="font-semibold text-sm truncate">${activeTrailData.title}</span>
-                <span class="text-xs bg-indigo-200 text-indigo-700 px-2 py-0.5 rounded-full flex-shrink-0">${trailIdx + 1}/${trailLessons.length}</span>
-              </div>
-              <button onclick="app.showTrail(${activeTrailId})" class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold whitespace-nowrap ml-3">
-                <i class="fas fa-list mr-1"></i>Ver trilha
-              </button>
-            </div>
-            <div class="flex gap-3">
-              ${prevBtn}
-              ${nextBtn}
-            </div>
-          </div>`
 
         breadcrumbHtml = `
           <div class="mb-4 flex items-center text-sm text-gray-600 flex-wrap gap-y-1">
@@ -990,7 +950,6 @@ const app = {
       lessonDetail.innerHTML = `
         <!-- Breadcrumb Navigation -->
         ${breadcrumbHtml}
-        ${trailNavHtml}
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <!-- Main Content (Video + Info) -->
@@ -1306,74 +1265,135 @@ const app = {
             </div>
           </div>
           
-          <!-- Sidebar: Module Lessons -->
+          <!-- Sidebar: Tabs (Curso / Trilha) -->
           <div class="lg:col-span-1">
             <div class="sticky top-6">
-
-            <!-- Module Lessons -->
             <div class="bg-white rounded-xl shadow-lg overflow-hidden">
-              <div class="bg-gradient-to-r from-blue-600 to-blue-700 p-4 text-white">
-                <h3 class="font-bold text-lg">
-                  <i class="fas fa-list mr-2"></i>
-                  Aulas do Módulo
-                </h3>
-                <p class="text-sm text-blue-100 mt-1">${currentModule ? currentModule.title : ''}</p>
-              </div>
-              <div class="max-h-[600px] overflow-y-auto">
-                ${moduleLessons.map((l, index) => {
-                  const isFree = l.teste_gratis || l.free_trial || false
-                  const isPremium = !isFree
-                  const isRentedSidebar = app.activeRentals.has(l.id)
-                  const isRentableSidebar = !isFree && !isRentedSidebar && l.rentable && l.rental_credits > 0
-                  const isWatched = !!lessonProgressMap[l.id]
-                  const isActive = l.id === lessonId
-                  const rowBg = isActive ? 'bg-blue-50 border-l-4 border-l-blue-600' : isWatched ? 'bg-green-50 border-l-4 border-l-green-500 hover:bg-green-100' : isRentedSidebar ? 'bg-teal-50 border-l-4 border-l-teal-500 hover:bg-teal-100' : isRentableSidebar ? 'bg-amber-50 border-l-4 border-l-amber-400 hover:bg-amber-100' : 'hover:bg-gray-50'
-                  const circleClass = isActive ? 'bg-blue-600 text-white' : isWatched ? 'bg-green-500 text-white' : isRentedSidebar ? 'bg-teal-500 text-white' : isRentableSidebar ? 'bg-amber-400 text-white' : isPremium ? 'bg-orange-100 text-orange-600' : 'bg-gray-200 text-gray-600'
-                  const circleContent = isWatched && !isActive ? '<i class="fas fa-check"></i>' : index + 1
-                  const rightIcon = isActive ? '<i class="fas fa-play text-blue-600"></i>' : isWatched ? '<i class="fas fa-check-circle text-green-500 text-sm"></i>' : isRentedSidebar ? '<i class="fas fa-key text-teal-500 text-sm"></i>' : isRentableSidebar ? '<i class="fas fa-shopping-cart text-amber-500 text-sm"></i>' : isPremium ? '<i class="fas fa-lock text-orange-500 text-sm"></i>' : ''
-                  const isFavSidebar = !!playerFavMap[l.id]
-                  return `
-                  <div class="relative group">
-                  <button onclick="accessManager.navigateToLesson(${l.id}, ${JSON.stringify(l).replace(/"/g, '&quot;')})"
-                          data-lesson-id="${l.id}" data-is-premium="${isPremium}" data-rentable="${isRentableSidebar}"
-                          data-is-rented="${isRentedSidebar}" data-rental-credits="${l.rental_credits || 0}"
-                          data-lesson-title="${l.title.replace(/"/g, '&quot;')}"
-                          class="w-full text-left p-4 border-b border-gray-100 transition-all ${rowBg}">
-                    <div class="flex items-start gap-3">
-                      <div class="w-8 h-8 ${circleClass} rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm">${circleContent}</div>
-                      <div class="flex-1 min-w-0 pr-6">
-                        <p class="font-semibold text-gray-800 text-sm mb-1 line-clamp-2">
-                          ${l.title}
-                          ${isRentedSidebar ? '<i class="fas fa-key text-teal-500 ml-1 text-xs"></i>' : ''}
-                          ${isPremium && !isWatched && !isRentableSidebar && !isRentedSidebar ? '<i class="fas fa-lock text-red-500 ml-1 text-xs"></i>' : ''}
-                          ${isRentableSidebar && !isWatched ? '<i class="fas fa-shopping-cart text-amber-500 ml-1 text-xs"></i>' : ''}
-                        </p>
-                        <div class="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
-                          <span><i class="fas fa-clock mr-1"></i>${l.duration_minutes}min</span>
-                          ${isFree ? '<span class="text-green-600 font-semibold"><i class="fas fa-gift mr-1"></i>Grátis</span>' : isRentedSidebar ? '<span class="text-teal-600 font-semibold"><i class="fas fa-key mr-1"></i>Alugada</span>' : isRentableSidebar && !isWatched ? '<span class="text-amber-600 font-semibold"><i class="fas fa-coins mr-1"></i>' + l.rental_credits + ' créditos</span>' : '<span class="text-orange-600 font-semibold"><i class="fas fa-crown mr-1"></i>Premium</span>'}
-                          ${isWatched ? '<span class="text-green-700 font-semibold bg-green-100 px-1.5 py-0.5 rounded-full">✓ Assistida</span>' : ''}
-                        </div>
-                      </div>
-                      ${rightIcon}
-                    </div>
-                  </button>
-                  <button class="absolute top-3 right-3 fav-btn ${isFavSidebar ? 'text-red-500' : 'text-gray-300'} hover:text-red-500 transition-colors p-1"
-                          data-lesson-id="${l.id}" data-fav="${isFavSidebar ? '1' : '0'}"
-                          onclick="event.stopPropagation(); app.toggleFavorite(${l.id}, this)"
-                          title="${isFavSidebar ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}">
-                    <i class="fas fa-heart text-sm"></i>
-                  </button>
-                  </div>`
-                }).join('')}
-              </div>
-              <div class="p-3 bg-gray-50 border-t border-gray-200">
-                <button onclick="app.loadCourse(${lesson.course_id})"
-                        class="w-full px-4 py-2 bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white rounded-lg font-semibold transition-all text-sm">
-                  <i class="fas fa-th-list mr-2"></i>Ver Todos os Módulos
-                </button>
-              </div>
-            </div>
 
+              <!-- Tab Headers -->
+              <div class="flex border-b border-gray-200">
+                <button id="sidebar-tab-curso"
+                        onclick="app.switchSidebarTab('curso')"
+                        class="flex-1 py-3 px-4 text-sm font-semibold text-blue-600 border-b-2 border-blue-600 bg-blue-50 transition-colors">
+                  <i class="fas fa-book mr-1"></i>Do Curso
+                </button>
+                ${activeTrail ? `
+                <button id="sidebar-tab-trilha"
+                        onclick="app.switchSidebarTab('trilha')"
+                        class="flex-1 py-3 px-4 text-sm font-semibold text-gray-500 border-b-2 border-transparent hover:text-indigo-600 transition-colors">
+                  <i class="fas fa-route mr-1"></i>Da Trilha
+                </button>` : ''}
+              </div>
+
+              <!-- Tab: Do Curso -->
+              <div id="sidebar-panel-curso">
+                <div class="bg-gradient-to-r from-blue-600 to-blue-700 p-3 text-white">
+                  <p class="text-sm font-semibold text-blue-100">${currentModule ? currentModule.title : ''}</p>
+                </div>
+                <div class="max-h-[560px] overflow-y-auto">
+                  ${moduleLessons.map((l, index) => {
+                    const isFree = l.teste_gratis || l.free_trial || false
+                    const isPremium = !isFree
+                    const isRentedSidebar = app.activeRentals.has(l.id)
+                    const isRentableSidebar = !isFree && !isRentedSidebar && l.rentable && l.rental_credits > 0
+                    const isWatched = !!lessonProgressMap[l.id]
+                    const isActive = l.id === lessonId
+                    const rowBg = isActive ? 'bg-blue-50 border-l-4 border-l-blue-600' : isWatched ? 'bg-green-50 border-l-4 border-l-green-500 hover:bg-green-100' : isRentedSidebar ? 'bg-teal-50 border-l-4 border-l-teal-500 hover:bg-teal-100' : isRentableSidebar ? 'bg-amber-50 border-l-4 border-l-amber-400 hover:bg-amber-100' : 'hover:bg-gray-50'
+                    const circleClass = isActive ? 'bg-blue-600 text-white' : isWatched ? 'bg-green-500 text-white' : isRentedSidebar ? 'bg-teal-500 text-white' : isRentableSidebar ? 'bg-amber-400 text-white' : isPremium ? 'bg-orange-100 text-orange-600' : 'bg-gray-200 text-gray-600'
+                    const circleContent = isWatched && !isActive ? '<i class="fas fa-check"></i>' : index + 1
+                    const rightIcon = isActive ? '<i class="fas fa-play text-blue-600"></i>' : isWatched ? '<i class="fas fa-check-circle text-green-500 text-sm"></i>' : isRentedSidebar ? '<i class="fas fa-key text-teal-500 text-sm"></i>' : isRentableSidebar ? '<i class="fas fa-shopping-cart text-amber-500 text-sm"></i>' : isPremium ? '<i class="fas fa-lock text-orange-500 text-sm"></i>' : ''
+                    const isFavSidebar = !!playerFavMap[l.id]
+                    return `
+                    <div class="relative group">
+                    <button onclick="accessManager.navigateToLesson(${l.id}, ${JSON.stringify(l).replace(/"/g, '&quot;')})"
+                            data-lesson-id="${l.id}" data-is-premium="${isPremium}" data-rentable="${isRentableSidebar}"
+                            data-is-rented="${isRentedSidebar}" data-rental-credits="${l.rental_credits || 0}"
+                            data-lesson-title="${l.title.replace(/"/g, '&quot;')}"
+                            class="w-full text-left p-4 border-b border-gray-100 transition-all ${rowBg}">
+                      <div class="flex items-start gap-3">
+                        <div class="w-8 h-8 ${circleClass} rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm">${circleContent}</div>
+                        <div class="flex-1 min-w-0 pr-6">
+                          <p class="font-semibold text-gray-800 text-sm mb-1 line-clamp-2">
+                            ${l.title}
+                            ${isRentedSidebar ? '<i class="fas fa-key text-teal-500 ml-1 text-xs"></i>' : ''}
+                            ${isPremium && !isWatched && !isRentableSidebar && !isRentedSidebar ? '<i class="fas fa-lock text-red-500 ml-1 text-xs"></i>' : ''}
+                            ${isRentableSidebar && !isWatched ? '<i class="fas fa-shopping-cart text-amber-500 ml-1 text-xs"></i>' : ''}
+                          </p>
+                          <div class="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
+                            <span><i class="fas fa-clock mr-1"></i>${l.duration_minutes}min</span>
+                            ${isFree ? '<span class="text-green-600 font-semibold"><i class="fas fa-gift mr-1"></i>Grátis</span>' : isRentedSidebar ? '<span class="text-teal-600 font-semibold"><i class="fas fa-key mr-1"></i>Alugada</span>' : isRentableSidebar && !isWatched ? '<span class="text-amber-600 font-semibold"><i class="fas fa-coins mr-1"></i>' + l.rental_credits + ' créditos</span>' : '<span class="text-orange-600 font-semibold"><i class="fas fa-crown mr-1"></i>Premium</span>'}
+                            ${isWatched ? '<span class="text-green-700 font-semibold bg-green-100 px-1.5 py-0.5 rounded-full">✓ Assistida</span>' : ''}
+                          </div>
+                        </div>
+                        ${rightIcon}
+                      </div>
+                    </button>
+                    <button class="absolute top-3 right-3 fav-btn ${isFavSidebar ? 'text-red-500' : 'text-gray-300'} hover:text-red-500 transition-colors p-1"
+                            data-lesson-id="${l.id}" data-fav="${isFavSidebar ? '1' : '0'}"
+                            onclick="event.stopPropagation(); app.toggleFavorite(${l.id}, this)"
+                            title="${isFavSidebar ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}">
+                      <i class="fas fa-heart text-sm"></i>
+                    </button>
+                    </div>`
+                  }).join('')}
+                </div>
+                <div class="p-3 bg-gray-50 border-t border-gray-200">
+                  <button onclick="app.loadCourse(${lesson.course_id})"
+                          class="w-full px-4 py-2 bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white rounded-lg font-semibold transition-all text-sm">
+                    <i class="fas fa-th-list mr-2"></i>Ver Todos os Módulos
+                  </button>
+                </div>
+              </div>
+
+              <!-- Tab: Da Trilha -->
+              ${activeTrail ? (() => {
+                const { trailId: activeTrailId, trail: activeTrailData, lessons: trailLessons, trailIdx } = activeTrail
+                const hasFullAccess = accessManager?.userAccessStatus?.accessType === 'COMPLETO'
+                return `
+                <div id="sidebar-panel-trilha" style="display:none">
+                  <div class="bg-gradient-to-r from-indigo-600 to-indigo-700 p-3 text-white">
+                    <p class="text-sm font-semibold text-indigo-100">${activeTrailData.title}</p>
+                    <p class="text-xs text-indigo-200 mt-0.5">${trailIdx + 1} de ${trailLessons.length} aulas</p>
+                  </div>
+                  <div class="max-h-[560px] overflow-y-auto">
+                    ${trailLessons.map((tl, index) => {
+                      const tlId = tl.lesson_id || tl.id
+                      const isTlFree = tl.teste_gratis || tl.free_trial || false
+                      const isTlRented = app.activeRentals.has(tlId)
+                      const isTlActive = tlId == lessonId
+                      const canAccess = isTlFree || isTlRented || hasFullAccess
+                      const rowBgTl = isTlActive ? 'bg-indigo-50 border-l-4 border-l-indigo-600' : 'hover:bg-gray-50'
+                      const circleClassTl = isTlActive ? 'bg-indigo-600 text-white' : canAccess ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-200 text-gray-500'
+                      return `
+                      <button onclick="${canAccess || isTlActive ? 'app.loadLesson(' + tlId + ')' : 'accessManager.showUpgradeModal()'}"
+                              class="w-full text-left p-4 border-b border-gray-100 transition-all ${rowBgTl}">
+                        <div class="flex items-start gap-3">
+                          <div class="w-8 h-8 ${circleClassTl} rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm">${index + 1}</div>
+                          <div class="flex-1 min-w-0">
+                            <p class="font-semibold text-gray-800 text-sm mb-1 line-clamp-2">
+                              ${tl.title}
+                              ${!canAccess && !isTlActive ? '<i class="fas fa-lock text-gray-400 ml-1 text-xs"></i>' : ''}
+                            </p>
+                            <div class="flex items-center gap-2 text-xs text-gray-500">
+                              ${tl.duration_minutes ? '<span><i class="fas fa-clock mr-1"></i>' + tl.duration_minutes + 'min</span>' : ''}
+                              ${isTlFree ? '<span class="text-green-600 font-semibold"><i class="fas fa-gift mr-1"></i>Grátis</span>' : isTlRented ? '<span class="text-teal-600 font-semibold"><i class="fas fa-key mr-1"></i>Alugada</span>' : !canAccess ? '<span class="text-orange-600 font-semibold"><i class="fas fa-crown mr-1"></i>Premium</span>' : ''}
+                            </div>
+                          </div>
+                          ${isTlActive ? '<i class="fas fa-play text-indigo-600 flex-shrink-0"></i>' : ''}
+                        </div>
+                      </button>`
+                    }).join('')}
+                  </div>
+                  <div class="p-3 bg-gray-50 border-t border-gray-200">
+                    <button onclick="app.showTrail(${activeTrailId})"
+                            class="w-full px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white rounded-lg font-semibold transition-all text-sm">
+                      <i class="fas fa-route mr-2"></i>Ver Trilha Completa
+                    </button>
+                  </div>
+                </div>`
+              })() : ''}
+
+            </div>
             </div><!-- /sticky -->
           </div>
         </div>
@@ -1418,6 +1438,25 @@ const app = {
     }
   },
   
+  // Switch sidebar tab between 'curso' and 'trilha'
+  switchSidebarTab(tab) {
+    const panelCurso = document.getElementById('sidebar-panel-curso')
+    const panelTrilha = document.getElementById('sidebar-panel-trilha')
+    const tabCurso = document.getElementById('sidebar-tab-curso')
+    const tabTrilha = document.getElementById('sidebar-tab-trilha')
+    if (tab === 'trilha' && panelTrilha) {
+      if (panelCurso) panelCurso.style.display = 'none'
+      panelTrilha.style.display = ''
+      if (tabCurso) { tabCurso.className = tabCurso.className.replace('text-blue-600 border-blue-600 bg-blue-50', 'text-gray-500 border-transparent') }
+      if (tabTrilha) { tabTrilha.className = tabTrilha.className.replace('text-gray-500 border-transparent', 'text-indigo-600 border-indigo-600 bg-indigo-50') }
+    } else {
+      if (panelCurso) panelCurso.style.display = ''
+      if (panelTrilha) panelTrilha.style.display = 'none'
+      if (tabCurso) { tabCurso.className = tabCurso.className.replace('text-gray-500 border-transparent', 'text-blue-600 border-blue-600 bg-blue-50') }
+      if (tabTrilha) { tabTrilha.className = tabTrilha.className.replace('text-indigo-600 border-indigo-600 bg-indigo-50', 'text-gray-500 border-transparent') }
+    }
+  },
+
   // Add comment
   async addComment(lessonId) {
     const text = document.getElementById('commentText').value.trim()
