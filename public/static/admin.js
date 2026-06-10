@@ -5497,7 +5497,7 @@ const csvImport = {
                    class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-yellow-50 file:text-yellow-700 hover:file:bg-yellow-100 cursor-pointer">
             <p class="mt-2 text-xs text-gray-500">
               <i class="fas fa-info-circle mr-1"></i>
-              Formato esperado: user_email; user_name; course_title; carga_horaria
+              Formato esperado: user_email, user_name, course_title, data_final (separador , ou ;)
             </p>
           </div>
           
@@ -5576,40 +5576,61 @@ const csvImport = {
   },
   
   parseCertificateCSV(csvText) {
-    const lines = csvText.split('\n').filter(line => line.trim())
-    const headers = lines[0].split(';').map(h => h.trim())
-    
-    const certificates = []
-    for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(';').map(v => v.trim().replace(/^"|"$/g, ''))
-      
-      const email = values[0]
-      const name = values[1]
-      const course = values[2]
-      
-      // Skip if email or course is empty
-      if (!email || !email.includes('@') || !course) continue
-      
-      // Fix malformed data (sometimes name is in course position)
-      let finalName = name
-      let finalCourse = course
-      
-      // If name looks like course title (all caps or no @), it's probably wrong
-      if (name && !name.includes(' ') && name === name.toUpperCase()) {
-        finalName = null
-        finalCourse = name
-      }
-      
-      const certificate = {
-        user_email: email,
-        user_name: finalName || null,
-        course_title: finalCourse,
-        carga_horaria: values[3] ? parseInt(values[3]) : null
-      }
-      
-      certificates.push(certificate)
+    const lines = csvText.replace(/\r/g, '').split('\n').filter(line => line.trim())
+
+    // Strip outer quotes wrapping entire lines (e.g. "a,b,c" → a,b,c)
+    const cleanLines = lines.map(line => {
+      const t = line.trim()
+      return (t.startsWith('"') && t.endsWith('"')) ? t.slice(1, -1) : t
+    })
+
+    // Auto-detect delimiter: prefer ; if it appears, otherwise use ,
+    const firstLine = cleanLines[0]
+    const delimiter = firstLine.includes(';') ? ';' : ','
+
+    const rawHeaders = firstLine.split(delimiter).map(h => h.trim().replace(/^"|"$/g, '').trim().toLowerCase())
+
+    // Map column names to indices (support data_final and carga_horaria)
+    const idx = {
+      email:   rawHeaders.indexOf('user_email'),
+      name:    rawHeaders.indexOf('user_name'),
+      course:  rawHeaders.indexOf('course_title'),
+      hours:   rawHeaders.indexOf('carga_horaria'),
+      date:    rawHeaders.findIndex(h => h === 'data_final' || h === 'data_conclusao' || h === 'completion_date')
     }
-    
+
+    // Fallback to positional if named columns not found
+    if (idx.email  < 0) idx.email  = 0
+    if (idx.name   < 0) idx.name   = 1
+    if (idx.course < 0) idx.course = 2
+
+    const certificates = []
+    for (let i = 1; i < cleanLines.length; i++) {
+      const values = cleanLines[i].split(delimiter).map(v => v.trim().replace(/^"|"$/g, ''))
+
+      const email  = values[idx.email]  || ''
+      const name   = values[idx.name]   || null
+      const course = values[idx.course] || ''
+      const hours  = idx.hours >= 0 && values[idx.hours] ? parseInt(values[idx.hours]) : null
+      let date     = idx.date  >= 0 && values[idx.date]  ? values[idx.date] : null
+
+      // Convert BR date dd/mm/yyyy → ISO yyyy-mm-ddTHH:mm:ssZ
+      if (date && /^\d{2}\/\d{2}\/\d{4}$/.test(date)) {
+        const [d, m, y] = date.split('/')
+        date = new Date(`${y}-${m}-${d}T12:00:00Z`).toISOString()
+      }
+
+      if (!email.includes('@') || !course) continue
+
+      certificates.push({
+        user_email:    email,
+        user_name:     name,
+        course_title:  course,
+        carga_horaria: hours,
+        completion_date: date
+      })
+    }
+
     return certificates
   },
   
@@ -5696,7 +5717,8 @@ const csvImport = {
             user_email: row.user_email,
             user_name: row.user_name,
             course_title: row.course_title,
-            carga_horaria: row.carga_horaria
+            carga_horaria: row.carga_horaria || null,
+            completion_date: row.completion_date || null
           })
           
           created++
