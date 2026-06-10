@@ -257,11 +257,18 @@ const authUI = {
                   <label class="block text-sm font-semibold text-gray-700 mb-2">
                     <i class="fas fa-lock mr-1"></i> Senha
                   </label>
-                  <input type="password" 
-                         id="loginPassword" 
-                         required
-                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                         placeholder="••••••••">
+                  <div class="relative">
+                    <input type="password"
+                           id="loginPassword"
+                           required
+                           class="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           placeholder="••••••••">
+                    <button type="button"
+                            onclick="authUI.togglePassword('loginPassword', this)"
+                            class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors p-1">
+                      <i class="fas fa-eye"></i>
+                    </button>
+                  </div>
                 </div>
                 
                 <div class="text-right">
@@ -312,12 +319,19 @@ const authUI = {
                   <label class="block text-sm font-semibold text-gray-700 mb-2">
                     <i class="fas fa-lock mr-1"></i> Senha
                   </label>
-                  <input type="password" 
-                         id="registerPassword" 
-                         required
-                         minlength="6"
-                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                         placeholder="Mínimo 6 caracteres">
+                  <div class="relative">
+                    <input type="password"
+                           id="registerPassword"
+                           required
+                           minlength="6"
+                           class="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           placeholder="Mínimo 6 caracteres">
+                    <button type="button"
+                            onclick="authUI.togglePassword('registerPassword', this)"
+                            class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors p-1">
+                      <i class="fas fa-eye"></i>
+                    </button>
+                  </div>
                 </div>
                 
                 <button type="submit" 
@@ -495,6 +509,18 @@ const authUI = {
       // Re-enable submit button
       submitBtn.disabled = false
       submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar Link de Recuperação'
+    }
+  },
+
+  togglePassword(inputId, btn) {
+    const input = document.getElementById(inputId)
+    const icon = btn.querySelector('i')
+    if (input.type === 'password') {
+      input.type = 'text'
+      icon.classList.replace('fa-eye', 'fa-eye-slash')
+    } else {
+      input.type = 'password'
+      icon.classList.replace('fa-eye-slash', 'fa-eye')
     }
   }
 }
