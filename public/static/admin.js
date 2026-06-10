@@ -5685,7 +5685,7 @@ const csvImport = {
       return
     }
     
-    const confirmed = confirm(`Tem certeza que deseja importar ${this.certificatesData.length} certificados?\n\n⚠️ Duplicatas serão detectadas por email + curso.`)
+    const confirmed = confirm(`Tem certeza que deseja importar ${this.certificatesData.length} certificados?\n\n⚠️ Certificados existentes serão atualizados (carga horária e data de conclusão).`)
     if (!confirmed) return
     
     // Hide preview, show progress
@@ -5729,19 +5729,30 @@ const csvImport = {
         }
         
         try {
+          // Use CSV hours, fallback to course duration_hours
+          const cargaHoraria = row.carga_horaria || courseHoursMap[row.course_title] || null
+
           // Check if certificate already exists (email + course)
           const existing = await adminManager.findCertificateBoth(row.user_email, row.course_title)
-          
+
           if (existing && existing.length > 0) {
+            // Update carga_horaria and completion_date even for existing certificates
+            const certId = existing[0].id
+            await axios.put(`/api/admin/certificates/${certId}`, {
+              user_email: row.user_email,
+              user_name: row.user_name || existing[0].user_name,
+              course_title: row.course_title,
+              carga_horaria: cargaHoraria,
+              completion_date: row.completion_date || existing[0].completion_date
+            })
             skipped++
             if (i % 20 === 0) {
-              log(`⏭️  Pulado (duplicado): ${row.user_email} - ${row.course_title}`)
+              log(`🔄 Atualizado: ${row.user_email} - ${row.course_title}`)
             }
             continue
           }
-          
-          // Create certificate (use CSV hours, fallback to course duration_hours)
-          const cargaHoraria = row.carga_horaria || courseHoursMap[row.course_title] || null
+
+          // Create certificate
           await axios.post('/api/admin/certificates', {
             user_email: row.user_email,
             user_name: row.user_name,
@@ -5749,16 +5760,16 @@ const csvImport = {
             carga_horaria: cargaHoraria,
             completion_date: row.completion_date || null
           })
-          
+
           created++
-          
+
           if (i % 50 === 0 && i > 0) {
             log(`✅ ${created} criados até agora...`, 'success')
           }
-          
+
         } catch (error) {
           errors++
-          log(`❌ Erro ao criar certificado para ${row.user_email}: ${error.message}`, 'error')
+          log(`❌ Erro ao processar certificado para ${row.user_email}: ${error.message}`, 'error')
         }
         
         // Small delay to avoid overwhelming the server
