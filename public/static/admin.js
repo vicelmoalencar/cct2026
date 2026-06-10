@@ -3391,31 +3391,21 @@ const adminUI = {
     if (!confirm(`Deseja logar como "${userName}" (${userEmail})?\n\nVocê será redirecionado para a área do aluno com a visão deste usuário. Para voltar ao admin, clique no banner laranja no topo.`)) {
       return
     }
-    
+
     try {
-      // Save current admin token from cookie
-      const currentToken = this.getCookie('sb-access-token')
-      if (currentToken) {
-        sessionStorage.setItem('admin_token_backup', currentToken)
-      }
-      
-      // Request impersonation token
+      // The server will swap the session cookie server-side (HttpOnly cookie cannot be set by JS)
       const response = await axios.post('/api/admin/impersonate', { user_email: userEmail })
-      
-      if (response.data.token) {
-        // Set impersonation token in cookie (same way as normal auth)
-        document.cookie = `sb-access-token=${response.data.token}; path=/; max-age=86400; SameSite=Lax`
-        
-        // Mark as impersonation mode
+
+      if (response.data.success) {
+        // Mark as impersonation mode in sessionStorage for the UI banner
         sessionStorage.setItem('impersonation_mode', 'true')
         sessionStorage.setItem('impersonation_user', userName)
         sessionStorage.setItem('impersonation_email', userEmail)
-        
-        // Redirect to student view
+
         alert(`✅ Agora você está vendo a plataforma como "${userName}"!\n\nPara voltar ao admin, clique no botão "Sair da Simulação" no banner laranja no topo.`)
         window.location.href = '/'
       } else {
-        alert('❌ Erro: Token de autenticação não recebido')
+        alert('❌ Erro: Falha ao iniciar simulação')
       }
     } catch (error) {
       console.error('Error impersonating user:', error)

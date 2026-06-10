@@ -1275,13 +1275,13 @@ app.get('/api/admin/check', async (c) => {
 app.post('/api/admin/impersonate', requireAdmin, async (c) => {
   try {
     const { user_email } = await c.req.json()
-    
+
     if (!user_email) {
       return c.json({ error: 'user_email is required' }, 400)
     }
-    
+
     console.log(`🎭 Admin impersonating user: ${user_email}`)
-    
+
     // Check if user exists in users table or in imported member subscriptions
     const db = getDB(c)
     let users = await db.sql(
@@ -1299,13 +1299,13 @@ app.post('/api/admin/impersonate', requireAdmin, async (c) => {
         [user_email]
       )
     }
-    
+
     if (!users || users.length === 0) {
       return c.json({ error: 'User not found' }, 404)
     }
-    
+
     const targetUser = users[0]
-    
+
     // Create impersonation token (base64 encoded JSON with special marker)
     const impersonationData = {
       email: user_email,
@@ -1313,22 +1313,59 @@ app.post('/api/admin/impersonate', requireAdmin, async (c) => {
       impersonated: true,
       impersonated_at: new Date().toISOString(),
       user_id: targetUser.id,
-      // Add a signature to prevent tampering (simple version)
-      signature: Buffer.from(`${user_email}:${c.env.SUPABASE_ANON_KEY}`).toString('base64') // auth key for signature only
+      signature: Buffer.from(`${user_email}:${c.env.SUPABASE_ANON_KEY}`).toString('base64')
     }
-    
+
     const impersonationToken = `IMPERSONATE:${Buffer.from(JSON.stringify(impersonationData)).toString('base64')}`
-    
-    console.log(`✅ Impersonation token created for ${user_email}`)
-    
-    return c.json({ 
-      token: impersonationToken,
+
+    // Back up admin's current token in a separate cookie, then set the impersonation token.
+    // We do this server-side because the session cookie is HttpOnly and cannot be manipulated by JS.
+    const adminToken = getCookie(c, 'sb-access-token')
+    if (adminToken) {
+      setCookie(c, 'sb-admin-backup-token', adminToken, {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'Lax',
+        maxAge: 86400
+      })
+    }
+    setCookie(c, 'sb-access-token', impersonationToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'Lax',
+      maxAge: 86400
+    })
+
+    console.log(`✅ Impersonation session set for ${user_email}`)
+
+    return c.json({
+      success: true,
       user_email,
       user_name: targetUser.nome
     })
   } catch (error: any) {
     console.error('Impersonation error:', error)
     return c.json({ error: error.message || 'Failed to impersonate user' }, 500)
+  }
+})
+
+app.post('/api/admin/exit-impersonation', async (c) => {
+  try {
+    const backupToken = getCookie(c, 'sb-admin-backup-token')
+    if (!backupToken) {
+      return c.json({ error: 'No admin session to restore' }, 400)
+    }
+    setCookie(c, 'sb-access-token', backupToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'Lax',
+      maxAge: 3600
+    })
+    deleteCookie(c, 'sb-admin-backup-token')
+    return c.json({ success: true })
+  } catch (error: any) {
+    console.error('Exit impersonation error:', error)
+    return c.json({ error: error.message || 'Failed to exit impersonation' }, 500)
   }
 })
 

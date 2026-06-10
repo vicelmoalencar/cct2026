@@ -168,24 +168,24 @@ const app = {
   },
   
   // Exit impersonation mode
-  exitImpersonation() {
+  async exitImpersonation() {
     if (!confirm('Deseja sair do modo de simulação e voltar à sua conta admin?')) {
       return
     }
-    
-    // Restore admin token to cookie
-    const adminToken = sessionStorage.getItem('admin_token_backup')
-    if (adminToken) {
-      document.cookie = `sb-access-token=${adminToken}; path=/; max-age=86400; SameSite=Lax`
+
+    try {
+      // Server swaps back the session cookie (HttpOnly cannot be touched by JS)
+      await axios.post('/api/admin/exit-impersonation')
+    } catch (e) {
+      console.error('Exit impersonation error:', e)
     }
-    
+
     // Clear impersonation data
     sessionStorage.removeItem('impersonation_mode')
     sessionStorage.removeItem('impersonation_user')
     sessionStorage.removeItem('impersonation_email')
     sessionStorage.removeItem('admin_token_backup')
-    
-    // Reload page
+
     window.location.href = '/admin'
   },
   
