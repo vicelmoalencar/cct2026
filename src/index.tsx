@@ -1434,23 +1434,29 @@ app.delete('/api/admin/courses/:id', requireAdmin, async (c) => {
 app.get('/api/admin/courses/find', requireAdmin, async (c) => {
   try {
     const title = c.req.query('title')
-    
+
     if (!title) {
       return c.json({ error: 'Title is required' }, 400)
     }
-    
+
     const db = getDB(c)
-    const courses = await db.query('courses', {
-      select: '*',
-      filters: { title: title },
-      limit: 1
-    })
-    
+    // Try exact case-insensitive match first
+    const courses = await db.sql(
+      `SELECT * FROM courses WHERE lower(title) = lower($1) LIMIT 1`,
+      [title]
+    )
+
     if (courses && courses.length > 0) {
       return c.json({ course: courses[0] })
     }
-    
-    return c.json({ course: null })
+
+    // Fallback: partial ILIKE match (handles accents and partial titles)
+    const partial = await db.sql(
+      `SELECT * FROM courses WHERE lower(title) ILIKE lower($1) LIMIT 1`,
+      [`%${title}%`]
+    )
+
+    return c.json({ course: partial && partial.length > 0 ? partial[0] : null })
   } catch (error: any) {
     console.error('Find course error:', error)
     return c.json({ error: error.message || 'Failed to find course' }, 500)

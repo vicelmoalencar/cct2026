@@ -5500,6 +5500,15 @@ const csvImport = {
               Formato esperado: user_email, user_name, course_title, data_final (separador , ou ;)
             </p>
           </div>
+
+          <div class="mb-4">
+            <label class="block text-sm font-semibold text-gray-700 mb-1">
+              Carga Horária Padrão (horas)
+              <span class="font-normal text-gray-400 ml-1">— usada quando não informada no CSV nem no cadastro do curso</span>
+            </label>
+            <input type="number" id="certificateDefaultHours" min="1" max="9999" placeholder="Ex: 8"
+                   class="w-32 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400">
+          </div>
           
           <!-- Preview Area -->
           <div id="certificateCsvPreviewArea" class="hidden">
@@ -5707,6 +5716,10 @@ const csvImport = {
       log(`🚀 Iniciando importação de ${this.certificatesData.length} certificados...`)
       log(`⏳ Aguarde, processando...`)
 
+      // Read default hours from modal input
+      const defaultHoursInput = document.getElementById('certificateDefaultHours')
+      const defaultHours = defaultHoursInput && defaultHoursInput.value ? parseInt(defaultHoursInput.value) : null
+
       // Pre-fetch duration_hours for each unique course title
       const courseHoursMap = {}
       const uniqueCourses = [...new Set(this.certificatesData.map(r => r.course_title))]
@@ -5729,8 +5742,8 @@ const csvImport = {
         }
         
         try {
-          // Use CSV hours, fallback to course duration_hours
-          const cargaHoraria = row.carga_horaria || courseHoursMap[row.course_title] || null
+          // Use CSV hours → course duration_hours → default from input
+          const cargaHoraria = row.carga_horaria || courseHoursMap[row.course_title] || defaultHours || null
 
           // Check if certificate already exists (email + course)
           const existing = await adminManager.findCertificateBoth(row.user_email, row.course_title)
