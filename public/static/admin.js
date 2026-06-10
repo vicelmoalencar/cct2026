@@ -5702,11 +5702,24 @@ const csvImport = {
     let created = 0
     let skipped = 0
     let errors = 0
-    
+
     try {
       log(`🚀 Iniciando importação de ${this.certificatesData.length} certificados...`)
       log(`⏳ Aguarde, processando...`)
-      
+
+      // Pre-fetch duration_hours for each unique course title
+      const courseHoursMap = {}
+      const uniqueCourses = [...new Set(this.certificatesData.map(r => r.course_title))]
+      for (const title of uniqueCourses) {
+        try {
+          const res = await axios.get(`/api/admin/courses/find?title=${encodeURIComponent(title)}`)
+          if (res.data.course && res.data.course.duration_hours) {
+            courseHoursMap[title] = res.data.course.duration_hours
+            log(`📚 Curso "${title}": ${res.data.course.duration_hours}h`)
+          }
+        } catch (e) { /* course not found, keep null */ }
+      }
+
       for (let i = 0; i < this.certificatesData.length; i++) {
         const row = this.certificatesData[i]
         const progress = Math.round(((i + 1) / this.certificatesData.length) * 100)
@@ -5727,12 +5740,13 @@ const csvImport = {
             continue
           }
           
-          // Create certificate
+          // Create certificate (use CSV hours, fallback to course duration_hours)
+          const cargaHoraria = row.carga_horaria || courseHoursMap[row.course_title] || null
           await axios.post('/api/admin/certificates', {
             user_email: row.user_email,
             user_name: row.user_name,
             course_title: row.course_title,
-            carga_horaria: row.carga_horaria || null,
+            carga_horaria: cargaHoraria,
             completion_date: row.completion_date || null
           })
           
