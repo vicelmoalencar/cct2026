@@ -1433,7 +1433,7 @@ ${f.slice(0,24e3)}
     })
   <\/script>
 </body>
-</html>`));N.get("/",e=>e.html(`
+</html>`));N.get("/aula/:id",e=>e.redirect(`/?aula=${e.req.param("id")}`));N.get("/curso/:id",e=>e.redirect(`/?curso=${e.req.param("id")}`));N.get("/",e=>e.html(`
     <!DOCTYPE html>
     <html lang="pt-BR">
     <head>

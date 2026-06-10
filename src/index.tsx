@@ -5784,6 +5784,10 @@ app.get('/admin', (c) => {
 </html>`)
 })
 
+// Deep-link routes: serve SPA so the frontend can read the URL and navigate directly
+app.get('/aula/:id', (c) => c.redirect(`/?aula=${c.req.param('id')}`))
+app.get('/curso/:id', (c) => c.redirect(`/?curso=${c.req.param('id')}`))
+
 app.get('/', (c) => {
   return c.html(`
     <!DOCTYPE html>

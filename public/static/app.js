@@ -54,20 +54,34 @@ const app = {
       this.showSuccessMessage('✅ Email confirmado com sucesso! Bem-vindo à plataforma.')
     }
 
-    // Handle direct URL navigation (?lesson=X or ?course=X)
+    // Handle direct URL navigation (path /aula/X or /curso/X, or query ?aula=X / ?curso=X / legacy ?lesson=X ?course=X)
+    const path = window.location.pathname
     const params = new URLSearchParams(window.location.search)
-    const directLesson = params.get('lesson')
-    const directCourse = params.get('course')
+    const pathAula = path.match(/^\/aula\/(\d+)/)
+    const pathCurso = path.match(/^\/curso\/(\d+)/)
+    const directLesson = pathAula?.[1] || params.get('aula') || params.get('lesson')
+    const directCourse = pathCurso?.[1] || params.get('curso') || params.get('course')
 
     if (directLesson) {
-      window.history.replaceState({}, '', '/')
       this.loadLesson(parseInt(directLesson))
     } else if (directCourse) {
-      window.history.replaceState({}, '', '/')
       this.loadCourse(parseInt(directCourse))
     } else {
       this.loadCourses()
     }
+
+    // Back/forward button support
+    window.addEventListener('popstate', () => {
+      const p = window.location.pathname
+      const qs = new URLSearchParams(window.location.search)
+      const pa = p.match(/^\/aula\/(\d+)/)
+      const pc = p.match(/^\/curso\/(\d+)/)
+      const aula = pa?.[1] || qs.get('aula')
+      const curso = pc?.[1] || qs.get('curso')
+      if (aula) app.loadLesson(parseInt(aula), { skipHistory: true })
+      else if (curso) app.loadCourse(parseInt(curso), { skipHistory: true })
+      else app.showCourses({ skipHistory: true })
+    })
   },
 
   async loadUserCredits() {
@@ -485,8 +499,11 @@ const app = {
   },
   
   // Load course with modules and lessons
-  async loadCourse(courseId) {
+  async loadCourse(courseId, { skipHistory = false } = {}) {
     this.currentTrailContext = null
+    if (!skipHistory) {
+      history.pushState({ type: 'course', id: courseId }, '', `?curso=${courseId}`)
+    }
     try {
       // Show loading state
       this.showLoadingState('Carregando curso...')
@@ -791,7 +808,10 @@ const app = {
   },
 
   // Load lesson details
-  async loadLesson(lessonId) {
+  async loadLesson(lessonId, { skipHistory = false } = {}) {
+    if (!skipHistory) {
+      history.pushState({ type: 'lesson', id: lessonId }, '', `?aula=${lessonId}`)
+    }
     try {
       // Show loading state
       this.showLoadingState('Carregando aula...')
@@ -1620,8 +1640,11 @@ const app = {
   },
   
   // View management
-  showCourses() {
+  showCourses({ skipHistory = false } = {}) {
     this.currentTrailContext = null
+    if (!skipHistory) {
+      history.pushState({}, '', '/')
+    }
     this.hideLoadingState()
     this._hideAllViews()
     document.getElementById('coursesView').classList.remove('hidden')
