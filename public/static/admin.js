@@ -5564,7 +5564,22 @@ const csvImport = {
     const reader = new FileReader()
     reader.onload = (e) => {
       try {
-        const csvText = e.target.result
+        // Detect encoding: if UTF-8 has replacement chars (�), retry as Windows-1252
+        let csvText = e.target.result
+        if (csvText.includes('�')) {
+          const reader2 = new FileReader()
+          reader2.onload = (e2) => {
+            try {
+              this.certificatesData = this.parseCertificateCSV(e2.target.result)
+              this.showCertificatePreview()
+            } catch (error) {
+              console.error('Parse error:', error)
+              alert('❌ Erro ao ler arquivo CSV: ' + error.message)
+            }
+          }
+          reader2.readAsText(file, 'windows-1252')
+          return
+        }
         this.certificatesData = this.parseCertificateCSV(csvText)
         this.showCertificatePreview()
       } catch (error) {
