@@ -4,7 +4,6 @@ const app = {
   currentCourse: null,
   currentLesson: null,
   activeRentals: new Set(), // lesson IDs with active rentals
-  subscriptionExpired: null, // null=unknown, true=sem plano ativo, false=plano ativo
 
   renderMd(text) {
     if (!text) return ''
@@ -42,7 +41,6 @@ const app = {
 
     // Load credits balance
     this.loadUserCredits()
-    this.loadSubscriptionStatus()
 
     // Check if in impersonation mode
     this.checkImpersonationMode()
@@ -84,15 +82,6 @@ const app = {
       else if (curso) app.loadCourse(parseInt(curso), { skipHistory: true })
       else app.showCourses({ skipHistory: true })
     })
-  },
-
-  async loadSubscriptionStatus() {
-    try {
-      const res = await axios.get('/api/subscriptions/current')
-      this.subscriptionExpired = !res.data.subscription
-    } catch (e) {
-      this.subscriptionExpired = true
-    }
   },
 
   async loadUserCredits() {
@@ -621,7 +610,7 @@ const app = {
                       : ''
                     const rentBadge = isRented
                       ? '<span class="inline-flex items-center gap-1 text-xs font-semibold text-teal-700 bg-teal-100 px-2 py-0.5 rounded-full ml-1"><i class="fas fa-key mr-1"></i>Alugada</span>'
-                      : (isRentable && app.subscriptionExpired)
+                      : (isRentable && accessManager?.userAccessStatus?.accessType !== 'COMPLETO')
                         ? '<span class="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full ml-1"><i class="fas fa-coins"></i> ' + lesson.rental_credits + ' créditos</span>'
                         : ''
                     const hasTranscript = !!(lesson.transcript && lesson.transcript.trim().length > 0)
@@ -1352,7 +1341,7 @@ const app = {
                           </p>
                           <div class="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
                             <span><i class="fas fa-clock mr-1"></i>${l.duration_minutes}min</span>
-                            ${isFree ? '<span class="text-green-600 font-semibold"><i class="fas fa-gift mr-1"></i>Grátis</span>' : isRentedSidebar ? '<span class="text-teal-600 font-semibold"><i class="fas fa-key mr-1"></i>Alugada</span>' : (isRentableSidebar && !isWatched && app.subscriptionExpired) ? '<span class="text-amber-600 font-semibold"><i class="fas fa-coins mr-1"></i>' + l.rental_credits + ' créditos</span>' : '<span class="text-orange-600 font-semibold"><i class="fas fa-crown mr-1"></i>Premium</span>'}
+                            ${isFree ? '<span class="text-green-600 font-semibold"><i class="fas fa-gift mr-1"></i>Grátis</span>' : isRentedSidebar ? '<span class="text-teal-600 font-semibold"><i class="fas fa-key mr-1"></i>Alugada</span>' : (isRentableSidebar && !isWatched && accessManager?.userAccessStatus?.accessType !== 'COMPLETO') ? '<span class="text-amber-600 font-semibold"><i class="fas fa-coins mr-1"></i>' + l.rental_credits + ' créditos</span>' : '<span class="text-orange-600 font-semibold"><i class="fas fa-crown mr-1"></i>Premium</span>'}
                             ${isWatched ? '<span class="text-green-700 font-semibold bg-green-100 px-1.5 py-0.5 rounded-full">✓ Assistida</span>' : ''}
                           </div>
                         </div>
