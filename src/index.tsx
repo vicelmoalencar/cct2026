@@ -3191,6 +3191,88 @@ app.post('/api/admin/certificates', requireAdmin, async (c) => {
   }
 })
 
+// Webhook: receive certificate data from Bubble (public endpoint)
+// Accepts a single JSON object or an array of objects:
+// { user_email, user_name, course_title, carga_horaria, data_final }
+app.post('/api_certificado', async (c) => {
+  try {
+    const body = await c.req.json()
+    const items = Array.isArray(body) ? body : [body]
+    const db = getDB(c)
+    const results: any[] = []
+
+    for (const item of items) {
+      const email = String(item.user_email || item.email || '').trim().toLowerCase()
+      const name = String(item.user_name || item.nome || '').trim() || null
+      const course = String(item.course_title || item.curso || '').trim()
+      let hours = item.carga_horaria ? parseInt(String(item.carga_horaria)) : null
+      if (hours !== null && !Number.isFinite(hours)) hours = null
+      let date: string | null = item.data_final || item.completion_date || null
+
+      if (!email.includes('@') || !course) {
+        results.push({ user_email: email, course_title: course, status: 'error', error: 'user_email e course_title são obrigatórios' })
+        continue
+      }
+
+      // Converter data BR dd/mm/yyyy → ISO
+      if (date && /^\d{2}\/\d{2}\/\d{4}$/.test(date)) {
+        const [d, m, y] = date.split('/')
+        date = `${y}-${m}-${d}T12:00:00Z`
+      }
+
+      // Buscar carga horária do curso quando não informada
+      if (!hours) {
+        const courseRows = await db.sql(
+          `SELECT duration_hours FROM courses WHERE lower(title) = lower($1) OR lower(title) ILIKE lower($2) LIMIT 1`,
+          [course, `%${course}%`]
+        )
+        if (courseRows.length > 0 && courseRows[0].duration_hours) {
+          hours = parseInt(courseRows[0].duration_hours)
+        }
+      }
+
+      // Atualizar se já existir (email + curso), senão criar
+      const existing = await db.sql(
+        `SELECT id FROM certificates WHERE lower(user_email) = lower($1) AND lower(course_title) = lower($2) LIMIT 1`,
+        [email, course]
+      )
+
+      if (existing.length > 0) {
+        await db.sql(
+          `UPDATE certificates
+           SET user_name = COALESCE($1, user_name),
+               carga_horaria = COALESCE($2, carga_horaria),
+               completion_date = COALESCE($3, completion_date),
+               updated_at = NOW()
+           WHERE id = $4`,
+          [name, hours, date, existing[0].id]
+        )
+        results.push({ user_email: email, course_title: course, status: 'updated', certificate_id: existing[0].id })
+      } else {
+        const codeBytes = new Uint8Array(4)
+        crypto.getRandomValues(codeBytes)
+        const code = 'CCT-' + new Date().getFullYear() + '-' +
+          Array.from(codeBytes).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase()
+        const now = new Date().toISOString()
+
+        const inserted = await db.sql(
+          `INSERT INTO certificates (user_email, user_name, course_title, carga_horaria, certificate_code, verification_code, issued_at, completion_date, created_at)
+           VALUES ($1, $2, $3, $4, $5, $5, $6, COALESCE($7, $6::timestamp), $6)
+           RETURNING id`,
+          [email, name || 'Aluno', course, hours, code, now, date]
+        )
+        results.push({ user_email: email, course_title: course, status: 'created', certificate_id: inserted[0]?.id, verification_code: code })
+      }
+    }
+
+    const errors = results.filter(r => r.status === 'error').length
+    return c.json({ success: errors === 0, total: items.length, results })
+  } catch (error: any) {
+    console.error('Webhook api_certificado error:', error)
+    return c.json({ error: error.message || 'Falha ao processar certificado' }, 500)
+  }
+})
+
 // Update certificate (admin only)
 app.put('/api/admin/certificates/:id', requireAdmin, async (c) => {
   try {
