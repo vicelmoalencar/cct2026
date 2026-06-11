@@ -3202,9 +3202,13 @@ app.post('/api_certificado', async (c) => {
     const results: any[] = []
 
     for (const item of items) {
-      const email = String(item.user_email || item.email || '').trim().toLowerCase()
-      const name = String(item.user_name || item.nome || '').trim() || null
-      const course = String(item.course_title || item.curso || '').trim()
+      const cleanField = (v: any) => {
+        const s = String(v ?? '').trim()
+        return (!s || s.toLowerCase() === 'null' || s.toLowerCase() === 'undefined') ? '' : s
+      }
+      const email = cleanField(item.user_email || item.email).toLowerCase()
+      const name = cleanField(item.user_name || item.nome) || null
+      const course = cleanField(item.course_title || item.curso)
       let hours = item.carga_horaria ? parseInt(String(item.carga_horaria)) : null
       if (hours !== null && !Number.isFinite(hours)) hours = null
       let date: string | null = item.data_final || item.completion_date || null
@@ -3214,10 +3218,20 @@ app.post('/api_certificado', async (c) => {
         continue
       }
 
-      // Converter data BR dd/mm/yyyy → ISO
-      if (date && /^\d{2}\/\d{2}\/\d{4}$/.test(date)) {
-        const [d, m, y] = date.split('/')
-        date = `${y}-${m}-${d}T12:00:00Z`
+      // Sanitizar data: Bubble envia "null"/"" como texto quando o campo está vazio
+      if (date) {
+        const trimmed = String(date).trim()
+        if (!trimmed || trimmed.toLowerCase() === 'null' || trimmed.toLowerCase() === 'undefined') {
+          date = null
+        } else if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) {
+          // Converter data BR dd/mm/yyyy → ISO
+          const [d, m, y] = trimmed.split('/')
+          date = `${y}-${m}-${d}T12:00:00Z`
+        } else if (!isNaN(new Date(trimmed).getTime())) {
+          date = new Date(trimmed).toISOString()
+        } else {
+          date = null
+        }
       }
 
       // Buscar carga horária do curso quando não informada
