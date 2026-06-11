@@ -3242,6 +3242,22 @@ app.post('/api_certificado', async (c) => {
         )
         if (courseRows.length > 0 && courseRows[0].duration_hours) {
           hours = parseInt(courseRows[0].duration_hours)
+        } else {
+          // Match por palavras: ignora acentos, hífens e ordem
+          // (ex: "Pjecalc Plus 2025 - Liquidação de sentença" ↔ "PJE-CALC PLUS - LIQUIDAÇÃO DE SENTENÇA 2025")
+          const normalize = (s: string) => s.toLowerCase()
+            .normalize('NFD').replace(/[̀-ͯ]/g, '')
+            .replace(/[^a-z0-9\s]/g, '')
+            .split(/\s+/).filter(w => w && w !== 'de' && w !== 'do' && w !== 'da')
+          const wanted = normalize(course)
+          if (wanted.length > 0) {
+            const allCourses = await db.sql(`SELECT title, duration_hours FROM courses WHERE duration_hours > 0`)
+            const match = allCourses.find((cr: any) => {
+              const titleWords = normalize(cr.title).join(' ')
+              return wanted.every(w => titleWords.includes(w))
+            })
+            if (match) hours = parseInt(match.duration_hours)
+          }
         }
       }
 
