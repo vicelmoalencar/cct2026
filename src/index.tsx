@@ -3211,7 +3211,6 @@ app.post('/api_certificado', async (c) => {
       const course = cleanField(item.course_title || item.curso)
       let hours = item.carga_horaria ? parseInt(String(item.carga_horaria)) : null
       if (hours !== null && !Number.isFinite(hours)) hours = null
-      let date: string | null = item.data_final || item.completion_date || null
 
       if (!email.includes('@') || !course) {
         results.push({ user_email: email, course_title: course, status: 'error', error: 'user_email e course_title são obrigatórios' })
@@ -3219,20 +3218,20 @@ app.post('/api_certificado', async (c) => {
       }
 
       // Sanitizar data: Bubble envia "null"/"" como texto quando o campo está vazio
-      if (date) {
-        const trimmed = String(date).trim()
-        if (!trimmed || trimmed.toLowerCase() === 'null' || trimmed.toLowerCase() === 'undefined') {
-          date = null
-        } else if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) {
+      const parseDate = (v: any): string | null => {
+        if (!v) return null
+        const trimmed = String(v).trim()
+        if (!trimmed || trimmed.toLowerCase() === 'null' || trimmed.toLowerCase() === 'undefined') return null
+        if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) {
           // Converter data BR dd/mm/yyyy → ISO
           const [d, m, y] = trimmed.split('/')
-          date = `${y}-${m}-${d}T12:00:00Z`
-        } else if (!isNaN(new Date(trimmed).getTime())) {
-          date = new Date(trimmed).toISOString()
-        } else {
-          date = null
+          return `${y}-${m}-${d}T12:00:00Z`
         }
+        if (!isNaN(new Date(trimmed).getTime())) return new Date(trimmed).toISOString()
+        return null
       }
+      const date = parseDate(item.data_final || item.completion_date)
+      const startDate = parseDate(item.data_inicio || item.data_inicial || item.start_date)
 
       // Buscar carga horária do curso quando não informada
       if (!hours) {
@@ -3273,9 +3272,10 @@ app.post('/api_certificado', async (c) => {
            SET user_name = COALESCE($1, user_name),
                carga_horaria = COALESCE($2, carga_horaria),
                completion_date = COALESCE($3, completion_date),
+               start_date = COALESCE($4::date, start_date),
                updated_at = NOW()
-           WHERE id = $4`,
-          [name, hours, date, existing[0].id]
+           WHERE id = $5`,
+          [name, hours, date, startDate, existing[0].id]
         )
         results.push({ user_email: email, course_title: course, status: 'updated', certificate_id: existing[0].id })
       } else {
@@ -3286,10 +3286,10 @@ app.post('/api_certificado', async (c) => {
         const now = new Date().toISOString()
 
         const inserted = await db.sql(
-          `INSERT INTO certificates (user_email, user_name, course_title, carga_horaria, certificate_code, verification_code, issued_at, completion_date, created_at)
-           VALUES ($1, $2, $3, $4, $5, $5, $6, COALESCE($7, $6::timestamp), $6)
+          `INSERT INTO certificates (user_email, user_name, course_title, carga_horaria, certificate_code, verification_code, issued_at, completion_date, start_date, created_at)
+           VALUES ($1, $2, $3, $4, $5, $5, $6, COALESCE($7, $6::timestamp), $8::date, $6)
            RETURNING id`,
-          [email, name || 'Aluno', course, hours, code, now, date]
+          [email, name || 'Aluno', course, hours, code, now, date, startDate]
         )
         results.push({ user_email: email, course_title: course, status: 'created', certificate_id: inserted[0]?.id, verification_code: code })
       }
