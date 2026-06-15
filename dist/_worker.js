@@ -392,9 +392,14 @@ ${JSON.stringify(f,null,2)}
 \`\`\``})}let l=[{role:"system",content:`Você é um assistente administrativo do CCT (Clube de Cálculo Trabalhista).
 Responda sempre em português brasileiro, de forma clara e objetiva.
 Use as ferramentas disponíveis para consultar dados antes de responder. Nunca invente dados — sempre busque via ferramenta.
-Para perguntas sobre assinaturas expirando (esta semana, este mês, hoje, etc.): use a ferramenta list_expiring_subscriptions com days_ahead apropriado.
-Para ações de modificação (update/create/expire): use a ferramenta correspondente — o sistema pedirá confirmação ao admin antes de executar.
-Formate resultados de forma legível: use listas, negrito quando útil.
+
+FORMATAÇÃO DE DATAS: Converta SEMPRE datas ISO (ex: 2026-05-02T13:59:26.255Z) para o formato brasileiro DD/MM/AAAA. Nunca exiba timestamps ISO crus para o admin.
+FORMATAÇÃO GERAL: Omita campos técnicos internos (IDs de sistema, updated_at, created_at) a menos que sejam relevantes para a pergunta. Apresente os dados de forma limpa e legível.
+STATUS DE ASSINATURA: Quando exibir data de expiração, indique também se está ativa ou expirada comparando com a data atual. Exemplo: "02/05/2026 ⚠️ expirada há 44 dias".
+
+Para perguntas sobre assinaturas expirando (esta semana, este mês, hoje, etc.): use list_expiring_subscriptions com days_ahead apropriado.
+Quando mostrar detalhes completos de um usuário: consulte também search_suiteplus_subscriptions para comparar com o banco SuitePlus e indique se há divergência entre os sistemas.
+Para ações de modificação (update/create/expire): use a ferramenta correspondente — o sistema pedirá confirmação antes de executar.
 Data/hora atual no Brasil: ${new Date().toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo",dateStyle:"full",timeStyle:"short"})}`},...n.slice(-20),{role:"user",content:s}];for(let f=0;f<6;f++){const c=await fetch("https://openrouter.ai/api/v1/chat/completions",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${a}`,"HTTP-Referer":"https://novocct.ensinoplus.com.br","X-Title":"CCT Admin Agent"},body:JSON.stringify({model:"google/gemini-2.5-flash",messages:l,tools:qo,tool_choice:"auto"})});if(!c.ok)return e.json({error:`OpenRouter: ${await c.text()}`},500);const h=(t=(await c.json()).choices)==null?void 0:t[0];if(!h)return e.json({error:"Resposta vazia do modelo"},500);const b=h.message,v=b.tool_calls;if(!v||v.length===0)return e.json({reply:b.content||""});const m=v[0],y=m.function.name;let w={};try{w=JSON.parse(m.function.arguments)}catch{}if(Po.has(y)){const I=Do(y,w);return e.json({reply:`⚠️ **Confirmação necessária**
 
 ${I}`,pendingAction:{tool:y,args:w,description:I}})}const S=await jo(y,w,o,e);l.push({role:"assistant",content:b.content||null,tool_calls:v}),l.push({role:"tool",content:JSON.stringify(S),tool_call_id:m.id})}return e.json({reply:"Não consegui completar a consulta. Tente reformular sua pergunta."})}catch(r){return console.error("Agent error:",r),e.json({error:r.message||"Erro no agente"},500)}});R.get("/api/admin/users",q,async e=>{try{const r=await P(e).sql(`
