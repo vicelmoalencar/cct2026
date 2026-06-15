@@ -2973,6 +2973,15 @@ const AGENT_TOOLS = [
     } },
   }},
   { type: 'function', function: {
+    name: 'list_expiring_subscriptions',
+    description: 'Lista assinaturas da tabela member_subscriptions que expiram nos próximos N dias (ou que já expiraram nos últimos N dias se days_ago for passado). Use esta ferramenta para perguntas como "quem expira essa semana", "assinaturas vencendo hoje", etc.',
+    parameters: { type: 'object', properties: {
+      days_ahead: { type: 'number', description: 'Buscar assinaturas expirando nos próximos X dias (ex: 7 para esta semana, 30 para este mês). Padrão: 7.' },
+      include_expired_days: { type: 'number', description: 'Também incluir assinaturas que expiraram nos últimos X dias. Padrão: 0 (não incluir).' },
+      only_active: { type: 'boolean', description: 'Se true, filtra apenas onde ativo=true. Padrão: true.' },
+    } },
+  }},
+  { type: 'function', function: {
     name: 'update_user',
     description: 'Atualiza campos de um usuário na tabela users (nome, telefone, ativo, dt_expiracao).',
     parameters: { type: 'object', properties: {
@@ -3122,6 +3131,21 @@ async function executeAgentReadTool(tool: string, args: any, db: any, c: any): P
         : await db.sql(`SELECT * FROM comments ORDER BY created_at DESC LIMIT $1`, [lim])
       return { comments: rows }
     }
+    case 'list_expiring_subscriptions': {
+      const daysAhead = Math.min(Math.max(args.days_ahead ?? 7, 0), 365)
+      const daysAgo = Math.min(Math.max(args.include_expired_days ?? 0, 0), 365)
+      const onlyActive = args.only_active !== false
+      const activeClause = onlyActive ? 'AND ativo = true' : ''
+      const rows = await db.sql(
+        `SELECT email_membro, nome_membro, data_expiracao, ativo, detalhe, origem
+         FROM member_subscriptions
+         WHERE data_expiracao BETWEEN (NOW() - INTERVAL '${daysAgo} days') AND (NOW() + INTERVAL '${daysAhead} days')
+         ${activeClause}
+         ORDER BY data_expiracao ASC`,
+        []
+      )
+      return { subscriptions: rows, count: rows.length, query: { days_ahead: daysAhead, include_expired_days: daysAgo } }
+    }
     default:
       return { error: `Ferramenta desconhecida: ${tool}` }
   }
@@ -3219,12 +3243,14 @@ app.post('/api/admin/agent', requireAdmin, async (c) => {
       return c.json({ reply: `✅ Feito! Resultado:\n\`\`\`json\n${JSON.stringify(result, null, 2)}\n\`\`\`` })
     }
 
+    const nowBR = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'full', timeStyle: 'short' })
     const systemPrompt = `Você é um assistente administrativo do CCT (Clube de Cálculo Trabalhista).
 Responda sempre em português brasileiro, de forma clara e objetiva.
-Use as ferramentas disponíveis para consultar dados antes de responder.
+Use as ferramentas disponíveis para consultar dados antes de responder. Nunca invente dados — sempre busque via ferramenta.
+Para perguntas sobre assinaturas expirando (esta semana, este mês, hoje, etc.): use a ferramenta list_expiring_subscriptions com days_ahead apropriado.
 Para ações de modificação (update/create/expire): use a ferramenta correspondente — o sistema pedirá confirmação ao admin antes de executar.
-Formate resultados de forma legível: use listas, negrito e tabelas quando útil.
-Data/hora atual: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`
+Formate resultados de forma legível: use listas, negrito quando útil.
+Data/hora atual no Brasil: ${nowBR}`
 
     let messages: any[] = [
       { role: 'system', content: systemPrompt },
