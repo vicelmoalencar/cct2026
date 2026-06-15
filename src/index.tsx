@@ -2995,12 +2995,15 @@ const AGENT_TOOLS = [
   }},
   { type: 'function', function: {
     name: 'search_lessons',
-    description: 'Busca aulas por título ou palavra-chave, opcionalmente filtrado por curso.',
+    description: 'Busca aulas por título/palavra-chave e/ou por data de criação. Todos os parâmetros são opcionais — pode buscar só por nome, só por data, ou combinar os dois.',
     parameters: { type: 'object', properties: {
-      query: { type: 'string', description: 'Termo de busca no título da aula' },
+      query: { type: 'string', description: 'Termo de busca no título da aula (opcional)' },
       course_id: { type: 'number', description: 'Filtrar por curso (opcional)' },
+      created_after: { type: 'string', description: 'Aulas criadas a partir desta data ISO 8601, ex: 2026-06-01 (opcional)' },
+      created_before: { type: 'string', description: 'Aulas criadas até esta data ISO 8601, ex: 2026-06-30 (opcional)' },
+      order_by: { type: 'string', description: 'Ordenação: "created_asc", "created_desc" (padrão), "title" (opcional)' },
       limit: { type: 'number', description: 'Máximo de resultados (padrão 20)' },
-    }, required: ['query'] },
+    } },
   }},
   { type: 'function', function: {
     name: 'search_suiteplus_subscriptions',
@@ -3279,25 +3282,29 @@ async function executeAgentReadTool(tool: string, args: any, db: any, c: any): P
       return { signups: rows, count: rows.length, days }
     }
     case 'search_lessons': {
-      const lim = Math.min(args.limit || 20, 50)
-      const q = `%${args.query}%`
-      const rows = args.course_id
-        ? await db.sql(
-            `SELECT l.id, l.title, l.duration_minutes, l.teste_gratis, l.rentable, l.order_index,
-                    m.title as module_title, c.title as course_title, c.id as course_id
-             FROM lessons l JOIN modules m ON m.id = l.module_id JOIN courses c ON c.id = m.course_id
-             WHERE l.title ILIKE $1 AND c.id = $2
-             ORDER BY c.title, m.order_index, l.order_index LIMIT $3`,
-            [q, args.course_id, lim]
-          )
-        : await db.sql(
-            `SELECT l.id, l.title, l.duration_minutes, l.teste_gratis, l.rentable, l.order_index,
-                    m.title as module_title, c.title as course_title, c.id as course_id
-             FROM lessons l JOIN modules m ON m.id = l.module_id JOIN courses c ON c.id = m.course_id
-             WHERE l.title ILIKE $1
-             ORDER BY c.title, m.order_index, l.order_index LIMIT $2`,
-            [q, lim]
-          )
+      const lim = Math.min(args.limit || 20, 100)
+      const conditions: string[] = []
+      const values: any[] = []
+      let idx = 1
+      if (args.query) { conditions.push(`l.title ILIKE $${idx++}`); values.push(`%${args.query}%`) }
+      if (args.course_id) { conditions.push(`c.id = $${idx++}`); values.push(args.course_id) }
+      if (args.created_after) { conditions.push(`l.created_at >= $${idx++}`); values.push(args.created_after) }
+      if (args.created_before) { conditions.push(`l.created_at <= $${idx++}`); values.push(args.created_before) }
+      const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
+      const orderMap: Record<string, string> = {
+        created_asc: 'l.created_at ASC',
+        created_desc: 'l.created_at DESC',
+        title: 'l.title ASC',
+      }
+      const order = orderMap[args.order_by] || 'l.created_at DESC'
+      values.push(lim)
+      const rows = await db.sql(
+        `SELECT l.id, l.title, l.duration_minutes, l.teste_gratis, l.rentable, l.created_at,
+                m.title as module_title, c.title as course_title, c.id as course_id
+         FROM lessons l JOIN modules m ON m.id = l.module_id JOIN courses c ON c.id = m.course_id
+         ${where} ORDER BY ${order} LIMIT $${idx}`,
+        values
+      )
       return { lessons: rows, count: rows.length }
     }
     case 'search_suiteplus_subscriptions': {
