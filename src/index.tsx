@@ -6286,7 +6286,7 @@ app.get('/', (c) => {
         <script defer src="/static/auth.js?v=whatsapp-floating-20260602"></script>
         <script defer src="/static/admin.js?v=8"></script>
         <script defer src="/static/access-control.js?v=4"></script>
-        <script defer src="/static/app.js?v=17"></script>
+        <script defer src="/static/app.js?v=18"></script>
         <script defer src="/static/search.js?v=4"></script>
     </body>
     </html>
