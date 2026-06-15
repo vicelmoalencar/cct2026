@@ -2906,6 +2906,390 @@ app.post('/api/admin/run-migration-lesson-fields', requireAdmin, async (c) => {
 })
 
 // ============================================
+// API ROUTES - AI ADMIN AGENT
+// ============================================
+
+const AGENT_WRITE_TOOLS = new Set([
+  'update_user', 'update_member_subscription', 'create_member_subscription',
+  'expire_subscription', 'update_lesson', 'update_course', 'update_certificate',
+])
+
+const AGENT_TOOLS = [
+  { type: 'function', function: {
+    name: 'search_users',
+    description: 'Busca usuários por email ou nome parcial. Retorna lista com dados básicos e status de assinatura.',
+    parameters: { type: 'object', properties: {
+      query: { type: 'string', description: 'Email ou nome para buscar (parcial)' },
+      limit: { type: 'number', description: 'Máximo de resultados (padrão 10)' },
+    }, required: ['query'] },
+  }},
+  { type: 'function', function: {
+    name: 'get_user_details',
+    description: 'Retorna dados completos de um usuário: perfil, assinaturas (member_subscriptions) e certificados.',
+    parameters: { type: 'object', properties: {
+      email: { type: 'string', description: 'Email exato do usuário' },
+    }, required: ['email'] },
+  }},
+  { type: 'function', function: {
+    name: 'list_courses',
+    description: 'Lista todos os cursos com id, título, instrutor e carga horária.',
+    parameters: { type: 'object', properties: {} },
+  }},
+  { type: 'function', function: {
+    name: 'get_course_details',
+    description: 'Retorna detalhes de um curso: módulos, contagem de aulas, configurações.',
+    parameters: { type: 'object', properties: {
+      course_id: { type: 'number', description: 'ID do curso' },
+    }, required: ['course_id'] },
+  }},
+  { type: 'function', function: {
+    name: 'search_subscriptions',
+    description: 'Busca assinaturas por email do usuário (tabela member_subscriptions).',
+    parameters: { type: 'object', properties: {
+      email: { type: 'string', description: 'Email do usuário' },
+    }, required: ['email'] },
+  }},
+  { type: 'function', function: {
+    name: 'list_certificates',
+    description: 'Lista certificados. Se email fornecido, filtra por usuário.',
+    parameters: { type: 'object', properties: {
+      email: { type: 'string', description: 'Email do usuário (opcional)' },
+      limit: { type: 'number', description: 'Máximo de resultados (padrão 20)' },
+    } },
+  }},
+  { type: 'function', function: {
+    name: 'get_lesson',
+    description: 'Retorna dados de uma aula pelo ID (título, video, duração, configurações de acesso).',
+    parameters: { type: 'object', properties: {
+      lesson_id: { type: 'number', description: 'ID da aula' },
+    }, required: ['lesson_id'] },
+  }},
+  { type: 'function', function: {
+    name: 'list_comments',
+    description: 'Lista comentários recentes, opcionalmente filtrado por aula.',
+    parameters: { type: 'object', properties: {
+      lesson_id: { type: 'number', description: 'ID da aula (opcional)' },
+      limit: { type: 'number', description: 'Máximo de resultados (padrão 20)' },
+    } },
+  }},
+  { type: 'function', function: {
+    name: 'update_user',
+    description: 'Atualiza campos de um usuário na tabela users (nome, telefone, ativo, dt_expiracao).',
+    parameters: { type: 'object', properties: {
+      email: { type: 'string', description: 'Email do usuário' },
+      fields: { type: 'object', description: 'Campos a atualizar (nome, telefone, ativo, dt_expiracao)' },
+    }, required: ['email', 'fields'] },
+  }},
+  { type: 'function', function: {
+    name: 'update_member_subscription',
+    description: 'Atualiza assinatura de membro (data_expiracao, ativo, detalhe).',
+    parameters: { type: 'object', properties: {
+      email: { type: 'string', description: 'Email do membro' },
+      fields: { type: 'object', description: 'Campos a atualizar (data_expiracao, ativo, detalhe)' },
+    }, required: ['email', 'fields'] },
+  }},
+  { type: 'function', function: {
+    name: 'create_member_subscription',
+    description: 'Cria nova assinatura para um membro.',
+    parameters: { type: 'object', properties: {
+      email_membro: { type: 'string', description: 'Email do membro' },
+      data_expiracao: { type: 'string', description: 'Data de expiração ISO 8601 (ex: 2026-12-31)' },
+      detalhe: { type: 'string', description: 'Descrição do plano (ex: Plano Anual)' },
+      ativo: { type: 'boolean', description: 'Ativo (padrão true)' },
+    }, required: ['email_membro', 'data_expiracao'] },
+  }},
+  { type: 'function', function: {
+    name: 'expire_subscription',
+    description: 'Expira imediatamente a assinatura de um usuário (define data_expiracao para agora e ativo=false).',
+    parameters: { type: 'object', properties: {
+      email: { type: 'string', description: 'Email do usuário' },
+    }, required: ['email'] },
+  }},
+  { type: 'function', function: {
+    name: 'update_lesson',
+    description: 'Atualiza dados de uma aula (title, description, teste_gratis, rentable, duration_minutes).',
+    parameters: { type: 'object', properties: {
+      lesson_id: { type: 'number', description: 'ID da aula' },
+      fields: { type: 'object', description: 'Campos: title, description, teste_gratis, rentable, duration_minutes' },
+    }, required: ['lesson_id', 'fields'] },
+  }},
+  { type: 'function', function: {
+    name: 'update_course',
+    description: 'Atualiza dados de um curso (title, description, instructor, duration_hours).',
+    parameters: { type: 'object', properties: {
+      course_id: { type: 'number', description: 'ID do curso' },
+      fields: { type: 'object', description: 'Campos: title, description, instructor, duration_hours' },
+    }, required: ['course_id', 'fields'] },
+  }},
+  { type: 'function', function: {
+    name: 'update_certificate',
+    description: 'Atualiza dados de um certificado (user_name, course_title, carga_horaria, generated_at).',
+    parameters: { type: 'object', properties: {
+      certificate_id: { type: 'number', description: 'ID do certificado' },
+      fields: { type: 'object', description: 'Campos: user_name, course_title, carga_horaria, generated_at' },
+    }, required: ['certificate_id', 'fields'] },
+  }},
+]
+
+function buildWriteDescription(tool: string, args: any): string {
+  switch (tool) {
+    case 'update_user':
+      return `Atualizar usuário **${args.email}** com os campos:\n${JSON.stringify(args.fields, null, 2)}`
+    case 'update_member_subscription':
+      return `Atualizar assinatura de **${args.email}** com:\n${JSON.stringify(args.fields, null, 2)}`
+    case 'create_member_subscription':
+      return `Criar assinatura para **${args.email_membro}** com expiração em **${args.data_expiracao}** (${args.detalhe || 'sem detalhe'})`
+    case 'expire_subscription':
+      return `Expirar imediatamente a assinatura de **${args.email}** (ativo = false, data_expiracao = agora)`
+    case 'update_lesson':
+      return `Atualizar aula ID **${args.lesson_id}** com:\n${JSON.stringify(args.fields, null, 2)}`
+    case 'update_course':
+      return `Atualizar curso ID **${args.course_id}** com:\n${JSON.stringify(args.fields, null, 2)}`
+    case 'update_certificate':
+      return `Atualizar certificado ID **${args.certificate_id}** com:\n${JSON.stringify(args.fields, null, 2)}`
+    default:
+      return `Executar ação **${tool}** com args: ${JSON.stringify(args)}`
+  }
+}
+
+async function executeAgentReadTool(tool: string, args: any, db: any, c: any): Promise<any> {
+  switch (tool) {
+    case 'search_users': {
+      const q = `%${args.query}%`
+      const lim = Math.min(args.limit || 10, 50)
+      const rows = await db.sql(
+        `SELECT u.id, u.email, u.nome, u.ativo, u.dt_expiracao,
+                ms.data_expiracao as sub_expiracao, ms.ativo as sub_ativo, ms.detalhe as sub_detalhe
+         FROM users u
+         LEFT JOIN member_subscriptions ms ON lower(ms.email_membro) = lower(u.email)
+         WHERE u.email ILIKE $1 OR u.nome ILIKE $1
+         ORDER BY u.created_at DESC LIMIT $2`,
+        [q, lim]
+      )
+      return { users: rows, total: rows.length }
+    }
+    case 'get_user_details': {
+      const [user, subs, certs] = await Promise.all([
+        db.sql(`SELECT * FROM users WHERE lower(email) = lower($1) LIMIT 1`, [args.email]),
+        db.sql(`SELECT * FROM member_subscriptions WHERE lower(email_membro) = lower($1) ORDER BY data_expiracao DESC`, [args.email]),
+        db.sql(`SELECT * FROM certificates WHERE lower(user_email) = lower($1) ORDER BY created_at DESC`, [args.email]),
+      ])
+      return { user: user[0] || null, subscriptions: subs, certificates: certs }
+    }
+    case 'list_courses': {
+      const rows = await db.sql(`SELECT id, title, instructor, duration_hours, created_at FROM courses ORDER BY title`)
+      return { courses: rows }
+    }
+    case 'get_course_details': {
+      const [course, modules] = await Promise.all([
+        db.sql(`SELECT * FROM courses WHERE id = $1`, [args.course_id]),
+        db.sql(
+          `SELECT m.id, m.title, m.order_index, COUNT(l.id)::int as lesson_count
+           FROM modules m LEFT JOIN lessons l ON l.module_id = m.id
+           WHERE m.course_id = $1 GROUP BY m.id ORDER BY m.order_index`,
+          [args.course_id]
+        ),
+      ])
+      return { course: course[0] || null, modules }
+    }
+    case 'search_subscriptions': {
+      const rows = await db.sql(
+        `SELECT * FROM member_subscriptions WHERE lower(email_membro) = lower($1) ORDER BY data_expiracao DESC`,
+        [args.email]
+      )
+      return { subscriptions: rows }
+    }
+    case 'list_certificates': {
+      const lim = Math.min(args.limit || 20, 100)
+      const rows = args.email
+        ? await db.sql(`SELECT * FROM certificates WHERE lower(user_email) = lower($1) ORDER BY created_at DESC LIMIT $2`, [args.email, lim])
+        : await db.sql(`SELECT * FROM certificates ORDER BY created_at DESC LIMIT $1`, [lim])
+      return { certificates: rows }
+    }
+    case 'get_lesson': {
+      const rows = await db.sql(
+        `SELECT l.*, m.title as module_title, c.title as course_title
+         FROM lessons l LEFT JOIN modules m ON m.id = l.module_id LEFT JOIN courses c ON c.id = m.course_id
+         WHERE l.id = $1`,
+        [args.lesson_id]
+      )
+      return { lesson: rows[0] || null }
+    }
+    case 'list_comments': {
+      const lim = Math.min(args.limit || 20, 100)
+      const rows = args.lesson_id
+        ? await db.sql(`SELECT * FROM comments WHERE lesson_id = $1 ORDER BY created_at DESC LIMIT $2`, [args.lesson_id, lim])
+        : await db.sql(`SELECT * FROM comments ORDER BY created_at DESC LIMIT $1`, [lim])
+      return { comments: rows }
+    }
+    default:
+      return { error: `Ferramenta desconhecida: ${tool}` }
+  }
+}
+
+async function executeAgentWriteTool(tool: string, args: any, db: any, c: any): Promise<any> {
+  const ALLOWED_USER_FIELDS = new Set(['nome', 'telefone', 'whatsapp', 'ativo', 'dt_expiracao'])
+  const ALLOWED_SUB_FIELDS = new Set(['data_expiracao', 'ativo', 'detalhe', 'origem'])
+  const ALLOWED_LESSON_FIELDS = new Set(['title', 'description', 'teste_gratis', 'rentable', 'duration_minutes', 'order_index'])
+  const ALLOWED_COURSE_FIELDS = new Set(['title', 'description', 'instructor', 'duration_hours'])
+  const ALLOWED_CERT_FIELDS = new Set(['user_name', 'course_title', 'carga_horaria', 'generated_at'])
+
+  switch (tool) {
+    case 'update_user': {
+      const safe: any = {}
+      for (const [k, v] of Object.entries(args.fields || {})) if (ALLOWED_USER_FIELDS.has(k)) safe[k] = v
+      if (Object.keys(safe).length === 0) return { error: 'Nenhum campo válido para atualizar' }
+      const cols = Object.keys(safe).map((k, i) => `"${k}" = $${i + 2}`).join(', ')
+      const vals = [args.email, ...Object.values(safe)]
+      const rows = await db.sql(`UPDATE users SET ${cols} WHERE lower(email) = lower($1) RETURNING *`, vals)
+      return { updated: rows.length, user: rows[0] || null }
+    }
+    case 'update_member_subscription': {
+      const safe: any = {}
+      for (const [k, v] of Object.entries(args.fields || {})) if (ALLOWED_SUB_FIELDS.has(k)) safe[k] = v
+      if (Object.keys(safe).length === 0) return { error: 'Nenhum campo válido para atualizar' }
+      const cols = Object.keys(safe).map((k, i) => `"${k}" = $${i + 2}`).join(', ')
+      const vals = [args.email, ...Object.values(safe)]
+      const rows = await db.sql(
+        `UPDATE member_subscriptions SET ${cols}, updated_at = NOW() WHERE lower(email_membro) = lower($1) RETURNING *`,
+        vals
+      )
+      return { updated: rows.length, subscription: rows[0] || null }
+    }
+    case 'create_member_subscription': {
+      const rows = await db.sql(
+        `INSERT INTO member_subscriptions (email_membro, data_expiracao, detalhe, ativo, origem, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, 'agente_ia', NOW(), NOW()) RETURNING *`,
+        [args.email_membro, args.data_expiracao, args.detalhe || null, args.ativo !== false]
+      )
+      return { created: true, subscription: rows[0] }
+    }
+    case 'expire_subscription': {
+      const rows = await db.sql(
+        `UPDATE member_subscriptions SET data_expiracao = NOW(), ativo = false, updated_at = NOW()
+         WHERE lower(email_membro) = lower($1) RETURNING *`,
+        [args.email]
+      )
+      return { updated: rows.length, expired: true }
+    }
+    case 'update_lesson': {
+      const safe: any = {}
+      for (const [k, v] of Object.entries(args.fields || {})) if (ALLOWED_LESSON_FIELDS.has(k)) safe[k] = v
+      if (Object.keys(safe).length === 0) return { error: 'Nenhum campo válido para atualizar' }
+      const cols = Object.keys(safe).map((k, i) => `"${k}" = $${i + 2}`).join(', ')
+      const vals = [args.lesson_id, ...Object.values(safe)]
+      const rows = await db.sql(`UPDATE lessons SET ${cols} WHERE id = $1 RETURNING id, title`, vals)
+      return { updated: rows.length, lesson: rows[0] || null }
+    }
+    case 'update_course': {
+      const safe: any = {}
+      for (const [k, v] of Object.entries(args.fields || {})) if (ALLOWED_COURSE_FIELDS.has(k)) safe[k] = v
+      if (Object.keys(safe).length === 0) return { error: 'Nenhum campo válido para atualizar' }
+      const cols = Object.keys(safe).map((k, i) => `"${k}" = $${i + 2}`).join(', ')
+      const vals = [args.course_id, ...Object.values(safe)]
+      const rows = await db.sql(`UPDATE courses SET ${cols}, updated_at = NOW() WHERE id = $1 RETURNING id, title`, vals)
+      return { updated: rows.length, course: rows[0] || null }
+    }
+    case 'update_certificate': {
+      const safe: any = {}
+      for (const [k, v] of Object.entries(args.fields || {})) if (ALLOWED_CERT_FIELDS.has(k)) safe[k] = v
+      if (Object.keys(safe).length === 0) return { error: 'Nenhum campo válido para atualizar' }
+      const cols = Object.keys(safe).map((k, i) => `"${k}" = $${i + 2}`).join(', ')
+      const vals = [args.certificate_id, ...Object.values(safe)]
+      const rows = await db.sql(`UPDATE certificates SET ${cols}, updated_at = NOW() WHERE id = $1 RETURNING *`, vals)
+      return { updated: rows.length, certificate: rows[0] || null }
+    }
+    default:
+      return { error: `Ferramenta de escrita desconhecida: ${tool}` }
+  }
+}
+
+app.post('/api/admin/agent', requireAdmin, async (c) => {
+  try {
+    const body = await c.req.json()
+    const { message, history = [], pendingAction } = body
+    const db = getDB(c)
+    const apiKey = (c.env as any).VITE_OPENROUTER_API_KEY
+    if (!apiKey) return c.json({ error: 'VITE_OPENROUTER_API_KEY não configurada' }, 500)
+
+    // Admin confirmed a pending write action → execute it
+    if (pendingAction) {
+      const result = await executeAgentWriteTool(pendingAction.tool, pendingAction.args, db, c)
+      if (result.error) return c.json({ reply: `❌ Erro ao executar: ${result.error}` })
+      return c.json({ reply: `✅ Feito! Resultado:\n\`\`\`json\n${JSON.stringify(result, null, 2)}\n\`\`\`` })
+    }
+
+    const systemPrompt = `Você é um assistente administrativo do CCT (Clube de Cálculo Trabalhista).
+Responda sempre em português brasileiro, de forma clara e objetiva.
+Use as ferramentas disponíveis para consultar dados antes de responder.
+Para ações de modificação (update/create/expire): use a ferramenta correspondente — o sistema pedirá confirmação ao admin antes de executar.
+Formate resultados de forma legível: use listas, negrito e tabelas quando útil.
+Data/hora atual: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`
+
+    let messages: any[] = [
+      { role: 'system', content: systemPrompt },
+      ...history.slice(-20),
+      { role: 'user', content: message },
+    ]
+
+    for (let i = 0; i < 6; i++) {
+      const aiRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+          'HTTP-Referer': 'https://novocct.ensinoplus.com.br',
+          'X-Title': 'CCT Admin Agent',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages,
+          tools: AGENT_TOOLS,
+          tool_choice: 'auto',
+        }),
+      })
+      if (!aiRes.ok) return c.json({ error: `OpenRouter: ${await aiRes.text()}` }, 500)
+      const data: any = await aiRes.json()
+      const choice = data.choices?.[0]
+      if (!choice) return c.json({ error: 'Resposta vazia do modelo' }, 500)
+
+      const assistantMsg = choice.message
+      const toolCalls = assistantMsg.tool_calls
+
+      // No tool calls → final text response
+      if (!toolCalls || toolCalls.length === 0) {
+        return c.json({ reply: assistantMsg.content || '' })
+      }
+
+      // Process first tool call
+      const tc = toolCalls[0]
+      const toolName = tc.function.name
+      let toolArgs: any = {}
+      try { toolArgs = JSON.parse(tc.function.arguments) } catch {}
+
+      // Write tool → return confirmation request (do NOT execute yet)
+      if (AGENT_WRITE_TOOLS.has(toolName)) {
+        const description = buildWriteDescription(toolName, toolArgs)
+        return c.json({
+          reply: `⚠️ **Confirmação necessária**\n\n${description}`,
+          pendingAction: { tool: toolName, args: toolArgs, description },
+        })
+      }
+
+      // Read tool → execute, feed result back, continue loop
+      const toolResult = await executeAgentReadTool(toolName, toolArgs, db, c)
+      messages.push({ role: 'assistant', content: assistantMsg.content || null, tool_calls: toolCalls })
+      messages.push({ role: 'tool', content: JSON.stringify(toolResult), tool_call_id: tc.id })
+    }
+
+    return c.json({ reply: 'Não consegui completar a consulta. Tente reformular sua pergunta.' })
+  } catch (error: any) {
+    console.error('Agent error:', error)
+    return c.json({ error: error.message || 'Erro no agente' }, 500)
+  }
+})
+
+// ============================================
 // API ROUTES - USERS MANAGEMENT
 // ============================================
 
@@ -5900,7 +6284,7 @@ app.get('/admin', (c) => {
   <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="/static/auth.js?v=whatsapp-floating-20260602"></script>
-  <script src="/static/admin.js?v=8"></script>
+  <script src="/static/admin.js?v=9"></script>
   <script>
     document.addEventListener('DOMContentLoaded', async () => {
       const isAdmin = await adminManager.checkAdmin()
@@ -6268,7 +6652,7 @@ app.get('/', (c) => {
         <script defer src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
         <script defer src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
         <script defer src="/static/auth.js?v=whatsapp-floating-20260602"></script>
-        <script defer src="/static/admin.js?v=8"></script>
+        <script defer src="/static/admin.js?v=9"></script>
         <script defer src="/static/access-control.js?v=4"></script>
         <script defer src="/static/app.js?v=20"></script>
         <script defer src="/static/search.js?v=4"></script>

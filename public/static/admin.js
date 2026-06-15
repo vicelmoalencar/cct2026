@@ -217,6 +217,9 @@ const adminUI = {
   courses: [],
   modules: [],
   lessons: [],
+  agentHistory: [],
+  agentPending: null,
+  agentLoading: false,
   plans: [],
   subscriptions: [],
   questions: [],
@@ -368,6 +371,11 @@ const adminUI = {
                   class="flex-1 py-4 px-6 font-semibold text-gray-400 border-b-2 border-transparent hover:text-blue-600 transition-colors whitespace-nowrap">
             <i class="fas fa-file-import mr-2"></i> Importar
           </button>
+          <button onclick="adminUI.switchTab('agent')"
+                  id="tabAgent"
+                  class="flex-1 py-4 px-6 font-semibold text-gray-400 border-b-2 border-transparent hover:text-purple-600 transition-colors whitespace-nowrap">
+            <i class="fas fa-robot mr-2"></i> Agente IA
+          </button>
         </div>
       </div>
       
@@ -383,7 +391,7 @@ const adminUI = {
     this.currentView = tab
     
     // Update tab styles
-    const tabs = ['courses', 'modules', 'lessons', 'plans', 'subscriptions', 'users', 'certificates', 'trails', 'comments', 'questions', 'import']
+    const tabs = ['courses', 'modules', 'lessons', 'plans', 'subscriptions', 'users', 'certificates', 'trails', 'comments', 'questions', 'import', 'agent']
     tabs.forEach(t => {
       const tabEl = document.getElementById(`tab${t.charAt(0).toUpperCase() + t.slice(1)}`)
       if (t === tab) {
@@ -407,6 +415,7 @@ const adminUI = {
     if (tab === 'trails') await adminUI.renderTrailsTab()
     if (tab === 'comments') await adminUI.renderCommentsTab()
     if (tab === 'questions') await adminUI.renderQuestionsTab()
+    if (tab === 'agent') adminUI.renderAgentTab()
   },
   
   // Render courses tab
@@ -6929,4 +6938,240 @@ adminManager.findCertificateBoth = async function(email, course) {
   } catch (error) {
     return []
   }
+}
+
+// ============================================
+// AI ADMIN AGENT
+// ============================================
+
+adminUI.renderAgentTab = function() {
+  const content = document.getElementById('adminContent')
+  content.innerHTML = `
+    <div class="max-w-4xl mx-auto">
+      <div class="bg-white rounded-xl shadow-md overflow-hidden flex flex-col" style="height: 75vh;">
+        <!-- Header -->
+        <div class="bg-gradient-to-r from-purple-700 to-purple-500 text-white px-6 py-4 flex items-center gap-3">
+          <div class="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+            <i class="fas fa-robot text-white text-lg"></i>
+          </div>
+          <div>
+            <h2 class="font-bold text-lg">Agente IA Administrativo</h2>
+            <p class="text-purple-200 text-xs">Pergunte sobre usuários, cursos, assinaturas e mais</p>
+          </div>
+          <button onclick="adminUI.clearAgentHistory()"
+                  class="ml-auto text-purple-200 hover:text-white text-sm transition-colors"
+                  title="Limpar conversa">
+            <i class="fas fa-trash-alt mr-1"></i> Limpar
+          </button>
+        </div>
+
+        <!-- Messages area -->
+        <div id="agentMessages" class="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
+          ${adminUI.agentHistory.length === 0 ? `
+            <div class="text-center py-12 text-gray-400">
+              <i class="fas fa-robot text-5xl mb-4 block text-purple-200"></i>
+              <p class="font-medium text-gray-500">Como posso ajudar?</p>
+              <p class="text-sm mt-2">Exemplos:</p>
+              <div class="mt-3 space-y-2 text-sm">
+                <div onclick="adminUI.setAgentInput('Quais usuários têm assinatura expirando essa semana?')"
+                     class="cursor-pointer bg-white border border-gray-200 rounded-lg px-4 py-2 hover:border-purple-400 hover:text-purple-700 transition-colors inline-block mx-1">
+                  Assinaturas expirando essa semana
+                </div>
+                <div onclick="adminUI.setAgentInput('Liste os últimos 10 certificados emitidos')"
+                     class="cursor-pointer bg-white border border-gray-200 rounded-lg px-4 py-2 hover:border-purple-400 hover:text-purple-700 transition-colors inline-block mx-1">
+                  Últimos certificados emitidos
+                </div>
+                <div onclick="adminUI.setAgentInput('Quais cursos estão cadastrados?')"
+                     class="cursor-pointer bg-white border border-gray-200 rounded-lg px-4 py-2 hover:border-purple-400 hover:text-purple-700 transition-colors inline-block mx-1">
+                  Cursos cadastrados
+                </div>
+              </div>
+            </div>
+          ` : adminUI.agentHistory.map(m => adminUI._renderAgentBubble(m)).join('')}
+        </div>
+
+        <!-- Confirmation card -->
+        <div id="agentConfirmCard" class="${adminUI.agentPending ? '' : 'hidden'} bg-amber-50 border-t-2 border-amber-400 px-6 py-4">
+          <div class="flex items-start gap-3">
+            <i class="fas fa-exclamation-triangle text-amber-500 text-lg mt-0.5"></i>
+            <div class="flex-1">
+              <p class="font-semibold text-amber-800 text-sm mb-1">Confirmação necessária</p>
+              <p id="agentConfirmDesc" class="text-sm text-amber-700 whitespace-pre-wrap">${adminUI.agentPending?.description || ''}</p>
+            </div>
+          </div>
+          <div class="flex gap-3 mt-3">
+            <button onclick="adminUI.confirmAgentAction()"
+                    class="px-5 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-semibold transition-colors">
+              <i class="fas fa-check mr-1"></i> Confirmar
+            </button>
+            <button onclick="adminUI.cancelAgentAction()"
+                    class="px-5 py-2 bg-gray-400 hover:bg-gray-500 text-white rounded-lg text-sm font-semibold transition-colors">
+              <i class="fas fa-times mr-1"></i> Cancelar
+            </button>
+          </div>
+        </div>
+
+        <!-- Input area -->
+        <div class="border-t bg-white px-4 py-3 flex gap-3 items-end">
+          <textarea id="agentInput"
+                    placeholder="Digite sua pergunta ou instrução..."
+                    rows="2"
+                    onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();adminUI.sendAgentMessage()}"
+                    class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent disabled:bg-gray-100"></textarea>
+          <button onclick="adminUI.sendAgentMessage()"
+                  id="agentSendBtn"
+                  class="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+            <i class="fas fa-paper-plane"></i>
+            <span>Enviar</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  `
+  // Scroll to bottom
+  const msgs = document.getElementById('agentMessages')
+  if (msgs) msgs.scrollTop = msgs.scrollHeight
+}
+
+adminUI._renderAgentBubble = function(msg) {
+  const isUser = msg.role === 'user'
+  if (isUser) {
+    return `
+      <div class="flex justify-end">
+        <div class="max-w-xs md:max-w-md bg-purple-600 text-white rounded-2xl rounded-tr-sm px-4 py-3 text-sm shadow-sm">
+          ${msg.content.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}
+        </div>
+      </div>`
+  }
+  // Agent message — render markdown-like
+  let html = msg.content
+    .replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/`{3}[\s\S]*?`{3}/g, m => `<pre class="bg-gray-100 rounded p-2 text-xs overflow-x-auto mt-1">${m.replace(/`{3}[a-z]*/g,'').replace(/`{3}/g,'').trim()}</pre>`)
+    .replace(/`(.+?)`/g, '<code class="bg-gray-100 px-1 rounded text-xs">$1</code>')
+    .replace(/\n/g, '<br>')
+  return `
+    <div class="flex justify-start">
+      <div class="max-w-xs md:max-w-2xl bg-white border border-gray-200 rounded-2xl rounded-tl-sm px-4 py-3 text-sm shadow-sm text-gray-800">
+        ${html}
+      </div>
+    </div>`
+}
+
+adminUI._appendAgentMessage = function(msg) {
+  adminUI.agentHistory.push(msg)
+  const container = document.getElementById('agentMessages')
+  if (!container) return
+  // Remove empty state if present
+  const emptyState = container.querySelector('.text-center.py-12')
+  if (emptyState) emptyState.remove()
+  const bubble = document.createElement('div')
+  bubble.innerHTML = adminUI._renderAgentBubble(msg)
+  container.appendChild(bubble.firstElementChild)
+  container.scrollTop = container.scrollHeight
+}
+
+adminUI._setAgentLoading = function(loading) {
+  adminUI.agentLoading = loading
+  const input = document.getElementById('agentInput')
+  const btn = document.getElementById('agentSendBtn')
+  if (input) input.disabled = loading
+  if (btn) btn.disabled = loading
+  if (loading) {
+    // Show typing indicator
+    const container = document.getElementById('agentMessages')
+    if (container) {
+      const typing = document.createElement('div')
+      typing.id = 'agentTyping'
+      typing.className = 'flex justify-start'
+      typing.innerHTML = `<div class="bg-white border border-gray-200 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
+        <div class="flex gap-1 items-center h-4">
+          <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay:0ms"></div>
+          <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay:150ms"></div>
+          <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay:300ms"></div>
+        </div>
+      </div>`
+      container.appendChild(typing)
+      container.scrollTop = container.scrollHeight
+    }
+  } else {
+    const typing = document.getElementById('agentTyping')
+    if (typing) typing.remove()
+  }
+}
+
+adminUI._showConfirmCard = function(pendingAction) {
+  adminUI.agentPending = pendingAction
+  const card = document.getElementById('agentConfirmCard')
+  const desc = document.getElementById('agentConfirmDesc')
+  if (card) card.classList.remove('hidden')
+  if (desc) desc.textContent = pendingAction.description || ''
+}
+
+adminUI._hideConfirmCard = function() {
+  adminUI.agentPending = null
+  const card = document.getElementById('agentConfirmCard')
+  if (card) card.classList.add('hidden')
+}
+
+adminUI.setAgentInput = function(text) {
+  const input = document.getElementById('agentInput')
+  if (input) { input.value = text; input.focus() }
+}
+
+adminUI.clearAgentHistory = function() {
+  adminUI.agentHistory = []
+  adminUI.agentPending = null
+  adminUI.renderAgentTab()
+}
+
+adminUI.sendAgentMessage = async function() {
+  const input = document.getElementById('agentInput')
+  if (!input) return
+  const message = input.value.trim()
+  if (!message || adminUI.agentLoading) return
+  input.value = ''
+
+  adminUI._hideConfirmCard()
+  adminUI._appendAgentMessage({ role: 'user', content: message })
+  adminUI._setAgentLoading(true)
+
+  try {
+    const response = await axios.post('/api/admin/agent', {
+      message,
+      history: adminUI.agentHistory.slice(0, -1),  // exclude the message just appended
+    })
+    const { reply, pendingAction } = response.data
+
+    adminUI._setAgentLoading(false)
+    if (reply) adminUI._appendAgentMessage({ role: 'assistant', content: reply })
+    if (pendingAction) adminUI._showConfirmCard(pendingAction)
+  } catch (err) {
+    adminUI._setAgentLoading(false)
+    const errMsg = err.response?.data?.error || err.message || 'Erro ao contatar o agente'
+    adminUI._appendAgentMessage({ role: 'assistant', content: `❌ Erro: ${errMsg}` })
+  }
+}
+
+adminUI.confirmAgentAction = async function() {
+  if (!adminUI.agentPending || adminUI.agentLoading) return
+  const action = adminUI.agentPending
+  adminUI._hideConfirmCard()
+  adminUI._setAgentLoading(true)
+
+  try {
+    const response = await axios.post('/api/admin/agent', { pendingAction: action })
+    const { reply } = response.data
+    adminUI._setAgentLoading(false)
+    if (reply) adminUI._appendAgentMessage({ role: 'assistant', content: reply })
+  } catch (err) {
+    adminUI._setAgentLoading(false)
+    const errMsg = err.response?.data?.error || err.message || 'Erro ao executar ação'
+    adminUI._appendAgentMessage({ role: 'assistant', content: `❌ Erro ao executar: ${errMsg}` })
+  }
+}
+
+adminUI.cancelAgentAction = function() {
+  adminUI._hideConfirmCard()
+  adminUI._appendAgentMessage({ role: 'assistant', content: '↩️ Ação cancelada. Como mais posso ajudar?' })
 }
