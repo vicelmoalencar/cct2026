@@ -2912,6 +2912,7 @@ app.post('/api/admin/run-migration-lesson-fields', requireAdmin, async (c) => {
 const AGENT_WRITE_TOOLS = new Set([
   'update_user', 'update_member_subscription', 'create_member_subscription',
   'expire_subscription', 'update_lesson', 'update_course', 'update_certificate',
+  'reply_comment', 'delete_comment', 'generate_certificate', 'add_credits', 'bulk_extend_subscriptions',
 ])
 
 const AGENT_TOOLS = [
@@ -2971,6 +2972,86 @@ const AGENT_TOOLS = [
       lesson_id: { type: 'number', description: 'ID da aula (opcional)' },
       limit: { type: 'number', description: 'Máximo de resultados (padrão 20)' },
     } },
+  }},
+  { type: 'function', function: {
+    name: 'dashboard_stats',
+    description: 'Retorna estatísticas gerais do sistema: total de usuários, assinaturas ativas, certificados emitidos, comentários sem resposta, total de cursos e aulas.',
+    parameters: { type: 'object', properties: {} },
+  }},
+  { type: 'function', function: {
+    name: 'get_user_progress',
+    description: 'Retorna o progresso de um usuário em todos os cursos: % concluído, aulas completadas e aulas totais por curso.',
+    parameters: { type: 'object', properties: {
+      email: { type: 'string', description: 'Email do usuário' },
+    }, required: ['email'] },
+  }},
+  { type: 'function', function: {
+    name: 'list_recent_signups',
+    description: 'Lista usuários cadastrados recentemente.',
+    parameters: { type: 'object', properties: {
+      days: { type: 'number', description: 'Últimos X dias (padrão 7)' },
+      limit: { type: 'number', description: 'Máximo de resultados (padrão 20)' },
+    } },
+  }},
+  { type: 'function', function: {
+    name: 'search_lessons',
+    description: 'Busca aulas por título ou palavra-chave, opcionalmente filtrado por curso.',
+    parameters: { type: 'object', properties: {
+      query: { type: 'string', description: 'Termo de busca no título da aula' },
+      course_id: { type: 'number', description: 'Filtrar por curso (opcional)' },
+      limit: { type: 'number', description: 'Máximo de resultados (padrão 20)' },
+    }, required: ['query'] },
+  }},
+  { type: 'function', function: {
+    name: 'search_suiteplus_subscriptions',
+    description: 'Busca assinaturas no banco SuitePlus (sistema externo de pagamentos). Se email fornecido, filtra por usuário; caso contrário lista as mais recentes.',
+    parameters: { type: 'object', properties: {
+      email: { type: 'string', description: 'Email do usuário (opcional)' },
+      status: { type: 'string', description: 'Filtrar por status: active, expired, cancelled (opcional)' },
+      limit: { type: 'number', description: 'Máximo de resultados (padrão 20)' },
+    } },
+  }},
+  { type: 'function', function: {
+    name: 'reply_comment',
+    description: 'Responde a um comentário de aluno.',
+    parameters: { type: 'object', properties: {
+      comment_id: { type: 'number', description: 'ID do comentário' },
+      reply: { type: 'string', description: 'Texto da resposta' },
+    }, required: ['comment_id', 'reply'] },
+  }},
+  { type: 'function', function: {
+    name: 'delete_comment',
+    description: 'Remove um comentário.',
+    parameters: { type: 'object', properties: {
+      comment_id: { type: 'number', description: 'ID do comentário a remover' },
+    }, required: ['comment_id'] },
+  }},
+  { type: 'function', function: {
+    name: 'generate_certificate',
+    description: 'Emite um certificado manualmente para um usuário em um curso.',
+    parameters: { type: 'object', properties: {
+      email: { type: 'string', description: 'Email do usuário' },
+      user_name: { type: 'string', description: 'Nome completo do usuário no certificado' },
+      course_title: { type: 'string', description: 'Título do curso' },
+      carga_horaria: { type: 'number', description: 'Carga horária em horas' },
+      completion_date: { type: 'string', description: 'Data de conclusão ISO 8601 (padrão: hoje)' },
+    }, required: ['email', 'user_name', 'course_title', 'carga_horaria'] },
+  }},
+  { type: 'function', function: {
+    name: 'add_credits',
+    description: 'Adiciona créditos de aluguel ao saldo de um usuário.',
+    parameters: { type: 'object', properties: {
+      email: { type: 'string', description: 'Email do usuário' },
+      amount: { type: 'number', description: 'Quantidade de créditos a adicionar' },
+    }, required: ['email', 'amount'] },
+  }},
+  { type: 'function', function: {
+    name: 'bulk_extend_subscriptions',
+    description: 'Estende a data de expiração de assinaturas de múltiplos usuários de uma só vez.',
+    parameters: { type: 'object', properties: {
+      emails: { type: 'array', items: { type: 'string' }, description: 'Lista de emails dos usuários' },
+      days: { type: 'number', description: 'Número de dias para estender' },
+    }, required: ['emails', 'days'] },
   }},
   { type: 'function', function: {
     name: 'list_expiring_subscriptions',
@@ -3056,6 +3137,16 @@ function buildWriteDescription(tool: string, args: any): string {
       return `Atualizar curso ID **${args.course_id}** com:\n${JSON.stringify(args.fields, null, 2)}`
     case 'update_certificate':
       return `Atualizar certificado ID **${args.certificate_id}** com:\n${JSON.stringify(args.fields, null, 2)}`
+    case 'reply_comment':
+      return `Responder ao comentário ID **${args.comment_id}** com:\n"${args.reply}"`
+    case 'delete_comment':
+      return `Excluir permanentemente o comentário ID **${args.comment_id}**`
+    case 'generate_certificate':
+      return `Emitir certificado para **${args.user_name}** (${args.email})\nCurso: **${args.course_title}** — ${args.carga_horaria}h\nData de conclusão: ${args.completion_date || 'hoje'}`
+    case 'add_credits':
+      return `Adicionar **${args.amount} créditos** ao saldo de **${args.email}**`
+    case 'bulk_extend_subscriptions':
+      return `Estender assinaturas de **${(args.emails || []).length} usuários** por **${args.days} dias**:\n${(args.emails || []).join('\n')}`
     default:
       return `Executar ação **${tool}** com args: ${JSON.stringify(args)}`
   }
@@ -3130,6 +3221,111 @@ async function executeAgentReadTool(tool: string, args: any, db: any, c: any): P
         ? await db.sql(`SELECT * FROM comments WHERE lesson_id = $1 ORDER BY created_at DESC LIMIT $2`, [args.lesson_id, lim])
         : await db.sql(`SELECT * FROM comments ORDER BY created_at DESC LIMIT $1`, [lim])
       return { comments: rows }
+    }
+    case 'dashboard_stats': {
+      const [users, activeSubs, totalCerts, pendingComments, courses, lessons, suiteplusActive] = await Promise.all([
+        db.sql(`SELECT COUNT(*)::int as total FROM users`),
+        db.sql(`SELECT COUNT(*)::int as total FROM member_subscriptions WHERE data_expiracao > NOW() AND ativo = true`),
+        db.sql(`SELECT COUNT(*)::int as total FROM certificates`),
+        db.sql(`SELECT COUNT(*)::int as total FROM comments WHERE admin_reply IS NULL`),
+        db.sql(`SELECT COUNT(*)::int as total FROM courses`),
+        db.sql(`SELECT COUNT(*)::int as total FROM lessons`),
+        (() => {
+          const spConn = (c.env as any).DATABASE_SUITEPLUS
+          if (!spConn) return Promise.resolve([{ total: null }])
+          const spDb = new PostgresClient(spConn)
+          return spDb.sql(`SELECT COUNT(*)::int as total FROM user_subscriptions WHERE status = 'active' AND product_id = 4 AND expires_at > NOW()`).catch(() => [{ total: null }])
+        })(),
+      ])
+      return {
+        total_users: users[0]?.total,
+        active_subscriptions_cct: activeSubs[0]?.total,
+        active_subscriptions_suiteplus: suiteplusActive[0]?.total,
+        total_certificates: totalCerts[0]?.total,
+        pending_comments: pendingComments[0]?.total,
+        total_courses: courses[0]?.total,
+        total_lessons: lessons[0]?.total,
+      }
+    }
+    case 'get_user_progress': {
+      const rows = await db.sql(
+        `SELECT c.id as course_id, c.title as course_title,
+                COUNT(l.id)::int as total_lessons,
+                COUNT(up.lesson_id) FILTER (WHERE up.completed = true)::int as completed_lessons
+         FROM courses c
+         JOIN modules m ON m.course_id = c.id
+         JOIN lessons l ON l.module_id = m.id
+         LEFT JOIN user_progress up ON up.lesson_id = l.id AND lower(up.user_email) = lower($1)
+         GROUP BY c.id, c.title
+         HAVING COUNT(up.lesson_id) FILTER (WHERE up.completed = true) > 0
+         ORDER BY completed_lessons DESC`,
+        [args.email]
+      )
+      const withPct = rows.map((r: any) => ({
+        ...r,
+        progress_pct: r.total_lessons > 0 ? Math.round((r.completed_lessons / r.total_lessons) * 100) : 0,
+      }))
+      return { email: args.email, courses_with_progress: withPct, total_courses: withPct.length }
+    }
+    case 'list_recent_signups': {
+      const days = Math.min(args.days || 7, 365)
+      const lim = Math.min(args.limit || 20, 100)
+      const rows = await db.sql(
+        `SELECT email, nome, created_at FROM users
+         WHERE created_at > NOW() - INTERVAL '${days} days'
+         ORDER BY created_at DESC LIMIT $1`,
+        [lim]
+      )
+      return { signups: rows, count: rows.length, days }
+    }
+    case 'search_lessons': {
+      const lim = Math.min(args.limit || 20, 50)
+      const q = `%${args.query}%`
+      const rows = args.course_id
+        ? await db.sql(
+            `SELECT l.id, l.title, l.duration_minutes, l.teste_gratis, l.rentable, l.order_index,
+                    m.title as module_title, c.title as course_title, c.id as course_id
+             FROM lessons l JOIN modules m ON m.id = l.module_id JOIN courses c ON c.id = m.course_id
+             WHERE l.title ILIKE $1 AND c.id = $2
+             ORDER BY c.title, m.order_index, l.order_index LIMIT $3`,
+            [q, args.course_id, lim]
+          )
+        : await db.sql(
+            `SELECT l.id, l.title, l.duration_minutes, l.teste_gratis, l.rentable, l.order_index,
+                    m.title as module_title, c.title as course_title, c.id as course_id
+             FROM lessons l JOIN modules m ON m.id = l.module_id JOIN courses c ON c.id = m.course_id
+             WHERE l.title ILIKE $1
+             ORDER BY c.title, m.order_index, l.order_index LIMIT $2`,
+            [q, lim]
+          )
+      return { lessons: rows, count: rows.length }
+    }
+    case 'search_suiteplus_subscriptions': {
+      const spConn = (c.env as any).DATABASE_SUITEPLUS
+      if (!spConn) return { error: 'DATABASE_SUITEPLUS não configurada' }
+      const spDb = new PostgresClient(spConn)
+      const lim = Math.min(args.limit || 20, 100)
+      let rows: any[]
+      if (args.email) {
+        rows = await spDb.sql(
+          `SELECT id, user_email, product_id, started_at, expires_at, status, payment_source, recurring_enabled
+           FROM user_subscriptions WHERE lower(user_email) = lower($1) ORDER BY expires_at DESC LIMIT $2`,
+          [args.email, lim]
+        )
+      } else if (args.status) {
+        rows = await spDb.sql(
+          `SELECT id, user_email, product_id, started_at, expires_at, status, payment_source, recurring_enabled
+           FROM user_subscriptions WHERE status = $1 AND product_id = 4 ORDER BY expires_at DESC LIMIT $2`,
+          [args.status, lim]
+        )
+      } else {
+        rows = await spDb.sql(
+          `SELECT id, user_email, product_id, started_at, expires_at, status, payment_source, recurring_enabled
+           FROM user_subscriptions WHERE product_id = 4 ORDER BY expires_at DESC LIMIT $1`,
+          [lim]
+        )
+      }
+      return { subscriptions: rows, count: rows.length, source: 'SuitePlus' }
     }
     case 'list_expiring_subscriptions': {
       const daysAhead = Math.min(Math.max(args.days_ahead ?? 7, 0), 365)
@@ -3224,6 +3420,61 @@ async function executeAgentWriteTool(tool: string, args: any, db: any, c: any): 
       const vals = [args.certificate_id, ...Object.values(safe)]
       const rows = await db.sql(`UPDATE certificates SET ${cols}, updated_at = NOW() WHERE id = $1 RETURNING *`, vals)
       return { updated: rows.length, certificate: rows[0] || null }
+    }
+    case 'reply_comment': {
+      const adminUser = c.get('user')
+      const rows = await db.sql(
+        `UPDATE comments SET admin_reply = $1, admin_replied_at = NOW(), admin_replied_by = $2 WHERE id = $3 RETURNING id, user_name, comment_text, admin_reply`,
+        [args.reply, adminUser?.email || 'admin', args.comment_id]
+      )
+      if (rows.length === 0) return { error: `Comentário ID ${args.comment_id} não encontrado` }
+      return { replied: true, comment: rows[0] }
+    }
+    case 'delete_comment': {
+      const rows = await db.sql(`DELETE FROM comments WHERE id = $1 RETURNING id, user_name, comment_text`, [args.comment_id])
+      if (rows.length === 0) return { error: `Comentário ID ${args.comment_id} não encontrado` }
+      return { deleted: true, comment: rows[0] }
+    }
+    case 'generate_certificate': {
+      const codeBytes = new Uint8Array(4)
+      crypto.getRandomValues(codeBytes)
+      const code = 'CCT-' + new Date().getFullYear() + '-' +
+        Array.from(codeBytes).map((b: number) => b.toString(16).padStart(2, '0')).join('').toUpperCase()
+      const now = new Date().toISOString()
+      const completionDate = args.completion_date || now.split('T')[0]
+      const rows = await db.sql(
+        `INSERT INTO certificates (user_email, user_name, course_title, carga_horaria, certificate_code, verification_code, issued_at, completion_date, created_at)
+         VALUES ($1, $2, $3, $4, $5, $5, $6, $7::date, $6)
+         RETURNING id, certificate_code`,
+        [args.email, args.user_name, args.course_title, args.carga_horaria, code, now, completionDate]
+      )
+      return { created: true, certificate_id: rows[0]?.id, certificate_code: rows[0]?.certificate_code }
+    }
+    case 'add_credits': {
+      const credDb = getCreditsDB(c)
+      await ensureCreditsSchema(credDb)
+      const rows = await credDb.sql(
+        `INSERT INTO users_credits (user_email, credits_balance, total_credits_used, updated_at)
+         VALUES (lower($1), $2, 0, NOW())
+         ON CONFLICT (user_email) DO UPDATE
+           SET credits_balance = users_credits.credits_balance + $2, updated_at = NOW()
+         RETURNING user_email, credits_balance`,
+        [args.email, args.amount]
+      )
+      return { added: args.amount, new_balance: rows[0]?.credits_balance, email: args.email }
+    }
+    case 'bulk_extend_subscriptions': {
+      const emails = (args.emails || []).map((e: string) => e.toLowerCase())
+      if (emails.length === 0) return { error: 'Nenhum email fornecido' }
+      const days = Math.min(Math.max(args.days || 0, 1), 3650)
+      const rows = await db.sql(
+        `UPDATE member_subscriptions
+         SET data_expiracao = data_expiracao + ($1 || ' days')::INTERVAL, updated_at = NOW()
+         WHERE lower(email_membro) = ANY($2)
+         RETURNING email_membro, data_expiracao`,
+        [String(days), emails]
+      )
+      return { updated: rows.length, days_added: days, subscriptions: rows }
     }
     default:
       return { error: `Ferramenta de escrita desconhecida: ${tool}` }
