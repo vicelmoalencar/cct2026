@@ -3488,6 +3488,33 @@ async function executeAgentWriteTool(tool: string, args: any, db: any, c: any): 
   }
 }
 
+app.get('/api/admin/agent-settings', requireAdmin, async (c) => {
+  try {
+    const db = getDB(c)
+    await db.sql(`CREATE TABLE IF NOT EXISTS agent_settings (key VARCHAR(100) PRIMARY KEY, value TEXT, updated_at TIMESTAMPTZ DEFAULT NOW())`)
+    const rows = await db.sql(`SELECT value FROM agent_settings WHERE key = 'custom_instructions'`)
+    return c.json({ instructions: rows[0]?.value || '' })
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500)
+  }
+})
+
+app.put('/api/admin/agent-settings', requireAdmin, async (c) => {
+  try {
+    const { instructions } = await c.req.json()
+    const db = getDB(c)
+    await db.sql(`CREATE TABLE IF NOT EXISTS agent_settings (key VARCHAR(100) PRIMARY KEY, value TEXT, updated_at TIMESTAMPTZ DEFAULT NOW())`)
+    await db.sql(
+      `INSERT INTO agent_settings (key, value, updated_at) VALUES ('custom_instructions', $1, NOW())
+       ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`,
+      [instructions || '']
+    )
+    return c.json({ success: true })
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500)
+  }
+})
+
 app.post('/api/admin/agent', requireAdmin, async (c) => {
   try {
     const body = await c.req.json()
@@ -3503,6 +3530,14 @@ app.post('/api/admin/agent', requireAdmin, async (c) => {
       return c.json({ reply: `✅ Feito! Resultado:\n\`\`\`json\n${JSON.stringify(result, null, 2)}\n\`\`\`` })
     }
 
+    // Load custom instructions from DB (ignore errors — non-critical)
+    let customInstructions = ''
+    try {
+      await db.sql(`CREATE TABLE IF NOT EXISTS agent_settings (key VARCHAR(100) PRIMARY KEY, value TEXT, updated_at TIMESTAMPTZ DEFAULT NOW())`)
+      const rows = await db.sql(`SELECT value FROM agent_settings WHERE key = 'custom_instructions'`)
+      customInstructions = rows[0]?.value?.trim() || ''
+    } catch {}
+
     const nowBR = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'full', timeStyle: 'short' })
     const systemPrompt = `Você é um assistente administrativo do CCT (Clube de Cálculo Trabalhista).
 Responda sempre em português brasileiro, de forma clara e objetiva.
@@ -3515,7 +3550,7 @@ STATUS DE ASSINATURA: Quando exibir data de expiração, indique também se est�
 Para perguntas sobre assinaturas expirando (esta semana, este mês, hoje, etc.): use list_expiring_subscriptions com days_ahead apropriado.
 Quando mostrar detalhes completos de um usuário: consulte também search_suiteplus_subscriptions para comparar com o banco SuitePlus e indique se há divergência entre os sistemas.
 Para ações de modificação (update/create/expire): use a ferramenta correspondente — o sistema pedirá confirmação antes de executar.
-Data/hora atual no Brasil: ${nowBR}`
+Data/hora atual no Brasil: ${nowBR}${customInstructions ? `\n\nINSTRUÇÕES PERSONALIZADAS DO ADMINISTRADOR:\n${customInstructions}` : ''}`
 
     let messages: any[] = [
       { role: 'system', content: systemPrompt },
@@ -6575,7 +6610,7 @@ app.get('/admin', (c) => {
   <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="/static/auth.js?v=whatsapp-floating-20260602"></script>
-  <script src="/static/admin.js?v=9"></script>
+  <script src="/static/admin.js?v=10"></script>
   <script>
     document.addEventListener('DOMContentLoaded', async () => {
       const isAdmin = await adminManager.checkAdmin()
@@ -6943,7 +6978,7 @@ app.get('/', (c) => {
         <script defer src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
         <script defer src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
         <script defer src="/static/auth.js?v=whatsapp-floating-20260602"></script>
-        <script defer src="/static/admin.js?v=9"></script>
+        <script defer src="/static/admin.js?v=10"></script>
         <script defer src="/static/access-control.js?v=4"></script>
         <script defer src="/static/app.js?v=20"></script>
         <script defer src="/static/search.js?v=4"></script>

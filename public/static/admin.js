@@ -6947,8 +6947,36 @@ adminManager.findCertificateBoth = async function(email, course) {
 adminUI.renderAgentTab = function() {
   const content = document.getElementById('adminContent')
   content.innerHTML = `
-    <div class="max-w-4xl mx-auto">
-      <div class="bg-white rounded-xl shadow-md overflow-hidden flex flex-col" style="height: 75vh;">
+    <div class="max-w-4xl mx-auto space-y-4">
+
+      <!-- Custom instructions panel -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <button onclick="adminUI.toggleAgentInstructions()"
+                class="w-full flex items-center justify-between px-5 py-3 text-left hover:bg-gray-50 transition-colors">
+          <span class="flex items-center gap-2 font-semibold text-gray-700 text-sm">
+            <i class="fas fa-graduation-cap text-purple-500"></i>
+            Instruções personalizadas
+          </span>
+          <i id="agentInstructionsChevron" class="fas fa-chevron-down text-gray-400 text-sm transition-transform"></i>
+        </button>
+        <div id="agentInstructionsPanel" class="hidden px-5 pb-4 border-t border-gray-100">
+          <p class="text-xs text-gray-500 mt-3 mb-2">Escreva regras, procedimentos ou contexto que o agente deve sempre considerar.</p>
+          <textarea id="agentInstructionsText"
+                    rows="5"
+                    placeholder="Ex: Plano Mensal = 30 dias. Não estender assinatura sem aprovação do financeiro. Produto ID 4 no SuitePlus = CCT Clube..."
+                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 resize-none"></textarea>
+          <div class="flex items-center gap-3 mt-2">
+            <button onclick="adminUI.saveAgentInstructions()"
+                    class="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-semibold transition-colors">
+              <i class="fas fa-save mr-1"></i> Salvar
+            </button>
+            <span id="agentInstructionsSaved" class="hidden text-green-600 text-sm"><i class="fas fa-check mr-1"></i>Salvo!</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chat -->
+      <div class="bg-white rounded-xl shadow-md overflow-hidden flex flex-col" style="height: 70vh;">
         <!-- Header -->
         <div class="bg-gradient-to-r from-purple-700 to-purple-500 text-white px-6 py-4 flex items-center gap-3">
           <div class="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
@@ -7031,6 +7059,8 @@ adminUI.renderAgentTab = function() {
   // Scroll to bottom
   const msgs = document.getElementById('agentMessages')
   if (msgs) msgs.scrollTop = msgs.scrollHeight
+  // Load saved instructions
+  adminUI.loadAgentInstructions()
 }
 
 adminUI._renderAgentBubble = function(msg) {
@@ -7174,4 +7204,35 @@ adminUI.confirmAgentAction = async function() {
 adminUI.cancelAgentAction = function() {
   adminUI._hideConfirmCard()
   adminUI._appendAgentMessage({ role: 'assistant', content: '↩️ Ação cancelada. Como mais posso ajudar?' })
+}
+
+adminUI.toggleAgentInstructions = function() {
+  const panel = document.getElementById('agentInstructionsPanel')
+  const chevron = document.getElementById('agentInstructionsChevron')
+  if (!panel) return
+  panel.classList.toggle('hidden')
+  if (chevron) chevron.style.transform = panel.classList.contains('hidden') ? '' : 'rotate(180deg)'
+}
+
+adminUI.loadAgentInstructions = async function() {
+  try {
+    const res = await axios.get('/api/admin/agent-settings')
+    const ta = document.getElementById('agentInstructionsText')
+    if (ta) ta.value = res.data.instructions || ''
+  } catch {}
+}
+
+adminUI.saveAgentInstructions = async function() {
+  const ta = document.getElementById('agentInstructionsText')
+  const saved = document.getElementById('agentInstructionsSaved')
+  if (!ta) return
+  try {
+    await axios.put('/api/admin/agent-settings', { instructions: ta.value })
+    if (saved) {
+      saved.classList.remove('hidden')
+      setTimeout(() => saved.classList.add('hidden'), 2000)
+    }
+  } catch (err) {
+    alert('Erro ao salvar: ' + (err.response?.data?.error || err.message))
+  }
 }
