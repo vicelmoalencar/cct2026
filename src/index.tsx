@@ -3137,11 +3137,13 @@ async function executeAgentReadTool(tool: string, args: any, db: any, c: any): P
       const onlyActive = args.only_active !== false
       const activeClause = onlyActive ? 'AND ativo = true' : ''
       const rows = await db.sql(
-        `SELECT email_membro, nome_membro, data_expiracao, ativo, detalhe, origem
-         FROM member_subscriptions
-         WHERE data_expiracao BETWEEN (NOW() - INTERVAL '${daysAgo} days') AND (NOW() + INTERVAL '${daysAhead} days')
-         ${activeClause}
-         ORDER BY data_expiracao ASC`,
+        `SELECT ms.email_membro, ms.data_expiracao, ms.ativo, ms.detalhe, ms.origem,
+                u.nome
+         FROM member_subscriptions ms
+         LEFT JOIN users u ON lower(u.email) = lower(ms.email_membro)
+         WHERE ms.data_expiracao BETWEEN (NOW() - INTERVAL '${daysAgo} days') AND (NOW() + INTERVAL '${daysAhead} days')
+         ${activeClause.replace('ativo', 'ms.ativo')}
+         ORDER BY ms.data_expiracao ASC`,
         []
       )
       return { subscriptions: rows, count: rows.length, query: { days_ahead: daysAhead, include_expired_days: daysAgo } }
