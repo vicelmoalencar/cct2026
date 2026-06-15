@@ -4494,64 +4494,54 @@ app.get('/api/lessons/:id', async (c) => {
           [userEmail, parseInt(lessonId)]
         )
         hasAccess = !!accessRows[0]?.has_access
-        
+
         console.log('Has access:', hasAccess, 'User:', userEmail, 'Lesson:', lessonId)
-        
+
         if (!hasAccess) {
-          // Check for active rental before denying
-          const rental = await db.sql(
-            'SELECT expires_at FROM lesson_rentals WHERE user_email = $1 AND lesson_id = $2 AND expires_at > NOW()',
-            [userEmail, parseInt(lessonId)]
-          )
-          if (rental.length > 0) {
-            hasAccess = true
-          } else {
-            // Check member_subscriptions directly (user_has_lesson_access may be incomplete)
-            const activeSub = await db.sql(
+          // Run all fallback checks in parallel to avoid sequential round trips
+          const suiteplusConn = (c.env as any).DATABASE_SUITEPLUS
+          const [rental, activeSub, suiteplusExpires] = await Promise.all([
+            db.sql(
+              'SELECT expires_at FROM lesson_rentals WHERE user_email = $1 AND lesson_id = $2 AND expires_at > NOW()',
+              [userEmail, parseInt(lessonId)]
+            ),
+            db.sql(
               `SELECT id FROM member_subscriptions WHERE email_membro = $1 AND data_expiracao > NOW() AND ativo = true LIMIT 1`,
               [userEmail]
-            )
-            if (activeSub.length > 0) {
-              hasAccess = true
-            } else {
-              // Check SuitesPLUS as final fallback
-              const suiteplusConn = (c.env as any).DATABASE_SUITEPLUS
-              if (suiteplusConn) {
-                const suiteplusExpires = await getSuiteplusExpiration(userEmail, suiteplusConn)
-                if (suiteplusExpires && suiteplusExpires > new Date()) {
-                  hasAccess = true
-                }
-              }
-            }
+            ),
+            suiteplusConn ? getSuiteplusExpiration(userEmail, suiteplusConn) : Promise.resolve(null),
+          ])
 
-            if (!hasAccess) {
-              const lessonMeta = await db.sql(
-                'SELECT rentable, rental_credits, title FROM lessons WHERE id = $1',
-                [parseInt(lessonId)]
-              )
-              console.log('❌ Access denied for user:', userEmail, 'lesson:', lessonId)
-              return c.json({
-                error: 'Access denied',
-                message: 'Você não tem permissão para acessar esta aula.',
-                needsUpgrade: true,
-                rentable: lessonMeta[0]?.rentable || false,
-                rental_credits: lessonMeta[0]?.rental_credits || 0,
-                lesson_title: lessonMeta[0]?.title || ''
-              }, 403)
-            }
+          if (rental.length > 0 || activeSub.length > 0 || (suiteplusExpires && suiteplusExpires > new Date())) {
+            hasAccess = true
+          }
+
+          if (!hasAccess) {
+            const lessonMeta = await db.sql(
+              'SELECT rentable, rental_credits, title FROM lessons WHERE id = $1',
+              [parseInt(lessonId)]
+            )
+            console.log('❌ Access denied for user:', userEmail, 'lesson:', lessonId)
+            return c.json({
+              error: 'Access denied',
+              message: 'Você não tem permissão para acessar esta aula.',
+              needsUpgrade: true,
+              rentable: lessonMeta[0]?.rentable || false,
+              rental_credits: lessonMeta[0]?.rental_credits || 0,
+              lesson_title: lessonMeta[0]?.title || ''
+            }, 403)
           }
         }
-        
+
         console.log('✅ Access granted for user:', userEmail, 'lesson:', lessonId)
       } catch (rpcError: any) {
         console.error('❌ Error checking access via RPC:', rpcError)
-        // If RPC fails, allow access temporarily (fallback)
         console.log('⚠️ Allowing access due to RPC error (fallback mode)')
         fallbackMode = true;
         hasAccess = true;
       }
-    } 
-    
+    }
+
     if (!userEmail || (!hasAccess && !fallbackMode)) {
       // Not authenticated - check if lesson is free
       const lesson = await db.query('lessons', {
@@ -4559,43 +4549,27 @@ app.get('/api/lessons/:id', async (c) => {
         filters: { id: lessonId },
         single: true
       })
-      
+
       if (!lesson?.teste_gratis) {
-        return c.json({ 
+        return c.json({
           error: 'Access denied',
           message: 'Esta é uma aula premium. Faça login e tenha um plano ativo para acessar.',
           needsLogin: true
         }, 403)
       }
     }
-    
-    // Get lesson with module info (using query with JOIN)
-    const sqlQuery = `
+
+    await ensureCommentsReplySchema(db)
+
+    // Fetch lesson data, comments, and trails in parallel
+    const lessonSql = `
       SELECT l.*, m.title as module_title, c.title as course_title, c.id as course_id
       FROM lessons l
       LEFT JOIN modules m ON l.module_id = m.id
       LEFT JOIN courses c ON m.course_id = c.id
       WHERE l.id = $1
     `
-    const lessonResult = await db.sql(sqlQuery, [parseInt(lessonId)])
-    
-    if (!lessonResult || lessonResult.length === 0) {
-      return c.json({ error: 'Lesson not found' }, 404)
-    }
-    
-    const lesson = lessonResult[0]
-    
-    await ensureCommentsReplySchema(db)
-
-    // Get comments
-    const comments = await db.query('comments', {
-      select: '*',
-      filters: { lesson_id: lessonId },
-      order: 'created_at DESC'
-    })
-
-    // Get trails containing this lesson with prev/next navigation
-    const trailsQuery = `
+    const trailsSql = `
       SELECT
         t.id as trail_id,
         t.title as trail_title,
@@ -4622,7 +4596,17 @@ app.get('/api/lessons/:id', async (c) => {
       WHERE tl.lesson_id = $1 AND t.is_published = true
       ORDER BY t.order_index
     `
-    const lessonTrails = await db.sql(trailsQuery, [parseInt(lessonId)])
+    const [lessonResult, comments, lessonTrails] = await Promise.all([
+      db.sql(lessonSql, [parseInt(lessonId)]),
+      db.sql(`SELECT * FROM comments WHERE lesson_id = $1 ORDER BY created_at DESC`, [lessonId]),
+      db.sql(trailsSql, [parseInt(lessonId)]),
+    ])
+
+    if (!lessonResult || lessonResult.length === 0) {
+      return c.json({ error: 'Lesson not found' }, 404)
+    }
+
+    const lesson = lessonResult[0]
 
     return c.json({ lesson, comments, trails: lessonTrails })
   } catch (error) {
