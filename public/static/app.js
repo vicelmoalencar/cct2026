@@ -538,6 +538,9 @@ const app = {
         favResponse.forEach(f => { favoritesMap[f.lesson_id] = true })
       }
       this._favoritesMap = favoritesMap
+
+      // Cache course data so loadLesson can skip re-fetching it
+      this._courseCache = { courseId: String(courseId), course, modules }
       
       // Calculate course progress
       const totalLessons = modules.reduce((sum, m) => sum + (m.lessons?.length || 0), 0)
@@ -819,9 +822,15 @@ const app = {
       this.showLoadingState('Carregando aula...')
       
       this.currentLesson = lessonId
-      
+
+      // Pre-fetch progress in parallel with the lesson (we likely know the course already)
+      const knownCourseId = this.currentCourse ? String(this.currentCourse) : null
+      const earlyProgressPromise = knownCourseId
+        ? axios.get(`/api/progress/${this.currentUser}/${knownCourseId}`).catch(() => ({ data: { progress: [] } }))
+        : null
+
       const response = await axios.get(`/api/lessons/${lessonId}`)
-      
+
       // Check if access was denied (403)
       if (response.status === 403 || response.data.error === 'Access denied') {
         const d = response.data
@@ -833,23 +842,41 @@ const app = {
         this.showCourses()
         return
       }
-      
+
       const { lesson, comments, trails = [] } = response.data
-      
-      // Get course info and progress in parallel
-      const [courseResponse, progressResponse, playerFavResponse] = await Promise.all([
-        axios.get(`/api/courses/${lesson.course_id}`),
-        axios.get(`/api/progress/${this.currentUser}/${lesson.course_id}`),
-        axios.get('/api/favorites').then(r => r.data).catch(() => [])
-      ])
+      const effectiveCourseId = String(lesson.course_id)
+
+      // Use cached course data if available; otherwise fetch
+      const courseDataPromise = (this._courseCache?.courseId === effectiveCourseId)
+        ? Promise.resolve({ data: this._courseCache })
+        : axios.get(`/api/courses/${effectiveCourseId}`)
+
+      // Reuse the early progress fetch if it was for the right course, otherwise fetch now
+      const progressDataPromise = (earlyProgressPromise && knownCourseId === effectiveCourseId)
+        ? earlyProgressPromise
+        : axios.get(`/api/progress/${this.currentUser}/${effectiveCourseId}`).catch(() => ({ data: { progress: [] } }))
+
+      const [courseResponse, progressResponse] = await Promise.all([courseDataPromise, progressDataPromise])
       const { course, modules } = courseResponse.data
+
+      // Keep course cache fresh
+      this._courseCache = { courseId: effectiveCourseId, course, modules }
+
       const lessonProgressMap = {}
       ;(progressResponse.data.progress || []).forEach(p => {
         lessonProgressMap[p.lesson_id] = p.completed
       })
-      const playerFavMap = {}
-      if (Array.isArray(playerFavResponse)) {
-        playerFavResponse.forEach(f => { playerFavMap[f.lesson_id] = true })
+
+      // Use cached favorites map; fall back to fetching if not available
+      let playerFavMap = {}
+      if (this._favoritesMap) {
+        playerFavMap = this._favoritesMap
+      } else {
+        const favResponse = await axios.get('/api/favorites').then(r => r.data).catch(() => [])
+        if (Array.isArray(favResponse)) {
+          favResponse.forEach(f => { playerFavMap[f.lesson_id] = true })
+          this._favoritesMap = playerFavMap
+        }
       }
 
       // Find current module and get all lessons
@@ -1514,12 +1541,15 @@ const app = {
   async toggleComplete(lessonId, isCompleted) {
     try {
       const endpoint = isCompleted ? '/api/progress/uncomplete' : '/api/progress/complete'
-      
+
       await axios.post(endpoint, {
         user_email: this.currentUser,
         lesson_id: lessonId
       })
-      
+
+      // Invalidate course cache so next lesson load shows updated progress
+      this._courseCache = null
+
       // Reload lesson to update UI
       this.loadLesson(lessonId)
       
