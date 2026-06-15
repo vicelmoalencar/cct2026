@@ -612,7 +612,7 @@ const app = {
                       : ''
                     const rentBadge = isRented
                       ? '<span class="inline-flex items-center gap-1 text-xs font-semibold text-teal-700 bg-teal-100 px-2 py-0.5 rounded-full ml-1"><i class="fas fa-key mr-1"></i>Alugada</span>'
-                      : (isRentable && accessManager?.userAccessStatus?.accessType !== 'COMPLETO')
+                      : showAsRentable
                         ? '<span class="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full ml-1"><i class="fas fa-coins"></i> ' + lesson.rental_credits + ' créditos</span>'
                         : ''
                     const hasTranscript = !!(lesson.transcript && lesson.transcript.trim().length > 0)
@@ -636,7 +636,7 @@ const app = {
                           <div class="flex-1">
                             <p class="font-semibold text-gray-800 lesson-title flex items-center flex-wrap gap-1">
                               ${lesson.title}
-                              ${isPremium ? '<i class="fas fa-lock text-red-500 ml-1"></i>' : '<i class="fas fa-gift text-green-500 ml-1"></i>'}
+                              ${isPremium ? (showAsRentable ? '<i class="fas fa-shopping-cart text-amber-500 ml-1"></i>' : '<i class="fas fa-lock text-red-500 ml-1"></i>') : '<i class="fas fa-gift text-green-500 ml-1"></i>'}
                               ${watchedBadge}
                               ${rentBadge}
                               ${transcriptBadge}
