@@ -605,7 +605,7 @@ const app = {
                       : isRented
                         ? '<i class="fas fa-play-circle text-teal-500 text-xl"></i>'
                         : isPremium
-                          ? (showAsRentable ? '<i class="fas fa-shopping-cart text-amber-500 text-xl"></i>' : '<i class="fas fa-lock text-red-500 text-xl"></i>')
+                          ? (showAsRentable ? '<i class="fas fa-shopping-cart text-amber-500 text-xl"></i>' : (isRentable && hasFullAccess ? '' : '<i class="fas fa-lock text-red-500 text-xl"></i>'))
                           : '<i class="fas fa-play-circle text-blue-600 text-xl"></i>'
                     const watchedBadge = isCompleted
                       ? '<span class="inline-flex items-center gap-1 text-xs font-semibold text-green-700 bg-green-100 px-2 py-0.5 rounded-full ml-2">✓ Já assistida</span>'
@@ -636,7 +636,7 @@ const app = {
                           <div class="flex-1">
                             <p class="font-semibold text-gray-800 lesson-title flex items-center flex-wrap gap-1">
                               ${lesson.title}
-                              ${isPremium ? (showAsRentable ? '<i class="fas fa-shopping-cart text-amber-500 ml-1"></i>' : '<i class="fas fa-lock text-red-500 ml-1"></i>') : '<i class="fas fa-gift text-green-500 ml-1"></i>'}
+                              ${isPremium ? (showAsRentable ? '<i class="fas fa-shopping-cart text-amber-500 ml-1"></i>' : (isRentable && hasFullAccess ? '' : '<i class="fas fa-lock text-red-500 ml-1"></i>')) : '<i class="fas fa-gift text-green-500 ml-1"></i>'}
                               ${watchedBadge}
                               ${rentBadge}
                               ${transcriptBadge}
