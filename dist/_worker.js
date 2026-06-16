@@ -1048,10 +1048,19 @@ ${_}`,pendingAction:{tool:I,args:A,description:_}})}const g=await jo(I,A,c,e);p.
       ${i}
       GROUP BY c.id
       ORDER BY c.created_at DESC
-    `);return e.json({courses:o})}catch(t){return console.error("❌ /api/courses error:",(t==null?void 0:t.message)||t),e.json({error:(t==null?void 0:t.message)||"Failed to fetch courses"},500)}});R.get("/api/courses/:id",async e=>{try{const t=e.req.param("id"),r=P(e),s=await r.query("courses",{select:"*",filters:{id:t},single:!0});if(!s)return e.json({error:"Course not found"},404);const n=await r.query("modules",{select:"*",filters:{course_id:t},order:"order_index"}),i=await r.sql(`SELECT l.* FROM lessons l
+    `);return e.json({courses:o})}catch(t){return console.error("❌ /api/courses error:",(t==null?void 0:t.message)||t),e.json({error:(t==null?void 0:t.message)||"Failed to fetch courses"},500)}});R.get("/api/courses/:id/modules",async e=>{try{const t=e.req.param("id"),r=P(e),s=await r.query("courses",{select:"*",filters:{id:t},single:!0});if(!s)return e.json({error:"Course not found"},404);const n=await r.sql(`SELECT m.*,
+              COUNT(l.id)::int AS lessons_count
+       FROM modules m
+       LEFT JOIN lessons l ON l.module_id = m.id
+       WHERE m.course_id = $1
+       GROUP BY m.id
+       ORDER BY m.order_index`,[t]);return e.json({course:s,modules:n})}catch(t){return console.error("❌ /api/courses/:id/modules error:",(t==null?void 0:t.message)||t),e.json({error:(t==null?void 0:t.message)||"Failed to fetch course modules"},500)}});R.get("/api/courses/:id",async e=>{try{const t=e.req.param("id"),r=P(e),s=await r.query("courses",{select:"*",filters:{id:t},single:!0});if(!s)return e.json({error:"Course not found"},404);const n=await r.query("modules",{select:"*",filters:{course_id:t},order:"order_index"}),i=await r.sql(`SELECT l.* FROM lessons l
        JOIN modules m ON m.id = l.module_id
        WHERE m.course_id = $1
-       ORDER BY m.order_index, l.order_index`,[t]),o=new Map;for(const a of i){const c=o.get(a.module_id)||[];c.push(a),o.set(a.module_id,c)}for(const a of n)a.lessons=o.get(a.id)||[];return e.json({course:s,modules:n})}catch(t){return console.error("❌ /api/courses/:id error:",(t==null?void 0:t.message)||t),e.json({error:(t==null?void 0:t.message)||"Failed to fetch course"},500)}});R.get("/api/lessons/:id",async e=>{var t,r,s,n;try{const i=e.req.param("id"),o=V(e,"sb-access-token");let a=null;if(o){const m=await J(o,e.env.SUPABASE_URL,e.env.SUPABASE_ANON_KEY);m&&(a=m.email)}const c=P(e);let d=!1,l=!1;if(a)try{if(d=!!((t=(await c.sql("SELECT user_has_lesson_access($1::text, $2::integer) AS has_access",[a,parseInt(i)]))[0])!=null&&t.has_access),console.log("Has access:",d,"User:",a,"Lesson:",i),!d){const y=e.env.DATABASE_SUITEPLUS,[w,S,I]=await Promise.all([c.sql("SELECT expires_at FROM lesson_rentals WHERE lower(user_email) = lower($1) AND lesson_id = $2 AND expires_at > NOW()",[a,parseInt(i)]),c.sql(`SELECT id FROM member_subscriptions
+       ORDER BY m.order_index, l.order_index`,[t]),o=new Map;for(const a of i){const c=o.get(a.module_id)||[];c.push(a),o.set(a.module_id,c)}for(const a of n)a.lessons=o.get(a.id)||[];return e.json({course:s,modules:n})}catch(t){return console.error("❌ /api/courses/:id error:",(t==null?void 0:t.message)||t),e.json({error:(t==null?void 0:t.message)||"Failed to fetch course"},500)}});R.get("/api/modules/:id/lessons",async e=>{try{const t=e.req.param("id"),s=await P(e).sql(`SELECT *
+       FROM lessons
+       WHERE module_id = $1
+       ORDER BY order_index`,[t]);return e.json({lessons:s||[]})}catch(t){return console.error("❌ /api/modules/:id/lessons error:",(t==null?void 0:t.message)||t),e.json({error:(t==null?void 0:t.message)||"Failed to fetch module lessons"},500)}});R.get("/api/lessons/:id",async e=>{var t,r,s,n;try{const i=e.req.param("id"),o=V(e,"sb-access-token");let a=null;if(o){const m=await J(o,e.env.SUPABASE_URL,e.env.SUPABASE_ANON_KEY);m&&(a=m.email)}const c=P(e);let d=!1,l=!1;if(a)try{if(d=!!((t=(await c.sql("SELECT user_has_lesson_access($1::text, $2::integer) AS has_access",[a,parseInt(i)]))[0])!=null&&t.has_access),console.log("Has access:",d,"User:",a,"Lesson:",i),!d){const y=e.env.DATABASE_SUITEPLUS,[w,S,I]=await Promise.all([c.sql("SELECT expires_at FROM lesson_rentals WHERE lower(user_email) = lower($1) AND lesson_id = $2 AND expires_at > NOW()",[a,parseInt(i)]),c.sql(`SELECT id FROM member_subscriptions
                WHERE lower(email_membro) = lower($1)
                  AND data_expiracao > NOW()
                  AND COALESCE(ativo, true) = true
@@ -1876,7 +1885,7 @@ ${_}`,pendingAction:{tool:I,args:A,description:_}})}const g=await jo(I,A,c,e);p.
         <script defer src="/static/auth.js?v=whatsapp-floating-20260602"><\/script>
         <script defer src="/static/admin.js?v=10"><\/script>
         <script defer src="/static/access-control.js?v=4"><\/script>
-        <script defer src="/static/app.js?v=20"><\/script>
+        <script defer src="/static/app.js?v=21"><\/script>
         <script defer src="/static/search.js?v=4"><\/script>
     </body>
     </html>

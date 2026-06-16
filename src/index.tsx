@@ -5119,6 +5119,40 @@ app.get('/api/courses', async (c) => {
   }
 })
 
+// Get single course with modules only. Lessons are loaded lazily per module.
+app.get('/api/courses/:id/modules', async (c) => {
+  try {
+    const courseId = c.req.param('id')
+    const db = getDB(c)
+
+    const course = await db.query('courses', {
+      select: '*',
+      filters: { id: courseId },
+      single: true
+    })
+
+    if (!course) {
+      return c.json({ error: 'Course not found' }, 404)
+    }
+
+    const modules = await db.sql(
+      `SELECT m.*,
+              COUNT(l.id)::int AS lessons_count
+       FROM modules m
+       LEFT JOIN lessons l ON l.module_id = m.id
+       WHERE m.course_id = $1
+       GROUP BY m.id
+       ORDER BY m.order_index`,
+      [courseId]
+    )
+
+    return c.json({ course, modules })
+  } catch (error: any) {
+    console.error('❌ /api/courses/:id/modules error:', error?.message || error)
+    return c.json({ error: error?.message || 'Failed to fetch course modules' }, 500)
+  }
+})
+
 // Get single course with modules and lessons
 app.get('/api/courses/:id', async (c) => {
   try {
@@ -5165,6 +5199,27 @@ app.get('/api/courses/:id', async (c) => {
   } catch (error: any) {
     console.error('❌ /api/courses/:id error:', error?.message || error)
     return c.json({ error: error?.message || 'Failed to fetch course' }, 500)
+  }
+})
+
+// Get lessons for one module. Used by the course modules page for lazy loading.
+app.get('/api/modules/:id/lessons', async (c) => {
+  try {
+    const moduleId = c.req.param('id')
+    const db = getDB(c)
+
+    const lessons = await db.sql(
+      `SELECT *
+       FROM lessons
+       WHERE module_id = $1
+       ORDER BY order_index`,
+      [moduleId]
+    )
+
+    return c.json({ lessons: lessons || [] })
+  } catch (error: any) {
+    console.error('❌ /api/modules/:id/lessons error:', error?.message || error)
+    return c.json({ error: error?.message || 'Failed to fetch module lessons' }, 500)
   }
 })
 
@@ -7009,7 +7064,7 @@ app.get('/', (c) => {
         <script defer src="/static/auth.js?v=whatsapp-floating-20260602"></script>
         <script defer src="/static/admin.js?v=10"></script>
         <script defer src="/static/access-control.js?v=4"></script>
-        <script defer src="/static/app.js?v=20"></script>
+        <script defer src="/static/app.js?v=21"></script>
         <script defer src="/static/search.js?v=4"></script>
     </body>
     </html>

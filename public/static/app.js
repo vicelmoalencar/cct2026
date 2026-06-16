@@ -706,6 +706,259 @@ const app = {
       icon.classList.add('fa-chevron-up')
     }
   },
+
+  async loadCourse(courseId, { skipHistory = false } = {}) {
+    this.currentTrailContext = null
+    if (!skipHistory) {
+      history.pushState({ type: 'course', id: courseId }, '', `/curso/${courseId}`)
+    }
+
+    try {
+      this.showLoadingState('Carregando modulos...')
+      this.currentCourse = courseId
+
+      const [courseResponse, progressResponse] = await Promise.all([
+        axios.get(`/api/courses/${courseId}/modules`),
+        axios.get(`/api/progress/${this.currentUser}/${courseId}`).catch(() => ({ data: { progress: [] } }))
+      ])
+
+      const { course, modules } = courseResponse.data
+      const progress = progressResponse.data.progress || []
+      const progressMap = {}
+      progress.forEach(p => { progressMap[p.lesson_id] = p.completed })
+
+      const modulesWithState = modules.map(module => ({
+        ...module,
+        lessons: [],
+        lessonsLoaded: false
+      }))
+
+      this._courseProgressMap = progressMap
+      this._favoritesMap = null
+      this._rentalsLoadedForCourse = null
+      this._courseCache = { courseId: String(courseId), course, modules: modulesWithState }
+
+      const totalLessons = modulesWithState.reduce((sum, m) => sum + (Number(m.lessons_count) || 0), 0)
+      const completedLessons = progress.filter(p => p.completed).length
+      const progressPercent = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0
+
+      const courseDetail = document.getElementById('courseDetail')
+      courseDetail.innerHTML = `
+        <div class="bg-white rounded-lg shadow-md p-8 mb-6">
+          <h2 class="text-3xl font-bold text-gray-800 mb-2">${course.title}</h2>
+          <p class="text-gray-600 mb-4">${course.description || ''}</p>
+          <div class="flex items-center gap-6 text-sm text-gray-600 flex-wrap">
+            <span><i class="fas fa-user mr-1"></i> ${course.instructor}</span>
+            <span><i class="fas fa-clock mr-1"></i> ${course.duration_hours} horas</span>
+            <span><i class="fas fa-list-ul mr-1"></i> ${modulesWithState.length} modulos</span>
+          </div>
+          <div class="mt-6">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-sm font-semibold text-gray-700">Seu Progresso</span>
+              <span class="text-sm font-semibold text-blue-600">${progressPercent}%</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-3">
+              <div class="bg-blue-600 h-3 rounded-full transition-all" style="width: ${progressPercent}%"></div>
+            </div>
+            <p class="text-xs text-gray-500 mt-1">${completedLessons} de ${totalLessons} aulas concluidas</p>
+          </div>
+        </div>
+
+        <div class="space-y-4">
+          ${modulesWithState.map((module, idx) => {
+            const moduleCompleted = progress.filter(p => p.module_id === module.id && p.completed).length
+            const moduleLessonsCount = Number(module.lessons_count) || 0
+            return `
+              <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                <div class="module-header bg-blue-50 p-4 flex items-center justify-between hover:bg-blue-100 transition-colors"
+                     onclick="app.toggleModule(${module.id})">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold">
+                      ${idx + 1}
+                    </div>
+                    <div>
+                      <h3 class="font-bold text-gray-800">${module.title}</h3>
+                      <p class="text-sm text-gray-600">${module.description || ''}</p>
+                      <p class="text-xs text-gray-500 mt-1">${moduleCompleted} de ${moduleLessonsCount} aulas concluidas</p>
+                    </div>
+                  </div>
+                  <i class="fas fa-chevron-down text-gray-400" id="icon-${module.id}"></i>
+                </div>
+                <div class="module-content" id="module-${module.id}">
+                  <div class="p-4 space-y-2" id="module-lessons-${module.id}"></div>
+                </div>
+              </div>
+            `
+          }).join('')}
+        </div>
+      `
+
+      this.showCourseView()
+      this.hideLoadingState()
+    } catch (error) {
+      console.error('Error loading course modules:', error)
+      this.hideLoadingState()
+      alert('Erro ao carregar modulos do curso')
+    }
+  },
+
+  async loadModuleLessons(moduleId) {
+    const cache = this._courseCache
+    const module = cache?.modules?.find(m => m.id === moduleId)
+    const listEl = document.getElementById(`module-lessons-${moduleId}`)
+    if (!module || !listEl) return
+
+    listEl.innerHTML = `
+      <div class="py-4 text-center text-sm text-gray-500">
+        <i class="fas fa-spinner fa-spin mr-2"></i>Carregando aulas...
+      </div>
+    `
+
+    try {
+      const needsFavorites = !this._favoritesMap
+      const needsRentals = this._rentalsLoadedForCourse !== cache.courseId
+      const [lessonsResponse, favResponse, rentalsResponse] = await Promise.all([
+        axios.get(`/api/modules/${moduleId}/lessons`),
+        needsFavorites ? axios.get('/api/favorites').then(r => r.data).catch(() => []) : Promise.resolve(null),
+        needsRentals ? axios.get('/api/user/rentals').then(r => r.data).catch(() => ({ rentals: [] })) : Promise.resolve(null)
+      ])
+
+      if (needsFavorites) {
+        this._favoritesMap = {}
+        if (Array.isArray(favResponse)) {
+          favResponse.forEach(f => { this._favoritesMap[f.lesson_id] = true })
+        }
+      }
+
+      if (needsRentals) {
+        const now = new Date()
+        this.activeRentals = new Set(
+          (rentalsResponse.rentals || [])
+            .filter(r => new Date(r.expires_at) > now)
+            .map(r => r.lesson_id)
+        )
+        this._rentalsLoadedForCourse = cache.courseId
+      }
+
+      module.lessons = lessonsResponse.data.lessons || []
+      module.lessonsLoaded = true
+      listEl.innerHTML = this.renderModuleLessons(module, this._courseProgressMap || {}, this._favoritesMap || {})
+
+      if (typeof accessManager !== 'undefined') {
+        setTimeout(() => accessManager.attachLessonClickHandlers(), 50)
+      }
+    } catch (error) {
+      console.error('Error loading module lessons:', error)
+      listEl.innerHTML = `
+        <div class="py-4 text-center text-sm text-red-600">
+          Erro ao carregar aulas. Clique no modulo para tentar novamente.
+        </div>
+      `
+    }
+  },
+
+  renderModuleLessons(module, progressMap, favoritesMap) {
+    if (!module.lessons || module.lessons.length === 0) {
+      return '<div class="py-4 text-center text-sm text-gray-500">Nenhuma aula neste modulo.</div>'
+    }
+
+    return module.lessons.map((lesson, lessonIdx) => {
+      const isCompleted = progressMap[lesson.id]
+      const isFree = lesson.teste_gratis || lesson.free_trial || false
+      const isPremium = !isFree
+      const isRented = app.activeRentals.has(lesson.id)
+      const isRentable = !isFree && !isRented && lesson.rentable && lesson.rental_credits > 0
+      const hasFullAccess = accessManager?.userAccessStatus?.accessType === 'COMPLETO'
+      const showAsRentable = isRentable && !hasFullAccess
+      const borderClass = isCompleted ? 'border-green-300 bg-green-50' : isRented ? 'border-teal-300 bg-teal-50' : showAsRentable ? 'border-amber-200' : 'border-gray-200'
+      const circleClass = isCompleted ? 'bg-green-500' : isRented ? 'bg-teal-500' : showAsRentable ? 'bg-amber-400' : 'bg-gray-300'
+      const circleContent = isCompleted ? '<i class="fas fa-check"></i>' : lessonIdx + 1
+      const rightIcon = isCompleted
+        ? '<i class="fas fa-check-circle text-green-500 text-xl"></i>'
+        : isRented
+          ? '<i class="fas fa-play-circle text-teal-500 text-xl"></i>'
+          : isPremium
+            ? (showAsRentable ? '<i class="fas fa-shopping-cart text-amber-500 text-xl"></i>' : (hasFullAccess ? '' : '<i class="fas fa-lock text-red-500 text-xl"></i>'))
+            : '<i class="fas fa-play-circle text-blue-600 text-xl"></i>'
+      const watchedBadge = isCompleted
+        ? '<span class="inline-flex items-center gap-1 text-xs font-semibold text-green-700 bg-green-100 px-2 py-0.5 rounded-full ml-2">Assistida</span>'
+        : ''
+      const rentBadge = isRented
+        ? '<span class="inline-flex items-center gap-1 text-xs font-semibold text-teal-700 bg-teal-100 px-2 py-0.5 rounded-full ml-1"><i class="fas fa-key mr-1"></i>Alugada</span>'
+        : showAsRentable
+          ? '<span class="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full ml-1"><i class="fas fa-coins"></i> ' + lesson.rental_credits + ' creditos</span>'
+          : ''
+      const hasTranscript = !!(lesson.transcript && lesson.transcript.trim().length > 0)
+      const transcriptBadge = hasTranscript
+        ? '<span class="inline-flex items-center gap-1 text-xs font-semibold text-purple-700 bg-purple-100 px-2 py-0.5 rounded-full ml-1" title="Esta aula possui transcricao"><i class="fas fa-align-left"></i> Transcricao</span>'
+        : ''
+
+      return `
+        <div class="lesson-item p-3 rounded-lg border ${borderClass} flex items-center justify-between cursor-pointer"
+             data-lesson-id="${lesson.id}"
+             data-is-premium="${isPremium}"
+             data-rentable="${isRentable}"
+             data-rental-credits="${lesson.rental_credits || 0}"
+             data-lesson-title="${lesson.title.replace(/"/g, '&quot;')}"
+             data-is-rented="${isRented}"
+             onclick="app.loadLesson(${lesson.id})">
+          <div class="flex items-center gap-3 flex-1">
+            <div class="w-8 h-8 ${circleClass} text-white rounded-full flex items-center justify-center text-sm flex-shrink-0">
+              ${circleContent}
+            </div>
+            <div class="flex-1">
+              <p class="font-semibold text-gray-800 lesson-title flex items-center flex-wrap gap-1">
+                ${lesson.title}
+                ${isPremium ? (showAsRentable ? '<i class="fas fa-shopping-cart text-amber-500 ml-1"></i>' : (hasFullAccess ? '' : '<i class="fas fa-lock text-red-500 ml-1"></i>')) : '<i class="fas fa-gift text-green-500 ml-1"></i>'}
+                ${watchedBadge}
+                ${rentBadge}
+                ${transcriptBadge}
+              </p>
+              <p class="text-xs text-gray-500">
+                ${lesson.duration_minutes} minutos
+                ${showAsRentable && !isCompleted
+                  ? ' - <span class="text-amber-600 font-semibold">Disponivel p/ aluguel</span>'
+                  : isPremium
+                    ? ' - <span class="text-orange-600 font-semibold">Premium</span>'
+                    : ' - <span class="text-green-600 font-semibold">Gratis</span>'
+                }
+              </p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button class="fav-btn ${favoritesMap[lesson.id] ? 'text-red-500' : 'text-gray-300'} hover:text-red-500 transition-colors p-1"
+                    data-lesson-id="${lesson.id}"
+                    data-fav="${favoritesMap[lesson.id] ? '1' : '0'}"
+                    onclick="event.stopPropagation(); app.toggleFavorite(${lesson.id}, this)"
+                    title="${favoritesMap[lesson.id] ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}">
+              <i class="fas fa-heart text-lg"></i>
+            </button>
+            ${rightIcon}
+          </div>
+        </div>
+      `
+    }).join('')
+  },
+
+  toggleModule(moduleId) {
+    const content = document.getElementById(`module-${moduleId}`)
+    const icon = document.getElementById(`icon-${moduleId}`)
+    if (!content || !icon) return
+
+    if (content.classList.contains('active')) {
+      content.classList.remove('active')
+      icon.classList.remove('fa-chevron-up')
+      icon.classList.add('fa-chevron-down')
+    } else {
+      content.classList.add('active')
+      icon.classList.remove('fa-chevron-down')
+      icon.classList.add('fa-chevron-up')
+      const module = this._courseCache?.modules?.find(m => m.id === moduleId)
+      if (module && !module.lessonsLoaded) {
+        this.loadModuleLessons(moduleId)
+      }
+    }
+  },
   
   // Render video player based on provider
   renderVideoPlayer(lesson) {
