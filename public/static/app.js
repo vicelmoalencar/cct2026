@@ -1099,10 +1099,31 @@ const app = {
       const { lesson, comments, trails = [] } = response.data
       const effectiveCourseId = String(lesson.course_id)
 
-      // Use cached course data if available; otherwise fetch
-      const courseDataPromise = (this._courseCache?.courseId === effectiveCourseId)
-        ? Promise.resolve({ data: this._courseCache })
-        : axios.get(`/api/courses/${effectiveCourseId}`)
+      // Use lightweight course context for the lesson page. Avoid loading every
+      // lesson in every module when opening a lesson from favorites/search/direct URL.
+      const cachedCourse = this._courseCache?.courseId === effectiveCourseId ? this._courseCache : null
+      const cachedModule = cachedCourse?.modules?.find(m => m.id === lesson.module_id)
+      const hasCachedModuleLessons = cachedModule && Array.isArray(cachedModule.lessons) && cachedModule.lessons.length > 0
+      const courseDataPromise = hasCachedModuleLessons
+        ? Promise.resolve({ data: cachedCourse })
+        : Promise.all([
+            cachedCourse
+              ? Promise.resolve({ data: { course: cachedCourse.course, modules: cachedCourse.modules } })
+              : axios.get(`/api/courses/${effectiveCourseId}/modules`),
+            axios.get(`/api/modules/${lesson.module_id}/lessons`)
+          ]).then(([courseModulesResponse, moduleLessonsResponse]) => {
+            const course = courseModulesResponse.data.course
+            const modules = (courseModulesResponse.data.modules || []).map(module => {
+              const existing = cachedCourse?.modules?.find(m => m.id === module.id)
+              const isCurrentModule = module.id === lesson.module_id
+              return {
+                ...module,
+                lessons: isCurrentModule ? (moduleLessonsResponse.data.lessons || []) : (existing?.lessons || []),
+                lessonsLoaded: isCurrentModule || existing?.lessonsLoaded || false
+              }
+            })
+            return { data: { course, modules } }
+          })
 
       // Reuse the early progress fetch if it was for the right course, otherwise fetch now
       const progressDataPromise = (earlyProgressPromise && knownCourseId === effectiveCourseId)

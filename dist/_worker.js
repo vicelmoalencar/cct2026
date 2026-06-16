@@ -1932,7 +1932,7 @@ ${_}`,pendingAction:{tool:I,args:A,description:_}})}const g=await jo(I,A,u,e);p.
         <script defer src="/static/auth.js?v=whatsapp-floating-20260602"><\/script>
         <script defer src="/static/admin.js?v=10"><\/script>
         <script defer src="/static/access-control.js?v=4"><\/script>
-        <script defer src="/static/app.js?v=21"><\/script>
+        <script defer src="/static/app.js?v=22"><\/script>
         <script defer src="/static/search.js?v=5"><\/script>
     </body>
     </html>
@@ -2085,7 +2085,7 @@ function renderFavorites(list) {
                 <h3 class="text-gray-800 font-semibold text-sm leading-snug">\${f.lesson_title}</h3>
             </div>
             <div class="flex items-center justify-between mt-auto pt-3 border-t border-gray-50">
-                <a href="/course/\${f.course_id}#lesson-\${f.lesson_id}"
+                <a href="/aula/\${f.lesson_id}"
                    class="text-sm text-blue-700 hover:text-blue-900 font-medium transition-colors">
                     <i class="fas fa-play-circle mr-1"></i>Assistir
                 </a>
