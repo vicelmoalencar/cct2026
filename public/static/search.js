@@ -329,7 +329,7 @@ window.searchManager = {
     // Render results
     const resultsHTML = this.searchResults.map(lesson => {
       const isPremium = !lesson.isFree
-      const isRented = app?.activeRentals?.has(lesson.id) || false
+      const isRented = lesson.isRented || app?.activeRentals?.has(lesson.id) || false
       const isRentable = isPremium && !isRented && !hasFullAccess && lesson.rentable && lesson.rental_credits > 0
       const isBlocked = isPremium && !hasFullAccess && !isRented
 
@@ -544,6 +544,102 @@ window.searchManager = {
     this.performSearch()
   }
 }
+
+Object.assign(window.searchManager, {
+  initialized: false,
+
+  async init() {
+    if (this.initialized) return
+    await this.loadAllLessons()
+    this.setupEventListeners()
+    this.initialized = true
+  },
+
+  async loadAllLessons() {
+    try {
+      const coursesResponse = await axios.get('/api/courses')
+      const courses = coursesResponse.data.courses || coursesResponse.data || []
+      this.allLessons = []
+      this.populateCourseFilter(Array.isArray(courses) ? courses : [])
+    } catch (error) {
+      console.error('Error loading search filters:', error)
+      throw error
+    }
+  },
+
+  async performSearch() {
+    const { query, courseId, lessonType, minDuration, maxDuration, sortBy } = this.currentFilters
+    const params = new URLSearchParams()
+
+    if (query && query.trim().length >= 2) params.set('q', query.trim())
+    if (courseId) params.set('course_id', String(courseId))
+    if (lessonType && lessonType !== 'all') params.set('type', lessonType)
+    params.set('min_duration', String(minDuration))
+    params.set('max_duration', String(maxDuration))
+    params.set('sort', sortBy || 'relevance')
+    params.set('limit', '80')
+
+    try {
+      const response = await axios.get(`/api/search/lessons?${params.toString()}`)
+      const lessons = response.data.lessons || []
+      this.searchResults = lessons.map(lesson => {
+        const normalized = {
+          ...lesson,
+          courseName: lesson.course_name || lesson.courseName,
+          courseId: lesson.course_id || lesson.courseId,
+          moduleName: lesson.module_name || lesson.moduleName,
+          moduleId: lesson.module_id || lesson.moduleId,
+          isFree: lesson.teste_gratis || lesson.free_trial || false,
+          isRented: lesson.is_rented || false,
+          transcript: lesson.transcript_snippet || ''
+        }
+        if (normalized.isRented && app?.activeRentals) {
+          app.activeRentals.add(normalized.id)
+        }
+        return normalized
+      })
+      this.renderResults()
+    } catch (error) {
+      console.error('Error searching lessons:', error)
+      const resultsContainer = document.getElementById('searchResults')
+      if (resultsContainer) {
+        resultsContainer.innerHTML = `
+          <div class="text-center py-12 text-red-500">
+            <i class="fas fa-exclamation-triangle text-5xl mb-4"></i>
+            <p class="font-semibold">Erro ao buscar aulas.</p>
+            <p class="text-sm text-gray-500 mt-1">Tente novamente em instantes.</p>
+          </div>
+        `
+      }
+    }
+  },
+
+  async showSearchView() {
+    if (!this.initialized) {
+      try {
+        await this.init()
+      } catch (error) {
+        alert('Erro ao carregar sistema de busca. Tente recarregar a pagina.')
+        return
+      }
+    }
+
+    ;['coursesView','courseView','lessonView','trailsView','plansView','rentalsView']
+      .forEach(id => document.getElementById(id)?.classList.add('hidden'))
+
+    const searchView = document.getElementById('searchView')
+    if (searchView) {
+      searchView.classList.remove('hidden')
+      const searchInput = document.getElementById('searchInput')
+      if (searchInput) searchInput.focus()
+      if (this.searchResults.length === 0) {
+        await this.performSearch()
+      } else {
+        this.renderResults()
+      }
+    }
+  }
+})
 
 // Initialize search when first accessed (lazy initialization)
 // This is handled by showSearchView() method

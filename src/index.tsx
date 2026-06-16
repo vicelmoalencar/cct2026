@@ -5202,6 +5202,117 @@ app.get('/api/courses/:id', async (c) => {
   }
 })
 
+// Search lessons without preloading every course/module on the client.
+app.get('/api/search/lessons', requireAuth, async (c) => {
+  try {
+    const user = c.get('user')
+    const db = getDB(c)
+    await ensureLessonRentalSchema(db)
+
+    const q = (c.req.query('q') || '').trim()
+    const courseId = c.req.query('course_id')
+    const lessonType = c.req.query('type') || 'all'
+    const minDuration = Math.max(parseInt(c.req.query('min_duration') || '0', 10), 0)
+    const maxDuration = Math.min(Math.max(parseInt(c.req.query('max_duration') || '999', 10), minDuration), 999)
+    const limit = Math.min(Math.max(parseInt(c.req.query('limit') || '80', 10), 1), 120)
+    const sort = c.req.query('sort') || 'relevance'
+
+    const values: any[] = [user.email]
+    const where: string[] = ['1=1']
+    let idx = values.length + 1
+
+    if (courseId) {
+      where.push(`co.id = $${idx++}`)
+      values.push(parseInt(courseId, 10))
+    }
+
+    where.push(`COALESCE(l.duration_minutes, 0) BETWEEN $${idx++} AND $${idx++}`)
+    values.push(minDuration, maxDuration)
+
+    if (lessonType === 'free') {
+      where.push(`COALESCE(l.teste_gratis, false) = true`)
+    } else if (lessonType === 'premium') {
+      where.push(`COALESCE(l.teste_gratis, false) = false`)
+    } else if (lessonType === 'rented') {
+      where.push(`lr.lesson_id IS NOT NULL`)
+    }
+
+    const terms = q.length >= 2 ? q.split(/\s+/).filter(Boolean).slice(0, 6) : []
+    for (const term of terms) {
+      where.push(`(
+        l.title ILIKE $${idx}
+        OR COALESCE(l.description, '') ILIKE $${idx}
+        OR COALESCE(l.transcript, '') ILIKE $${idx}
+        OR m.title ILIKE $${idx}
+        OR co.title ILIKE $${idx}
+      )`)
+      values.push(`%${term}%`)
+      idx++
+    }
+
+    const firstTerm = terms[0] || ''
+    values.push(firstTerm)
+    const firstTermParam = `$${idx++}`
+    values.push(`%${q}%`)
+    const phraseParam = `$${idx++}`
+    values.push(limit)
+    const limitParam = `$${idx++}`
+
+    let orderBy = `relevance_score DESC, co.title ASC, m.order_index ASC, l.order_index ASC`
+    if (sort === 'title') orderBy = `l.title ASC`
+    if (sort === 'duration') orderBy = `COALESCE(l.duration_minutes, 0) ASC, l.title ASC`
+    if (sort === 'date') orderBy = `l.created_at DESC NULLS LAST, l.id DESC`
+
+    const lessons = await db.sql(`
+      SELECT l.id,
+             l.title,
+             l.description,
+             l.duration_minutes,
+             l.created_at,
+             l.teste_gratis,
+             l.rentable,
+             l.rental_credits,
+             m.id AS module_id,
+             m.title AS module_name,
+             co.id AS course_id,
+             co.title AS course_name,
+             lr.lesson_id IS NOT NULL AS is_rented,
+             CASE
+               WHEN ${firstTermParam} <> ''
+                    AND COALESCE(l.transcript, '') ILIKE ('%' || ${firstTermParam} || '%')
+               THEN substring(
+                 l.transcript
+                 FROM GREATEST(1, strpos(lower(l.transcript), lower(${firstTermParam})) - 80)
+                 FOR 280
+               )
+               ELSE NULL
+             END AS transcript_snippet,
+             (
+               CASE WHEN l.title ILIKE ${phraseParam} THEN 40 ELSE 0 END +
+               CASE WHEN COALESCE(l.description, '') ILIKE ${phraseParam} THEN 12 ELSE 0 END +
+               CASE WHEN m.title ILIKE ${phraseParam} THEN 8 ELSE 0 END +
+               CASE WHEN co.title ILIKE ${phraseParam} THEN 6 ELSE 0 END +
+               CASE WHEN COALESCE(l.transcript, '') ILIKE ${phraseParam} THEN 3 ELSE 0 END
+             ) AS relevance_score
+      FROM lessons l
+      JOIN modules m ON m.id = l.module_id
+      JOIN courses co ON co.id = m.course_id
+      LEFT JOIN lesson_rentals lr
+        ON lr.lesson_id = l.id
+       AND lower(lr.user_email) = lower($1)
+       AND lr.expires_at > NOW()
+      WHERE ${where.join(' AND ')}
+      ORDER BY ${orderBy}
+      LIMIT ${limitParam}
+    `, values)
+
+    return c.json({ lessons, limit })
+  } catch (error: any) {
+    console.error('❌ /api/search/lessons error:', error?.message || error)
+    return c.json({ error: error?.message || 'Failed to search lessons' }, 500)
+  }
+})
+
 // Get lessons for one module. Used by the course modules page for lazy loading.
 app.get('/api/modules/:id/lessons', async (c) => {
   try {
@@ -7065,7 +7176,7 @@ app.get('/', (c) => {
         <script defer src="/static/admin.js?v=10"></script>
         <script defer src="/static/access-control.js?v=4"></script>
         <script defer src="/static/app.js?v=21"></script>
-        <script defer src="/static/search.js?v=4"></script>
+        <script defer src="/static/search.js?v=5"></script>
     </body>
     </html>
   `)
