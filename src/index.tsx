@@ -198,9 +198,9 @@ async function getSuiteplusExpiration(email: string, connStr: string): Promise<D
     const db = new PostgresClient(connStr)
     const rows = await db.sql(
       `SELECT expires_at FROM user_subscriptions
-       WHERE user_email = $1 AND product_id = 4 AND status = 'active'
+       WHERE lower(user_email) = lower($1) AND product_id = 4 AND status = 'active'
        ORDER BY expires_at DESC LIMIT 1`,
-      [email.toLowerCase()]
+      [email]
     )
     if (rows.length > 0 && rows[0].expires_at) return new Date(rows[0].expires_at)
     return null
@@ -813,28 +813,25 @@ app.get('/api/user/access-status', requireAuth, async (c) => {
     console.log('🔍 RPC accessType:', accessType)
 
     // Check member_subscriptions directly — overrides RPC if active subscription exists
-    const activeSubscription = await db.query('member_subscriptions', {
-      select: 'data_expiracao, teste_gratis, detalhe',
-      filters: {
-        email_membro: userEmail,
-        ativo: true
-      },
-      order: 'data_expiracao.desc',
-      limit: 1
-    })
-
     let expirationDate = null
     let subscriptionDetail = null
 
-    if (activeSubscription && activeSubscription.length > 0) {
-      const sub = activeSubscription[0]
-      const expDate = new Date(sub.data_expiracao)
+    const activeSubscriptions = await db.sql(
+      `SELECT data_expiracao, COALESCE(teste_gratis, false) AS teste_gratis, detalhe
+       FROM member_subscriptions
+       WHERE lower(email_membro) = lower($1)
+         AND data_expiracao > NOW()
+         AND COALESCE(ativo, true) = true
+       ORDER BY COALESCE(teste_gratis, false) ASC, data_expiracao DESC
+       LIMIT 1`,
+      [userEmail]
+    )
 
-      if (expDate > new Date()) {
-        expirationDate = sub.data_expiracao
-        subscriptionDetail = sub.detalhe
-        if (accessType === 'SEM_ACESSO') accessType = 'COMPLETO'
-      }
+    if (activeSubscriptions.length > 0) {
+      const sub = activeSubscriptions[0]
+      expirationDate = sub.data_expiracao
+      subscriptionDetail = sub.detalhe
+      accessType = sub.teste_gratis ? 'TESTE_GRATIS' : 'COMPLETO'
     }
 
     // Verificar assinatura no suiteplus (produto ID 4) como fonte primária de expiração
@@ -842,7 +839,7 @@ app.get('/api/user/access-status', requireAuth, async (c) => {
     if (suiteplusConn) {
       const suiteplusExpires = await getSuiteplusExpiration(userEmail, suiteplusConn)
       if (suiteplusExpires && suiteplusExpires > new Date()) {
-        if (accessType === 'SEM_ACESSO') accessType = 'COMPLETO'
+        accessType = 'COMPLETO'
         if (!expirationDate || suiteplusExpires > new Date(expirationDate)) {
           expirationDate = suiteplusExpires.toISOString()
         }
@@ -2153,7 +2150,7 @@ app.post('/api/lessons/:id/rent', requireAuth, async (c) => {
 
     // Check for existing active rental
     const existing = await db.sql(
-      'SELECT expires_at FROM lesson_rentals WHERE user_email = $1 AND lesson_id = $2 AND expires_at > NOW()',
+      'SELECT expires_at FROM lesson_rentals WHERE lower(user_email) = lower($1) AND lesson_id = $2 AND expires_at > NOW()',
       [userEmail, lessonId]
     )
     if (existing.length > 0) {
@@ -5212,11 +5209,16 @@ app.get('/api/lessons/:id', async (c) => {
           const suiteplusConn = (c.env as any).DATABASE_SUITEPLUS
           const [rental, activeSub, suiteplusExpires] = await Promise.all([
             db.sql(
-              'SELECT expires_at FROM lesson_rentals WHERE user_email = $1 AND lesson_id = $2 AND expires_at > NOW()',
+              'SELECT expires_at FROM lesson_rentals WHERE lower(user_email) = lower($1) AND lesson_id = $2 AND expires_at > NOW()',
               [userEmail, parseInt(lessonId)]
             ),
             db.sql(
-              `SELECT id FROM member_subscriptions WHERE email_membro = $1 AND data_expiracao > NOW() AND ativo = true LIMIT 1`,
+              `SELECT id FROM member_subscriptions
+               WHERE lower(email_membro) = lower($1)
+                 AND data_expiracao > NOW()
+                 AND COALESCE(ativo, true) = true
+                 AND COALESCE(teste_gratis, false) = false
+               LIMIT 1`,
               [userEmail]
             ),
             suiteplusConn ? getSuiteplusExpiration(userEmail, suiteplusConn) : Promise.resolve(null),
@@ -6087,7 +6089,34 @@ app.get('/api/lessons/:id/access', async (c) => {
     )
     let hasAccess = !!accessRows[0]?.has_access
     
-    // Fallback: verificar suiteplus (produto ID 4) se ainda sem acesso
+    // Fallbacks: direct subscription/rental checks cover stale RPC functions and
+    // case differences in stored email addresses.
+    if (!hasAccess) {
+      const [activeSub, activeRental] = await Promise.all([
+        db.sql(
+          `SELECT id FROM member_subscriptions
+           WHERE lower(email_membro) = lower($1)
+             AND data_expiracao > NOW()
+             AND COALESCE(ativo, true) = true
+             AND COALESCE(teste_gratis, false) = false
+           LIMIT 1`,
+          [user.email]
+        ),
+        db.sql(
+          `SELECT expires_at FROM lesson_rentals
+           WHERE lower(user_email) = lower($1)
+             AND lesson_id = $2
+             AND expires_at > NOW()
+           LIMIT 1`,
+          [user.email, parseInt(lessonId)]
+        )
+      ])
+
+      if (activeSub.length > 0 || activeRental.length > 0) {
+        hasAccess = true
+      }
+    }
+
     if (!hasAccess) {
       const suiteplusConn = c.env.DATABASE_SUITEPLUS
       if (suiteplusConn) {
