@@ -2525,7 +2525,7 @@ const app = {
 
           <div class="space-y-3">
             ${lessons.map((l, i) => {
-              const isFree = l.teste_gratis
+              const isFree = l.teste_gratis || l.free_trial || false
               const isRented = this.activeRentals.has(l.lesson_id)
               const canAccess = isFree || isRented || hasFullAccess
               const isBlocked = !canAccess

@@ -2290,7 +2290,7 @@ app.get('/api/trails/:id', requireAuth, async (c) => {
 
     const lessons = await db.sql(`
       SELECT tl.order_index, tl.lesson_id,
-             l.title, l.description, l.duration_minutes, l.video_provider, l.teste_gratis, l.rentable, l.rental_credits,
+             l.title, l.description, l.duration_minutes, l.video_provider, l.teste_gratis, l.free_trial, l.rentable, l.rental_credits,
              m.title AS module_title,
              co.id AS course_id, co.title AS course_title,
              CASE WHEN up.completed = true THEN true ELSE false END AS is_completed
@@ -5230,9 +5230,9 @@ app.get('/api/search/lessons', requireAuth, async (c) => {
     values.push(minDuration, maxDuration)
 
     if (lessonType === 'free') {
-      where.push(`COALESCE(l.teste_gratis, false) = true`)
+      where.push(`(COALESCE(l.teste_gratis, false) = true OR COALESCE(l.free_trial, false) = true)`)
     } else if (lessonType === 'premium') {
-      where.push(`COALESCE(l.teste_gratis, false) = false`)
+      where.push(`COALESCE(l.teste_gratis, false) = false AND COALESCE(l.free_trial, false) = false`)
     } else if (lessonType === 'rented') {
       where.push(`lr.lesson_id IS NOT NULL`)
     }
@@ -5270,6 +5270,7 @@ app.get('/api/search/lessons', requireAuth, async (c) => {
              l.duration_minutes,
              l.created_at,
              l.teste_gratis,
+             l.free_trial,
              l.rentable,
              l.rental_credits,
              m.id AS module_id,
@@ -5396,18 +5397,26 @@ app.get('/api/lessons/:id', async (c) => {
 
           if (!hasAccess) {
             const lessonMeta = await db.sql(
-              'SELECT rentable, rental_credits, title FROM lessons WHERE id = $1',
+              'SELECT rentable, rental_credits, title, COALESCE(teste_gratis, false) AS teste_gratis, COALESCE(free_trial, false) AS free_trial FROM lessons WHERE id = $1',
               [parseInt(lessonId)]
             )
-            console.log('❌ Access denied for user:', userEmail, 'lesson:', lessonId)
-            return c.json({
-              error: 'Access denied',
-              message: 'Você não tem permissão para acessar esta aula.',
-              needsUpgrade: true,
-              rentable: lessonMeta[0]?.rentable || false,
-              rental_credits: lessonMeta[0]?.rental_credits || 0,
-              lesson_title: lessonMeta[0]?.title || ''
-            }, 403)
+
+            // Free lessons (teste_gratis OR free_trial) are accessible to everyone,
+            // even expired users. The frontend marks a lesson as free using either
+            // column, so the backend must honor both to stay in sync.
+            if (lessonMeta[0]?.teste_gratis || lessonMeta[0]?.free_trial) {
+              hasAccess = true
+            } else {
+              console.log('❌ Access denied for user:', userEmail, 'lesson:', lessonId)
+              return c.json({
+                error: 'Access denied',
+                message: 'Você não tem permissão para acessar esta aula.',
+                needsUpgrade: true,
+                rentable: lessonMeta[0]?.rentable || false,
+                rental_credits: lessonMeta[0]?.rental_credits || 0,
+                lesson_title: lessonMeta[0]?.title || ''
+              }, 403)
+            }
           }
         }
 
@@ -5423,12 +5432,12 @@ app.get('/api/lessons/:id', async (c) => {
     if (!userEmail || (!hasAccess && !fallbackMode)) {
       // Not authenticated - check if lesson is free
       const lesson = await db.query('lessons', {
-        select: 'teste_gratis',
+        select: 'teste_gratis, free_trial',
         filters: { id: lessonId },
         single: true
       })
 
-      if (!lesson?.teste_gratis) {
+      if (!lesson?.teste_gratis && !lesson?.free_trial) {
         return c.json({
           error: 'Access denied',
           message: 'Esta é uma aula premium. Faça login e tenha um plano ativo para acessar.',
@@ -6226,17 +6235,18 @@ app.get('/api/lessons/:id/access', async (c) => {
     const token = getCookie(c, 'sb-access-token')
     
     if (!token) {
-      // Not logged in - check if lesson is teste_gratis
+      // Not logged in - check if lesson is free (teste_gratis OR free_trial)
       const db = getDB(c)
       const lesson = await db.query('lessons', {
-        select: 'teste_gratis',
+        select: 'teste_gratis, free_trial',
         filters: { id: lessonId },
         single: true
       })
-      
-      return c.json({ 
-        hasAccess: lesson?.teste_gratis || false,
-        reason: lesson?.teste_gratis ? 'free_lesson' : 'not_authenticated'
+
+      const isFree = !!(lesson?.teste_gratis || lesson?.free_trial)
+      return c.json({
+        hasAccess: isFree,
+        reason: isFree ? 'free_lesson' : 'not_authenticated'
       })
     }
     
@@ -6290,6 +6300,19 @@ app.get('/api/lessons/:id/access', async (c) => {
         if (suiteplusExpires && suiteplusExpires > new Date()) {
           hasAccess = true
         }
+      }
+    }
+
+    // Free lessons (teste_gratis OR free_trial) are accessible to everyone,
+    // even expired users — keep in sync with the frontend's free-lesson logic.
+    if (!hasAccess) {
+      const freeLesson = await db.query('lessons', {
+        select: 'teste_gratis, free_trial',
+        filters: { id: lessonId },
+        single: true
+      })
+      if (freeLesson?.teste_gratis || freeLesson?.free_trial) {
+        return c.json({ hasAccess: true, reason: 'free_lesson' })
       }
     }
 
