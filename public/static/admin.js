@@ -456,6 +456,7 @@ const adminUI = {
                     <span><i class="fas fa-clock mr-1"></i>${course.duration_hours}h</span>
                     <span><i class="fas fa-folder mr-1"></i>${course.modules_count || 0} módulos</span>
                     <span><i class="fas fa-play-circle mr-1"></i>${course.lessons_count || 0} aulas</span>
+                    ${course.min_completion_days ? `<span><i class="fas fa-hourglass-half mr-1"></i>Mín. ${course.min_completion_days} dia(s) p/ concluir</span>` : ''}
                   </div>
                 </div>
                 <div class="flex items-center gap-2">
@@ -561,7 +562,7 @@ const adminUI = {
             
             <div class="flex items-start">
               <label class="flex items-center cursor-pointer flex-1">
-                <input type="checkbox" id="courseIsPublished" 
+                <input type="checkbox" id="courseIsPublished"
                        ${isEdit && course.is_published !== false ? 'checked' : !isEdit ? 'checked' : ''}
                        class="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
                 <span class="ml-3">
@@ -574,6 +575,20 @@ const adminUI = {
                   </span>
                 </span>
               </label>
+            </div>
+
+            <div>
+              <label class="block text-sm font-semibold text-gray-800 mb-1">
+                <i class="fas fa-hourglass-half text-orange-500 mr-2"></i>
+                Prazo mínimo para conclusão (dias)
+              </label>
+              <input type="number" id="courseMinCompletionDays" min="0"
+                     value="${isEdit && course.min_completion_days ? course.min_completion_days : ''}"
+                     placeholder="Deixe em branco para não exigir prazo mínimo"
+                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <span class="block text-xs text-gray-600 mt-1">
+                Tempo mínimo entre a primeira e a última aula concluída pelo aluno para que o certificado seja liberado. Impede que o aluno conclua o curso rápido demais.
+              </span>
             </div>
           </div>
           
@@ -667,13 +682,16 @@ const adminUI = {
   async saveCourse(event, courseId) {
     event.preventDefault()
     
+    const minCompletionDaysValue = document.getElementById('courseMinCompletionDays').value
+
     const data = {
       title: document.getElementById('courseTitle').value,
       description: document.getElementById('courseDescription').value,
       duration_hours: parseInt(document.getElementById('courseDuration').value),
       instructor: document.getElementById('courseInstructor').value,
       offers_certificate: document.getElementById('courseOffersCertificate').checked,
-      is_published: document.getElementById('courseIsPublished').checked
+      is_published: document.getElementById('courseIsPublished').checked,
+      min_completion_days: minCompletionDaysValue ? parseInt(minCompletionDaysValue) : null
     }
     
     try {
@@ -4267,6 +4285,31 @@ const adminUI = {
                 </div>
               </div>
               
+              <!-- Certificate Dates -->
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-semibold text-gray-700 mb-2">
+                    <i class="fas fa-calendar-plus mr-2 text-blue-600"></i>Data de Início do Curso
+                  </label>
+                  <input type="date" id="editCertStartDate" value="${cert.start_date ? cert.start_date.slice(0, 10) : ''}"
+                         class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                </div>
+
+                <div>
+                  <label class="block text-sm font-semibold text-gray-700 mb-2">
+                    <i class="fas fa-calendar-check mr-2 text-blue-600"></i>Data de Conclusão do Curso
+                  </label>
+                  <input type="date" id="editCertCompletionDate" value="${cert.completion_date ? cert.completion_date.slice(0, 10) : ''}"
+                         class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                </div>
+              </div>
+              <div>
+                <button type="button" onclick="adminUI.suggestCertificateDates()"
+                        class="text-sm text-blue-600 hover:text-blue-800 font-semibold">
+                  <i class="fas fa-magic mr-1"></i>Sugerir datas com base nas aulas assistidas
+                </button>
+              </div>
+
               <!-- Certificate Details -->
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -4276,7 +4319,7 @@ const adminUI = {
                   <input type="number" id="editCertCargaHoraria" value="${cert.carga_horaria || 0}" min="0" required
                          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
                 </div>
-                
+
                 <div>
                   <label class="block text-sm font-semibold text-gray-700 mb-2">
                     <i class="fas fa-barcode mr-2 text-blue-600"></i>Código de Verificação
@@ -4315,6 +4358,34 @@ const adminUI = {
     }
   },
   
+  async suggestCertificateDates() {
+    const email = document.getElementById('editCertUserEmail').value
+    const courseId = document.getElementById('editCertCourseId').value
+
+    if (!email || !courseId) {
+      alert('⚠️ Selecione o curso e informe o email do aluno antes de sugerir as datas.')
+      return
+    }
+
+    try {
+      const response = await axios.get('/api/admin/certificates/suggested-dates', {
+        params: { email, course_id: courseId }
+      })
+      const { start_date, completion_date } = response.data
+
+      if (!start_date) {
+        alert('⚠️ Nenhuma aula assistida encontrada para este aluno neste curso.')
+        return
+      }
+
+      document.getElementById('editCertStartDate').value = start_date.slice(0, 10)
+      document.getElementById('editCertCompletionDate').value = completion_date.slice(0, 10)
+    } catch (error) {
+      console.error('Error suggesting certificate dates:', error)
+      alert('❌ Erro ao sugerir datas: ' + (error.response?.data?.error || error.message))
+    }
+  },
+
   async loadCourseModulesForCertificate(courseId) {
     const container = document.getElementById('certificateModulesContainer')
     const modulesList = document.getElementById('certificateModulesList')
@@ -4348,11 +4419,16 @@ const adminUI = {
   
   async saveCertificateChanges(certId) {
     try {
+      const startDate = document.getElementById('editCertStartDate').value
+      const completionDate = document.getElementById('editCertCompletionDate').value
+
       const data = {
         user_name: document.getElementById('editCertUserName').value,
         user_email: document.getElementById('editCertUserEmail').value,
         course_id: parseInt(document.getElementById('editCertCourseId').value),
-        carga_horaria: parseInt(document.getElementById('editCertCargaHoraria').value)
+        carga_horaria: parseInt(document.getElementById('editCertCargaHoraria').value),
+        start_date: startDate || null,
+        completion_date: completionDate || null
       }
       
       await axios.put(`/api/admin/certificates/${certId}`, data)

@@ -1369,8 +1369,8 @@ app.post('/api/admin/exit-impersonation', async (c) => {
 // Create course (admin only)
 app.post('/api/admin/courses', requireAdmin, async (c) => {
   try {
-    const { title, description, duration_hours, instructor, offers_certificate, is_published } = await c.req.json()
-    
+    const { title, description, duration_hours, instructor, offers_certificate, is_published, min_completion_days } = await c.req.json()
+
     const db = getDB(c)
     const result = await db.insert('courses', {
       title,
@@ -1378,11 +1378,12 @@ app.post('/api/admin/courses', requireAdmin, async (c) => {
       duration_hours: duration_hours || 0,
       instructor: instructor || 'Vicelmo',
       offers_certificate: offers_certificate !== undefined ? offers_certificate : true,
-      is_published: is_published !== undefined ? is_published : true
+      is_published: is_published !== undefined ? is_published : true,
+      min_completion_days: min_completion_days || null
     })
-    
-    return c.json({ 
-      success: true, 
+
+    return c.json({
+      success: true,
       course_id: result[0].id
     })
   } catch (error: any) {
@@ -1395,8 +1396,8 @@ app.post('/api/admin/courses', requireAdmin, async (c) => {
 app.put('/api/admin/courses/:id', requireAdmin, async (c) => {
   try {
     const courseId = c.req.param('id')
-    const { title, description, duration_hours, instructor, offers_certificate, is_published } = await c.req.json()
-    
+    const { title, description, duration_hours, instructor, offers_certificate, is_published, min_completion_days } = await c.req.json()
+
     const db = getDB(c)
     await db.update('courses', { id: courseId }, {
       title,
@@ -1404,7 +1405,8 @@ app.put('/api/admin/courses/:id', requireAdmin, async (c) => {
       duration_hours: duration_hours || 0,
       instructor: instructor || 'Vicelmo',
       offers_certificate: offers_certificate !== undefined ? offers_certificate : true,
-      is_published: is_published !== undefined ? is_published : true
+      is_published: is_published !== undefined ? is_published : true,
+      min_completion_days: min_completion_days || null
     })
     
     return c.json({ success: true })
@@ -3864,6 +3866,36 @@ app.get('/api/admin/certificates/find', requireAdmin, async (c) => {
   }
 })
 
+// Suggest start/completion dates from lesson progress (admin only)
+// Data de início = data da primeira aula marcada como assistida
+// Data de conclusão = data da última aula marcada como assistida
+app.get('/api/admin/certificates/suggested-dates', requireAdmin, async (c) => {
+  try {
+    const email = c.req.query('email')
+    const courseId = c.req.query('course_id')
+
+    if (!email || !courseId) {
+      return c.json({ error: 'email e course_id são obrigatórios' }, 400)
+    }
+
+    const db = getDB(c)
+
+    const rows = await db.sql(`
+      SELECT MIN(up.completed_at) AS start_date, MAX(up.completed_at) AS completion_date
+      FROM user_progress up
+      JOIN lessons l ON l.id = up.lesson_id
+      JOIN modules m ON m.id = l.module_id
+      WHERE m.course_id = $1 AND up.user_email = $2 AND up.completed = true
+    `, [courseId, email])
+
+    const row = rows[0] || {}
+    return c.json({ start_date: row.start_date || null, completion_date: row.completion_date || null })
+  } catch (error: any) {
+    console.error('Suggest certificate dates error:', error)
+    return c.json({ error: error.message || 'Failed to suggest dates' }, 500)
+  }
+})
+
 // Create certificate (admin only)
 app.post('/api/admin/certificates', requireAdmin, async (c) => {
   try {
@@ -3882,6 +3914,7 @@ app.post('/api/admin/certificates', requireAdmin, async (c) => {
       course_id: certData.course_id || null,
       course_title: certData.course_title,
       issued_at: certData.issued_at || now,
+      start_date: certData.start_date || null,
       completion_date: certData.completion_date || now,
       carga_horaria: certData.carga_horaria || null,
       certificate_code: certData.certificate_code || null,
@@ -4036,6 +4069,8 @@ app.put('/api/admin/certificates/:id', requireAdmin, async (c) => {
       course_id: certData.course_id,
       course_title: courseTitle,
       carga_horaria: certData.carga_horaria,
+      start_date: certData.start_date || null,
+      completion_date: certData.completion_date || null,
       updated_at: new Date().toISOString()
     })
     
@@ -5976,25 +6011,52 @@ app.post('/api/certificates/generate', async (c) => {
       filters: { user_email: user.email }
     }) || []
     
-    const completedLessonIds = progress
+    const completedInCourse = progress
       .filter((p: any) => p.completed && allLessonIds.includes(p.lesson_id))
-      .map((p: any) => p.lesson_id)
-    
+
+    const completedLessonIds = completedInCourse.map((p: any) => p.lesson_id)
+
     const completionPercentage = (completedLessonIds.length / allLessonIds.length) * 100
-    
+
     console.log('📊 Course completion:', {
       total_lessons: allLessonIds.length,
       completed_lessons: completedLessonIds.length,
       percentage: completionPercentage
     })
-    
+
     if (completionPercentage < 100) {
-      return c.json({ 
+      return c.json({
         error: 'Você precisa completar 100% do curso para receber o certificado',
         completion: completionPercentage
       }, 400)
     }
-    
+
+    // Data de início = data da primeira aula marcada como assistida
+    // Data de conclusão = data da última aula marcada como assistida
+    const completedDates = completedInCourse
+      .map((p: any) => p.completed_at)
+      .filter((d: any) => !!d)
+      .sort()
+    const courseStartDate = completedDates[0] || new Date().toISOString()
+    const courseCompletionDate = completedDates[completedDates.length - 1] || new Date().toISOString()
+
+    // Impede conclusão do curso (e emissão do certificado) antes do prazo mínimo configurado
+    if (course.min_completion_days) {
+      const daysElapsed = (new Date(courseCompletionDate).getTime() - new Date(courseStartDate).getTime()) / (1000 * 60 * 60 * 24)
+
+      if (daysElapsed < course.min_completion_days) {
+        console.log('⏳ Certificate blocked: minimum completion period not met', {
+          days_elapsed: daysElapsed,
+          min_days_required: course.min_completion_days
+        })
+        return c.json({
+          error: `Este curso exige um prazo mínimo de ${course.min_completion_days} dia(s) entre a primeira e a última aula concluída. Você concluiu em ${daysElapsed.toFixed(1)} dia(s). Continue acessando o curso normalmente — o certificado ficará disponível assim que o prazo mínimo for atingido.`,
+          days_elapsed: daysElapsed,
+          min_days_required: course.min_completion_days
+        }, 400)
+      }
+    }
+
     // Generate certificate
     const certificate = await db.insert('certificates', {
       user_email: user.email,
@@ -6002,7 +6064,8 @@ app.post('/api/certificates/generate', async (c) => {
       course_id: parseInt(course_id),
       course_title: course.title,
       issued_at: new Date().toISOString(),
-      completion_date: new Date().toISOString()
+      start_date: courseStartDate,
+      completion_date: courseCompletionDate
     })
     
     console.log('✅ Certificate generated successfully')
