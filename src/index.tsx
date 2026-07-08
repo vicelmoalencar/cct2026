@@ -6104,6 +6104,7 @@ app.post('/api/certificates/generate', async (c) => {
       user_name: user.user_metadata?.name || 'Aluno',
       course_id: parseInt(course_id),
       course_title: course.title,
+      carga_horaria: course.duration_hours || null,
       issued_at: new Date().toISOString(),
       start_date: courseStartDate,
       completion_date: courseCompletionDate
