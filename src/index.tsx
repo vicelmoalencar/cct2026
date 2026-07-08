@@ -4583,6 +4583,47 @@ function generateCertificateHTML(data: {
 // CERTIFICATES - USER ENDPOINTS (Logged In Users)
 // ============================================================================
 
+// Get my started courses with progress + certificate eligibility (for logged-in user)
+app.get('/api/my-courses-progress', requireAuth, async (c) => {
+  try {
+    const user = c.get('user')
+    const userEmail = user.email
+
+    if (!userEmail) {
+      return c.json({ error: 'User email not found' }, 400)
+    }
+
+    const db = getDB(c)
+
+    const rows = await db.sql(`
+      SELECT
+        c.id AS course_id,
+        c.title AS course_title,
+        c.duration_hours,
+        c.min_completion_days,
+        COUNT(DISTINCT l.id)::int AS total_lessons,
+        COUNT(DISTINCT up.lesson_id) FILTER (WHERE up.completed = true)::int AS completed_lessons,
+        MIN(up.completed_at) FILTER (WHERE up.completed = true) AS first_completed_at,
+        MAX(up.completed_at) FILTER (WHERE up.completed = true) AS last_completed_at,
+        cert.id AS certificate_id
+      FROM courses c
+      JOIN modules m ON m.course_id = c.id
+      JOIN lessons l ON l.module_id = m.id
+      LEFT JOIN user_progress up ON up.lesson_id = l.id AND up.user_email = $1
+      LEFT JOIN certificates cert ON cert.course_id = c.id AND cert.user_email = $1
+      WHERE c.is_published = true
+      GROUP BY c.id, c.title, c.duration_hours, c.min_completion_days, cert.id
+      HAVING COUNT(DISTINCT up.lesson_id) FILTER (WHERE up.completed = true) > 0 OR cert.id IS NOT NULL
+      ORDER BY c.title
+    `, [userEmail])
+
+    return c.json({ courses: rows || [] })
+  } catch (error: any) {
+    console.error('Get my courses progress error:', error)
+    return c.json({ error: error.message || 'Failed to get courses progress' }, 500)
+  }
+})
+
 // Get my certificates (for logged-in user)
 app.get('/api/my-certificates', requireAuth, async (c) => {
   try {
@@ -7620,6 +7661,17 @@ app.get('/certificates', (c) => {
                 <!-- Certificates will be loaded here -->
             </div>
 
+            <!-- In Progress Courses Grid -->
+            <div id="inProgressSection" class="hidden mt-10">
+                <h3 class="text-xl font-bold text-gray-800 mb-4">
+                    <i class="fas fa-hourglass-half text-blue-500 mr-2"></i>
+                    Cursos em Andamento
+                </h3>
+                <div id="inProgressGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- In-progress course cards will be loaded here -->
+                </div>
+            </div>
+
             <!-- Empty State -->
             <div id="emptyState" class="hidden text-center py-16">
                 <i class="fas fa-certificate text-gray-300 text-6xl mb-4"></i>
@@ -7641,30 +7693,44 @@ app.get('/certificates', (c) => {
         async function init() {
             // Check authentication
             const user = await authManager.init()
-            
+
             if (!user) {
                 window.location.href = '/'
                 return
             }
-            
+
             currentUser = user
             loadCertificates()
         }
 
-        // Load certificates
+        // Load certificates + in-progress courses
         async function loadCertificates() {
             try {
-                const response = await axios.get('/api/my-certificates')
-                const certificates = response.data.certificates
+                const [certResponse, progressResponse] = await Promise.all([
+                    axios.get('/api/my-certificates'),
+                    axios.get('/api/my-courses-progress').catch(() => ({ data: { courses: [] } }))
+                ])
+
+                const certificates = certResponse.data.certificates || []
+                const coursesProgress = progressResponse.data.courses || []
 
                 document.getElementById('loadingDiv').classList.add('hidden')
 
-                if (certificates.length === 0) {
+                // Courses that don't have a certificate yet
+                const inProgressCourses = coursesProgress.filter(course => !course.certificate_id)
+
+                if (certificates.length === 0 && inProgressCourses.length === 0) {
                     document.getElementById('emptyState').classList.remove('hidden')
                     return
                 }
 
-                renderCertificates(certificates)
+                if (certificates.length > 0) {
+                    renderCertificates(certificates)
+                }
+
+                if (inProgressCourses.length > 0) {
+                    renderInProgressCourses(inProgressCourses)
+                }
             } catch (error) {
                 console.error('Error loading certificates:', error)
                 document.getElementById('loadingDiv').innerHTML = \`
@@ -7676,6 +7742,80 @@ app.get('/certificates', (c) => {
                         </button>
                     </div>
                 \`
+            }
+        }
+
+        // Render courses in progress (no certificate yet) with a "Gerar Certificado" button
+        function renderInProgressCourses(courses) {
+            const section = document.getElementById('inProgressSection')
+            const grid = document.getElementById('inProgressGrid')
+            section.classList.remove('hidden')
+
+            grid.innerHTML = courses.map(course => {
+                const total = course.total_lessons || 0
+                const completed = course.completed_lessons || 0
+                const percent = total > 0 ? Math.round((completed / total) * 100) : 0
+                const cardId = 'course-card-' + course.course_id
+
+                return \`
+                    <div id="\${cardId}" class="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition">
+                        <div class="bg-gradient-to-r from-gray-600 to-gray-700 p-6 text-white">
+                            <div class="flex items-center gap-2 mb-2">
+                                <i class="fas fa-hourglass-half text-xl"></i>
+                                <span class="bg-white/20 px-3 py-1 rounded-full text-xs font-semibold">
+                                    Em andamento
+                                </span>
+                            </div>
+                            <h3 class="text-xl font-bold mb-1">\${course.course_title}</h3>
+                            <p class="text-gray-200 text-sm">\${completed}/\${total} aulas concluídas</p>
+                        </div>
+
+                        <div class="p-6">
+                            <div class="w-full bg-gray-200 rounded-full h-3 mb-4">
+                                <div class="bg-blue-600 h-3 rounded-full transition-all" style="width: \${percent}%"></div>
+                            </div>
+                            <p class="text-sm text-gray-600 mb-4">\${percent}% concluído</p>
+
+                            <div id="msg-\${course.course_id}" class="hidden mb-4"></div>
+
+                            <button id="btn-\${course.course_id}" onclick="generateCertificateFor(\${course.course_id})"
+                                class="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2">
+                                <i class="fas fa-certificate"></i>
+                                Gerar Certificado
+                            </button>
+                        </div>
+                    </div>
+                \`
+            }).join('')
+        }
+
+        // Attempt to generate certificate for a specific course, showing success or error inline
+        async function generateCertificateFor(courseId) {
+            const btn = document.getElementById('btn-' + courseId)
+            const msgDiv = document.getElementById('msg-' + courseId)
+
+            btn.disabled = true
+            btn.classList.add('opacity-50', 'cursor-not-allowed')
+
+            try {
+                const response = await axios.post('/api/certificates/generate', { course_id: courseId })
+
+                if (response.data.success) {
+                    msgDiv.className = 'mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm'
+                    msgDiv.innerHTML = '<i class="fas fa-check-circle mr-1"></i> ' + (response.data.message || 'Certificado gerado com sucesso!')
+                    msgDiv.classList.remove('hidden')
+
+                    // Reload the whole list after a short delay so the new certificate card appears
+                    setTimeout(() => loadCertificates(), 1500)
+                }
+            } catch (error) {
+                const errorMessage = error.response?.data?.error || 'Não foi possível gerar o certificado.'
+                msgDiv.className = 'mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm'
+                msgDiv.innerHTML = '<i class="fas fa-exclamation-circle mr-1"></i> ' + errorMessage
+                msgDiv.classList.remove('hidden')
+
+                btn.disabled = false
+                btn.classList.remove('opacity-50', 'cursor-not-allowed')
             }
         }
 
