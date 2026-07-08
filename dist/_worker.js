@@ -1939,7 +1939,7 @@ ${E}`,pendingAction:{tool:I,args:A,description:E}})}const g=await jo(I,A,u,e);p.
         <script defer src="/static/auth.js?v=whatsapp-floating-20260602"><\/script>
         <script defer src="/static/admin.js?v=10"><\/script>
         <script defer src="/static/access-control.js?v=4"><\/script>
-        <script defer src="/static/app.js?v=22"><\/script>
+        <script defer src="/static/app.js?v=23"><\/script>
         <script defer src="/static/search.js?v=5"><\/script>
     </body>
     </html>

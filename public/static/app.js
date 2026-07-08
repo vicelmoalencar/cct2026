@@ -1887,10 +1887,12 @@ const app = {
         } catch (certError) {
           console.error('❌ Error generating certificate:', certError)
           console.error('Response data:', certError.response?.data)
-          
+
           // Certificate might already exist, that's ok
           if (certError.response?.data?.certificate) {
             console.log('ℹ️ Certificate already exists')
+          } else if (certError.response?.data?.error) {
+            this.showCertificateBlockedMessage(certError.response.data.error)
           }
         }
       }
@@ -1945,7 +1947,42 @@ const app = {
       }
     }, 15000)
   },
-  
+
+  // Show message when certificate generation is blocked (e.g. minimum period not met)
+  showCertificateBlockedMessage(reasonText) {
+    const existing = document.getElementById('certificateBlockedPopup')
+    if (existing) {
+      existing.remove()
+    }
+
+    const message = document.createElement('div')
+    message.id = 'certificateBlockedPopup'
+    message.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 9999; max-width: 400px;'
+    message.innerHTML = `
+      <div class="bg-gradient-to-r from-blue-500 to-blue-700 text-white p-6 rounded-xl shadow-2xl">
+        <div class="flex items-start gap-4">
+          <i class="fas fa-hourglass-half text-4xl flex-shrink-0"></i>
+          <div class="flex-1">
+            <h3 class="font-bold text-xl mb-2">Certificado ainda não disponível</h3>
+            <p class="text-sm mb-4">${reasonText}</p>
+          </div>
+          <button onclick="document.getElementById('certificateBlockedPopup').remove()"
+                  class="text-white hover:text-gray-200 text-xl flex-shrink-0">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      </div>
+    `
+    document.body.appendChild(message)
+
+    setTimeout(() => {
+      const popup = document.getElementById('certificateBlockedPopup')
+      if (popup) {
+        popup.remove()
+      }
+    }, 15000)
+  },
+
   // View management
   showCourses({ skipHistory = false } = {}) {
     this.currentTrailContext = null
