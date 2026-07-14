@@ -1210,6 +1210,9 @@ const adminUI = {
                     '<span class="text-xs bg-blue-500 text-white px-2 py-0.5 rounded font-semibold"><i class="fas fa-gift mr-1"></i>GRÁTIS</span>' :
                     '<span class="text-xs bg-yellow-500 text-white px-2 py-0.5 rounded font-semibold"><i class="fas fa-crown mr-1"></i>PREMIUM</span>'
                   }
+                  ${lesson.is_published === false ?
+                    '<span class="text-xs bg-gray-500 text-white px-2 py-0.5 rounded font-semibold"><i class="fas fa-eye-slash mr-1"></i>DESPUBLICADA</span>' : ''
+                  }
                 </div>
                 <p class="text-sm text-gray-500 mb-1 truncate">${lesson.description || 'Sem descrição'}</p>
                 <div class="flex flex-wrap items-center gap-3 text-xs text-gray-400">
@@ -1502,6 +1505,22 @@ const adminUI = {
             </div>
           </div>
           
+          <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+            <label class="flex items-center cursor-pointer">
+              <input type="checkbox" id="lessonIsPublished"
+                     ${!isEdit || lesson.is_published !== false ? 'checked' : ''}
+                     class="w-5 h-5 text-green-600 border-gray-300 rounded focus:ring-green-500">
+              <span class="ml-3">
+                <span class="text-sm font-semibold text-gray-800">
+                  <i class="fas fa-eye mr-2 text-green-600"></i>Aula Publicada
+                </span>
+                <span class="block text-xs text-gray-600 mt-1">
+                  Desmarque para ocultar esta aula dos alunos (curso continua publicado normalmente)
+                </span>
+              </span>
+            </label>
+          </div>
+
           <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <label class="flex items-center cursor-pointer">
               <input type="checkbox" id="lessonFreeTrial"
@@ -1952,6 +1971,7 @@ const adminUI = {
       duration_minutes: parseInt(document.getElementById('lessonDuration').value),
       order_index: parseInt(document.getElementById('lessonOrder').value),
       free_trial: document.getElementById('lessonFreeTrial').checked,
+      is_published: document.getElementById('lessonIsPublished').checked,
       rentable: document.getElementById('lessonRentable').checked,
       rental_credits: parseInt(document.getElementById('lessonRentalCredits').value) || 0,
       support_text: document.getElementById('lessonSupportText').value || null,

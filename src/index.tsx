@@ -1608,7 +1608,7 @@ app.get('/api/admin/modules/find', requireAdmin, async (c) => {
 // Create lesson (admin only)
 app.post('/api/admin/lessons', requireAdmin, async (c) => {
   try {
-    const { module_id, title, description, video_provider, video_id, duration_minutes, order_index, free_trial, support_text, transcript, attachments, rentable, rental_credits } = await c.req.json()
+    const { module_id, title, description, video_provider, video_id, duration_minutes, order_index, free_trial, support_text, transcript, attachments, rentable, rental_credits, is_published } = await c.req.json()
 
     // Build video_url from provider and id
     let video_url = null
@@ -1637,7 +1637,8 @@ app.post('/api/admin/lessons', requireAdmin, async (c) => {
       transcript: transcript || null,
       attachments: JSON.stringify(attachments || []),
       rentable: rentable || false,
-      rental_credits: rental_credits || 0
+      rental_credits: rental_credits || 0,
+      is_published: is_published !== undefined ? is_published : true
     })
 
     return c.json({
@@ -1670,7 +1671,7 @@ app.post('/api/admin/lessons-reorder', requireAdmin, async (c) => {
 app.put('/api/admin/lessons/:id', requireAdmin, async (c) => {
   try {
     const lessonId = c.req.param('id')
-    const { title, description, video_provider, video_id, duration_minutes, order_index, free_trial, support_text, transcript, attachments, rentable, rental_credits } = await c.req.json()
+    const { title, description, video_provider, video_id, duration_minutes, order_index, free_trial, support_text, transcript, attachments, rentable, rental_credits, is_published } = await c.req.json()
     
     // Build video_url from provider and id
     let video_url = null
@@ -1697,6 +1698,7 @@ app.put('/api/admin/lessons/:id', requireAdmin, async (c) => {
       duration_minutes: parseInt(duration_minutes) || 0,
       order_index: parseInt(order_index) || 0,
       teste_gratis: free_trial === true || free_trial === 'true',
+      is_published: is_published === undefined ? true : (is_published === true || is_published === 'true'),
     })
 
     // Update extra fields (added via migration — use individual try/catch to avoid blocking)
@@ -3147,10 +3149,10 @@ const AGENT_TOOLS = [
   }},
   { type: 'function', function: {
     name: 'update_lesson',
-    description: 'Atualiza dados de uma aula (title, description, teste_gratis, rentable, duration_minutes).',
+    description: 'Atualiza dados de uma aula, incluindo publicar/despublicar (is_published) para ocultá-la dos alunos sem afetar o curso inteiro.',
     parameters: { type: 'object', properties: {
       lesson_id: { type: 'number', description: 'ID da aula' },
-      fields: { type: 'object', description: 'Campos: title, description, teste_gratis, rentable, duration_minutes' },
+      fields: { type: 'object', description: 'Campos: title, description, teste_gratis, rentable, duration_minutes, order_index, is_published (boolean)' },
     }, required: ['lesson_id', 'fields'] },
   }},
   { type: 'function', function: {
@@ -3406,7 +3408,7 @@ async function executeAgentReadTool(tool: string, args: any, db: any, c: any): P
 async function executeAgentWriteTool(tool: string, args: any, db: any, c: any): Promise<any> {
   const ALLOWED_USER_FIELDS = new Set(['nome', 'telefone', 'whatsapp', 'ativo', 'dt_expiracao'])
   const ALLOWED_SUB_FIELDS = new Set(['data_expiracao', 'ativo', 'detalhe', 'origem'])
-  const ALLOWED_LESSON_FIELDS = new Set(['title', 'description', 'teste_gratis', 'rentable', 'duration_minutes', 'order_index'])
+  const ALLOWED_LESSON_FIELDS = new Set(['title', 'description', 'teste_gratis', 'rentable', 'duration_minutes', 'order_index', 'is_published'])
   const ALLOWED_COURSE_FIELDS = new Set(['title', 'description', 'instructor', 'duration_hours', 'offers_certificate', 'is_published', 'min_completion_days'])
   const ALLOWED_CERT_FIELDS = new Set(['user_name', 'course_title', 'carga_horaria', 'generated_at'])
 
@@ -3721,7 +3723,7 @@ async function executeStudentAgentTool(tool: string, args: any, db: any, userEma
       const [course, modules] = await Promise.all([
         db.sql(`SELECT id, title, description, instructor, duration_hours FROM courses WHERE id = $1 AND is_published = true`, [args.course_id]),
         db.sql(
-          `SELECT m.id, m.title, m.order_index, COUNT(l.id)::int as lesson_count
+          `SELECT m.id, m.title, m.order_index, COUNT(l.id) FILTER (WHERE l.is_published = true)::int as lesson_count
            FROM modules m LEFT JOIN lessons l ON l.module_id = m.id
            WHERE m.course_id = $1 GROUP BY m.id ORDER BY m.order_index`,
           [args.course_id]
@@ -3736,7 +3738,7 @@ async function executeStudentAgentTool(tool: string, args: any, db: any, userEma
                 COUNT(up.lesson_id) FILTER (WHERE up.completed = true)::int as completed_lessons
          FROM courses c
          JOIN modules m ON m.course_id = c.id
-         JOIN lessons l ON l.module_id = m.id
+         JOIN lessons l ON l.module_id = m.id AND l.is_published = true
          LEFT JOIN user_progress up ON up.lesson_id = l.id AND lower(up.user_email) = lower($1)
          WHERE c.is_published = true
          GROUP BY c.id, c.title
@@ -3762,6 +3764,7 @@ async function executeStudentAgentTool(tool: string, args: any, db: any, userEma
          JOIN courses c ON c.id = m.course_id
          LEFT JOIN user_progress up ON up.lesson_id = l.id AND lower(up.user_email) = lower($1)
          WHERE c.is_published = true
+           AND l.is_published = true
            AND (up.completed IS NULL OR up.completed = false)
            AND c.id IN (
              SELECT DISTINCT c2.id FROM courses c2
@@ -3782,7 +3785,7 @@ async function executeStudentAgentTool(tool: string, args: any, db: any, userEma
       const rows = await db.sql(
         `SELECT l.id, l.title, m.title as module_title, c.title as course_title, c.id as course_id
          FROM lessons l JOIN modules m ON m.id = l.module_id JOIN courses c ON c.id = m.course_id
-         WHERE l.title ILIKE $1 AND c.is_published = true
+         WHERE l.title ILIKE $1 AND c.is_published = true AND l.is_published = true
          ORDER BY l.title LIMIT $2`,
         [`%${args.query}%`, lim]
       )
@@ -5512,20 +5515,30 @@ app.get('/api/courses/:id/modules', async (c) => {
 app.get('/api/courses/:id', async (c) => {
   try {
     const courseId = c.req.param('id')
-    
+
     const db = getDB(c)
-    
+
+    // Check if user is admin — admins see unpublished lessons too (para poder gerenciá-las)
+    const token = getCookie(c, 'sb-access-token')
+    let userIsAdmin = false
+    if (token) {
+      const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+      if (user) {
+        userIsAdmin = await isAdmin(user.email, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY, token)
+      }
+    }
+
     // Get course
     const course = await db.query('courses', {
       select: '*',
       filters: { id: courseId },
       single: true
     })
-    
+
     if (!course) {
       return c.json({ error: 'Course not found' }, 404)
     }
-    
+
     const modules = await db.query('modules', {
       select: '*',
       filters: { course_id: courseId },
@@ -5533,10 +5546,12 @@ app.get('/api/courses/:id', async (c) => {
     })
 
     // Busca todas as aulas do curso em uma única query e agrupa por módulo
+    // (aulas despublicadas ficam ocultas para quem não é admin)
+    const lessonPublishedFilter = userIsAdmin ? '' : 'AND l.is_published = true'
     const allLessons = await db.sql(
       `SELECT l.* FROM lessons l
        JOIN modules m ON m.id = l.module_id
-       WHERE m.course_id = $1
+       WHERE m.course_id = $1 ${lessonPublishedFilter}
        ORDER BY m.order_index, l.order_index`,
       [courseId]
     )
@@ -5711,7 +5726,19 @@ app.get('/api/lessons/:id', async (c) => {
     }
     
     const db = getDB(c)
-    
+
+    // Aulas despublicadas ficam ocultas para quem não é admin
+    const publishRows = await db.sql('SELECT is_published FROM lessons WHERE id = $1', [parseInt(lessonId)])
+    if (publishRows.length === 0) {
+      return c.json({ error: 'Lesson not found' }, 404)
+    }
+    if (publishRows[0].is_published === false) {
+      const userIsAdmin = userEmail ? await isAdmin(userEmail, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY, token) : false
+      if (!userIsAdmin) {
+        return c.json({ error: 'Lesson not found' }, 404)
+      }
+    }
+
     // Check if user has access to this lesson
     let hasAccess = false;
     let fallbackMode = false;
@@ -6313,7 +6340,7 @@ app.post('/api/certificates/generate', async (c) => {
       for (const module of modules) {
         const lessons = await db.query('lessons', {
           select: 'id',
-          filters: { module_id: module.id }
+          filters: { module_id: module.id, is_published: true }
         })
         if (lessons) {
           allLessonIds = [...allLessonIds, ...lessons.map((l: any) => l.id)]
