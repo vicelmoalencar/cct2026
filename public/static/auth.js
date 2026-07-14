@@ -614,8 +614,10 @@ const studentAgentWidget = {
   },
 
   // Escapes HTML first, then turns ONLY internal lesson/course links
-  // ([label](/aula/123) or [label](/curso/45)) into real anchor tags.
-  // Any other markdown-like syntax or external URL stays as plain escaped text.
+  // ([label](https://.../aula/123) or [label](/curso/45)) into real anchor tags.
+  // Any domain prefix is stripped and ignored — the href always points to the
+  // current origin, so it can't be hijacked into an external/phishing link.
+  // Any other markdown-like syntax stays as plain escaped text.
   renderAssistantContent(content) {
     const escaped = content
       .replace(/&/g, '&amp;')
@@ -623,7 +625,7 @@ const studentAgentWidget = {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
     return escaped.replace(
-      /\[([^\[\]]+)\]\((\/(?:aula|curso)\/\d+)\)/g,
+      /\[([^\[\]]+)\]\((?:https?:\/\/[^\/\s)]+)?(\/(?:aula|curso)\/\d+)\)/g,
       '<a href="$2" class="text-blue-600 underline font-semibold">$1</a>'
     )
   },
