@@ -2932,7 +2932,7 @@ const AGENT_TOOLS = [
   }},
   { type: 'function', function: {
     name: 'list_courses',
-    description: 'Lista todos os cursos com id, título, instrutor e carga horária.',
+    description: 'Lista todos os cursos com id, título, instrutor, carga horária, se está publicado e se emite certificado (offers_certificate) — use para responder perguntas como "quais cursos geram certificado?".',
     parameters: { type: 'object', properties: {} },
   }},
   { type: 'function', function: {
@@ -3179,7 +3179,7 @@ async function executeAgentReadTool(tool: string, args: any, db: any, c: any): P
       return { user: user[0] || null, subscriptions: subs, certificates: certs }
     }
     case 'list_courses': {
-      const rows = await db.sql(`SELECT id, title, instructor, duration_hours, created_at FROM courses ORDER BY title`)
+      const rows = await db.sql(`SELECT id, title, instructor, duration_hours, offers_certificate, is_published, min_completion_days, created_at FROM courses ORDER BY title`)
       return { courses: rows }
     }
     case 'get_course_details': {
