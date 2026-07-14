@@ -604,9 +604,28 @@ const studentAgentWidget = {
       ? 'ml-auto max-w-[85%] bg-blue-600 text-white px-3 py-2 rounded-2xl rounded-br-sm'
       : 'mr-auto max-w-[85%] bg-white text-gray-800 px-3 py-2 rounded-2xl rounded-bl-sm shadow-sm border border-gray-200'
     bubble.style.whiteSpace = 'pre-wrap'
-    bubble.textContent = content
+    if (role === 'user') {
+      bubble.textContent = content
+    } else {
+      bubble.innerHTML = this.renderAssistantContent(content)
+    }
     messagesDiv.appendChild(bubble)
     messagesDiv.scrollTop = messagesDiv.scrollHeight
+  },
+
+  // Escapes HTML first, then turns ONLY internal lesson/course links
+  // ([label](/aula/123) or [label](/curso/45)) into real anchor tags.
+  // Any other markdown-like syntax or external URL stays as plain escaped text.
+  renderAssistantContent(content) {
+    const escaped = content
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+    return escaped.replace(
+      /\[([^\[\]]+)\]\((\/(?:aula|curso)\/\d+)\)/g,
+      '<a href="$2" class="text-blue-600 underline font-semibold">$1</a>'
+    )
   },
 
   async send() {
