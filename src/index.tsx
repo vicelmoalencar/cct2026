@@ -3107,10 +3107,10 @@ const AGENT_TOOLS = [
   }},
   { type: 'function', function: {
     name: 'update_course',
-    description: 'Atualiza dados de um curso (title, description, instructor, duration_hours).',
+    description: 'Atualiza dados de um curso, incluindo o prazo mínimo de conclusão exigido para emissão de certificado (min_completion_days).',
     parameters: { type: 'object', properties: {
       course_id: { type: 'number', description: 'ID do curso' },
-      fields: { type: 'object', description: 'Campos: title, description, instructor, duration_hours' },
+      fields: { type: 'object', description: 'Campos: title, description, instructor, duration_hours, offers_certificate (boolean), is_published (boolean), min_completion_days (número de dias mínimo entre a primeira e a última aula concluída para liberar o certificado; null/0 remove a restrição)' },
     }, required: ['course_id', 'fields'] },
   }},
   { type: 'function', function: {
@@ -3359,7 +3359,7 @@ async function executeAgentWriteTool(tool: string, args: any, db: any, c: any): 
   const ALLOWED_USER_FIELDS = new Set(['nome', 'telefone', 'whatsapp', 'ativo', 'dt_expiracao'])
   const ALLOWED_SUB_FIELDS = new Set(['data_expiracao', 'ativo', 'detalhe', 'origem'])
   const ALLOWED_LESSON_FIELDS = new Set(['title', 'description', 'teste_gratis', 'rentable', 'duration_minutes', 'order_index'])
-  const ALLOWED_COURSE_FIELDS = new Set(['title', 'description', 'instructor', 'duration_hours'])
+  const ALLOWED_COURSE_FIELDS = new Set(['title', 'description', 'instructor', 'duration_hours', 'offers_certificate', 'is_published', 'min_completion_days'])
   const ALLOWED_CERT_FIELDS = new Set(['user_name', 'course_title', 'carga_horaria', 'generated_at'])
 
   switch (tool) {
