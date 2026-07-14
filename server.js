@@ -205,7 +205,10 @@ const server = serve({
       VITE_OPENROUTER_API_KEY: process.env.VITE_OPENROUTER_API_KEY || '',
       VIMEO_ACCESS_TOKEN: process.env.VIMEO_ACCESS_TOKEN || '',
       OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
-      GROQ_API_KEY: process.env.GROQ_API_KEY || ''
+      GROQ_API_KEY: process.env.GROQ_API_KEY || '',
+      EVOLUTION_API_KEY: process.env.EVOLUTION_API_KEY || '',
+      EVOLUTION_SERVER_URL: process.env.EVOLUTION_SERVER_URL || '',
+      EVOLUTION_INSTANCE_ID: process.env.EVOLUTION_INSTANCE_ID || ''
     }
     
     // Call the Hono app with the environment

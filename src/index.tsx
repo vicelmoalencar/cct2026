@@ -12,6 +12,44 @@ type Bindings = {
   DATABASE_CCT: string;
   DATABASE_SUITEPLUS: string;
   DATABASE_URL_CREDITOS?: string;
+  EVOLUTION_API_KEY?: string;
+  EVOLUTION_SERVER_URL?: string;
+  EVOLUTION_INSTANCE_ID?: string;
+}
+
+// Grupo administrativo do WhatsApp — mesmo grupo usado pelo webhook_pix.php para notificações de pagamento
+const WHATSAPP_ADMIN_GROUP_JID = '120363404945851958@g.us'
+
+// Envia mensagem de texto a um grupo do WhatsApp via Evolution API.
+// Best-effort: nunca lança erro (loga e segue), para não travar o fluxo que a chamou.
+async function sendWhatsAppGroupMessage(env: any, message: string, groupJid: string = WHATSAPP_ADMIN_GROUP_JID): Promise<boolean> {
+  try {
+    const serverUrl = env.EVOLUTION_SERVER_URL
+    const instanceId = env.EVOLUTION_INSTANCE_ID
+    const apiKey = env.EVOLUTION_API_KEY
+    if (!serverUrl || !instanceId || !apiKey) {
+      console.warn('Evolution API não configurada — mensagem de WhatsApp não enviada')
+      return false
+    }
+
+    const response = await fetch(`${serverUrl}/message/sendText/${instanceId}`, {
+      method: 'POST',
+      headers: {
+        'apikey': apiKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ number: groupJid, text: message }),
+    })
+
+    if (!response.ok) {
+      console.error('Evolution API respondeu com erro:', response.status, await response.text())
+      return false
+    }
+    return true
+  } catch (error: any) {
+    console.error('Erro ao enviar mensagem WhatsApp via Evolution API:', error.message)
+    return false
+  }
 }
 
 const app = new Hono<{ Bindings: Bindings }>()
@@ -2183,6 +2221,16 @@ app.post('/api/lessons/:id/rent', requireAuth, async (c) => {
        DO UPDATE SET credits_paid = $3, rented_at = NOW(), expires_at = NOW() + INTERVAL '30 days'`,
       [userEmail, lessonId, cost]
     )
+
+    const dataFormatada = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+    await sendWhatsAppGroupMessage(c.env, [
+      '🎬 *Aula alugada!*',
+      '',
+      `📧 *Email:* ${userEmail}`,
+      `📖 *Aula:* ${lesson.title}`,
+      `💳 *Créditos usados:* ${cost}`,
+      `🕐 *Data:* ${dataFormatada}`,
+    ].join('\n'))
 
     return c.json({ success: true, message: 'Aula alugada com sucesso! Acesso liberado por 30 dias.' })
   } catch (error: any) {
