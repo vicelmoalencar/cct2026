@@ -4900,9 +4900,23 @@ app.get('/api/certificates/:id/html', requireAuth, async (c) => {
     const certCode = cert.certificate_code || cert.verification_code || ''
     const verificationUrl = certCode ? `${baseUrl}/verificar/${certCode}` : ''
     
+    // Certificados antigos (importados via CSV) não têm course_id vinculado —
+    // tenta casar pelo título do curso para não perder módulos/template.
+    let effectiveCourseId = cert.course_id
+    if (!effectiveCourseId && cert.course_title) {
+      try {
+        const matched = await db.sql(`SELECT id FROM courses WHERE lower(title) = lower($1) LIMIT 1`, [cert.course_title])
+        if (matched && matched.length > 0) {
+          effectiveCourseId = matched[0].id
+        }
+      } catch (e) {
+        console.log('Could not match course by title:', e)
+      }
+    }
+
     // Buscar módulos do curso se course_id existir
     let modules: string[] = []
-    
+
     // Primeiro tentar usar course_modules se existir (JSON armazenado)
     if (cert.course_modules) {
       try {
@@ -4912,16 +4926,16 @@ app.get('/api/certificates/:id/html', requireAuth, async (c) => {
         console.log('Error parsing course_modules:', e)
       }
     }
-    
+
     // Se não houver módulos armazenados e houver course_id, buscar do banco
-    if (modules.length === 0 && cert.course_id) {
+    if (modules.length === 0 && effectiveCourseId) {
       try {
         const courseModules = await db.query('modules', {
           select: 'title, order_index',
-          filters: { course_id: cert.course_id },
+          filters: { course_id: effectiveCourseId },
           order: 'order_index ASC'
         })
-        
+
         if (courseModules && courseModules.length > 0) {
           modules = courseModules.map((m: any) => m.title)
         }
@@ -4929,15 +4943,15 @@ app.get('/api/certificates/:id/html', requireAuth, async (c) => {
         console.log('Error fetching modules:', e)
       }
     }
-    
+
     // Buscar template do curso — embutir base64 direto no HTML (sem requisição extra)
     let templateImageUrl: string | undefined
     let versoImageUrl: string | undefined
-    if (cert.course_id) {
+    if (effectiveCourseId) {
       try {
         const tmpl = await db.query('certificate_templates', {
           select: 'template_data, template_mime, verso_data, verso_mime',
-          filters: { course_id: cert.course_id },
+          filters: { course_id: effectiveCourseId },
           single: true
         })
         if (tmpl?.template_data) {
@@ -4949,7 +4963,7 @@ app.get('/api/certificates/:id/html', requireAuth, async (c) => {
           versoImageUrl = `data:${mime};base64,${tmpl.verso_data}`
         }
       } catch (e) {
-        console.log('No certificate template found for course', cert.course_id)
+        console.log('No certificate template found for course', effectiveCourseId)
       }
     }
 
