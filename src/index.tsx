@@ -3615,6 +3615,212 @@ Data/hora atual no Brasil: ${nowBR}${customInstructions ? `\n\nINSTRUÇÕES PERS
 })
 
 // ============================================
+// API ROUTES - STUDENT AI AGENT (assistente do aluno)
+// ============================================
+// Fase 1: apenas leitura — indica aulas/cursos com base no progresso do aluno.
+// Sempre restrito ao email do próprio usuário autenticado (nunca recebe email por parâmetro).
+
+const STUDENT_AGENT_TOOLS = [
+  { type: 'function', function: {
+    name: 'list_courses',
+    description: 'Lista todos os cursos publicados disponíveis na plataforma, com id, título e carga horária.',
+    parameters: { type: 'object', properties: {} },
+  }},
+  { type: 'function', function: {
+    name: 'get_course_details',
+    description: 'Retorna os módulos e a quantidade de aulas de um curso publicado.',
+    parameters: { type: 'object', properties: {
+      course_id: { type: 'number', description: 'ID do curso' },
+    }, required: ['course_id'] },
+  }},
+  { type: 'function', function: {
+    name: 'get_my_progress',
+    description: 'Retorna o progresso do aluno autenticado em todos os cursos que ele já iniciou: % concluído, aulas completadas e aulas totais por curso.',
+    parameters: { type: 'object', properties: {} },
+  }},
+  { type: 'function', function: {
+    name: 'recommend_next_lessons',
+    description: 'Recomenda as próximas aulas que o aluno autenticado ainda não assistiu. Se course_id for informado, recomenda dentro daquele curso; caso contrário, considera todos os cursos que o aluno já iniciou.',
+    parameters: { type: 'object', properties: {
+      course_id: { type: 'number', description: 'ID do curso (opcional)' },
+      limit: { type: 'number', description: 'Máximo de aulas a recomendar (padrão 5)' },
+    } },
+  }},
+  { type: 'function', function: {
+    name: 'search_lessons',
+    description: 'Busca aulas por título/palavra-chave em cursos publicados.',
+    parameters: { type: 'object', properties: {
+      query: { type: 'string', description: 'Termo de busca no título da aula' },
+      limit: { type: 'number', description: 'Máximo de resultados (padrão 10)' },
+    }, required: ['query'] },
+  }},
+  { type: 'function', function: {
+    name: 'get_my_certificates',
+    description: 'Lista os certificados já emitidos para o aluno autenticado.',
+    parameters: { type: 'object', properties: {} },
+  }},
+]
+
+async function executeStudentAgentTool(tool: string, args: any, db: any, userEmail: string): Promise<any> {
+  switch (tool) {
+    case 'list_courses': {
+      const rows = await db.sql(
+        `SELECT id, title, instructor, duration_hours FROM courses WHERE is_published = true ORDER BY title`
+      )
+      return { courses: rows }
+    }
+    case 'get_course_details': {
+      const [course, modules] = await Promise.all([
+        db.sql(`SELECT id, title, description, instructor, duration_hours FROM courses WHERE id = $1 AND is_published = true`, [args.course_id]),
+        db.sql(
+          `SELECT m.id, m.title, m.order_index, COUNT(l.id)::int as lesson_count
+           FROM modules m LEFT JOIN lessons l ON l.module_id = m.id
+           WHERE m.course_id = $1 GROUP BY m.id ORDER BY m.order_index`,
+          [args.course_id]
+        ),
+      ])
+      return { course: course[0] || null, modules }
+    }
+    case 'get_my_progress': {
+      const rows = await db.sql(
+        `SELECT c.id as course_id, c.title as course_title,
+                COUNT(l.id)::int as total_lessons,
+                COUNT(up.lesson_id) FILTER (WHERE up.completed = true)::int as completed_lessons
+         FROM courses c
+         JOIN modules m ON m.course_id = c.id
+         JOIN lessons l ON l.module_id = m.id
+         LEFT JOIN user_progress up ON up.lesson_id = l.id AND lower(up.user_email) = lower($1)
+         WHERE c.is_published = true
+         GROUP BY c.id, c.title
+         HAVING COUNT(up.lesson_id) FILTER (WHERE up.completed = true) > 0
+         ORDER BY completed_lessons DESC`,
+        [userEmail]
+      )
+      const withPct = rows.map((r: any) => ({
+        ...r,
+        progress_pct: r.total_lessons > 0 ? Math.round((r.completed_lessons / r.total_lessons) * 100) : 0,
+      }))
+      return { courses_with_progress: withPct, total_courses: withPct.length }
+    }
+    case 'recommend_next_lessons': {
+      const lim = Math.min(args.limit || 5, 20)
+      const courseFilter = args.course_id ? `AND c.id = $2` : ''
+      const values = args.course_id ? [userEmail, args.course_id] : [userEmail]
+      const rows = await db.sql(
+        `SELECT l.id as lesson_id, l.title as lesson_title, m.title as module_title,
+                c.id as course_id, c.title as course_title, m.order_index, l.order_index as lesson_order
+         FROM lessons l
+         JOIN modules m ON m.id = l.module_id
+         JOIN courses c ON c.id = m.course_id
+         LEFT JOIN user_progress up ON up.lesson_id = l.id AND lower(up.user_email) = lower($1)
+         WHERE c.is_published = true
+           AND (up.completed IS NULL OR up.completed = false)
+           AND c.id IN (
+             SELECT DISTINCT c2.id FROM courses c2
+             JOIN modules m2 ON m2.course_id = c2.id
+             JOIN lessons l2 ON l2.module_id = m2.id
+             JOIN user_progress up2 ON up2.lesson_id = l2.id AND lower(up2.user_email) = lower($1) AND up2.completed = true
+           )
+           ${courseFilter}
+         ORDER BY c.title, m.order_index, l.order_index
+         LIMIT ${lim}`,
+        values
+      )
+      return { recommended_lessons: rows, count: rows.length }
+    }
+    case 'search_lessons': {
+      const lim = Math.min(args.limit || 10, 50)
+      const rows = await db.sql(
+        `SELECT l.id, l.title, m.title as module_title, c.title as course_title, c.id as course_id
+         FROM lessons l JOIN modules m ON m.id = l.module_id JOIN courses c ON c.id = m.course_id
+         WHERE l.title ILIKE $1 AND c.is_published = true
+         ORDER BY l.title LIMIT $2`,
+        [`%${args.query}%`, lim]
+      )
+      return { lessons: rows, count: rows.length }
+    }
+    case 'get_my_certificates': {
+      const rows = await db.sql(
+        `SELECT id, course_title, carga_horaria, certificate_code, completion_date FROM certificates
+         WHERE lower(user_email) = lower($1) ORDER BY created_at DESC`,
+        [userEmail]
+      )
+      return { certificates: rows }
+    }
+    default:
+      return { error: `Ferramenta desconhecida: ${tool}` }
+  }
+}
+
+app.post('/api/student-agent', requireAuth, async (c) => {
+  try {
+    const user = c.get('user')
+    const userEmail = user.email
+    const body = await c.req.json()
+    const { message, history = [] } = body
+    const db = getDB(c)
+    const apiKey = (c.env as any).VITE_OPENROUTER_API_KEY
+    if (!apiKey) return c.json({ error: 'VITE_OPENROUTER_API_KEY não configurada' }, 500)
+
+    const systemPrompt = `Você é o assistente virtual do CCT (Clube de Cálculo Trabalhista), atendendo o aluno "${user.user_metadata?.name || user.email}".
+Responda sempre em português brasileiro, de forma amigável, curta e objetiva.
+Use as ferramentas disponíveis para consultar dados reais antes de responder — nunca invente cursos, aulas ou progresso.
+Seu foco é ajudar o aluno a encontrar e assistir aulas: recomende próximas aulas com base no progresso dele, ajude a localizar aulas por assunto, e informe sobre certificados já emitidos.
+Você só tem acesso aos dados do próprio aluno autenticado — nunca fale sobre outros alunos.
+Se o aluno perguntar sobre cancelamento, reembolso, cobrança ou alteração de plano, explique gentilmente que você ainda não pode resolver isso diretamente e oriente a falar com o suporte pelo WhatsApp.`
+
+    let messages: any[] = [
+      { role: 'system', content: systemPrompt },
+      ...history.slice(-20),
+      { role: 'user', content: message },
+    ]
+
+    for (let i = 0; i < 5; i++) {
+      const aiRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+          'HTTP-Referer': 'https://novocct.ensinoplus.com.br',
+          'X-Title': 'CCT Student Agent',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages,
+          tools: STUDENT_AGENT_TOOLS,
+          tool_choice: 'auto',
+        }),
+      })
+      if (!aiRes.ok) return c.json({ error: `OpenRouter: ${await aiRes.text()}` }, 500)
+      const data: any = await aiRes.json()
+      const choice = data.choices?.[0]
+      if (!choice) return c.json({ error: 'Resposta vazia do modelo' }, 500)
+
+      const assistantMsg = choice.message
+      const toolCalls = assistantMsg.tool_calls
+
+      if (!toolCalls || toolCalls.length === 0) {
+        return c.json({ reply: assistantMsg.content || '' })
+      }
+
+      const tc = toolCalls[0]
+      const toolName = tc.function.name
+      let toolArgs: any = {}
+      try { toolArgs = JSON.parse(tc.function.arguments) } catch {}
+
+      const toolResult = await executeStudentAgentTool(toolName, toolArgs, db, userEmail)
+      messages.push({ role: 'assistant', content: assistantMsg.content || null, tool_calls: toolCalls })
+      messages.push({ role: 'tool', content: JSON.stringify(toolResult), tool_call_id: tc.id })
+    }
+
+    return c.json({ reply: 'Não consegui completar a consulta. Tente reformular sua pergunta.' })
+  } catch (error: any) {
+    console.error('Student agent error:', error)
+    return c.json({ error: error.message || 'Erro no assistente' }, 500)
+  }
+})
+
+// ============================================
 // API ROUTES - USERS MANAGEMENT
 // ============================================
 
@@ -6932,7 +7138,7 @@ app.get('/admin', (c) => {
 
   <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <script src="/static/auth.js?v=whatsapp-floating-20260602"></script>
+  <script src="/static/auth.js?v=student-agent-20260714"></script>
   <script src="/static/admin.js?v=10"></script>
   <script>
     document.addEventListener('DOMContentLoaded', async () => {
@@ -7300,7 +7506,7 @@ app.get('/', (c) => {
 
         <script defer src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
         <script defer src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-        <script defer src="/static/auth.js?v=whatsapp-floating-20260602"></script>
+        <script defer src="/static/auth.js?v=student-agent-20260714"></script>
         <script defer src="/static/admin.js?v=10"></script>
         <script defer src="/static/access-control.js?v=4"></script>
         <script defer src="/static/app.js?v=23"></script>
@@ -7499,7 +7705,7 @@ app.get('/favorites', (c) => {
 </div>
 
 <script defer src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
-<script defer src="/static/auth.js?v=whatsapp-floating-20260602"></script>
+<script defer src="/static/auth.js?v=student-agent-20260714"></script>
 <script>
 let allFavorites = []
 let activeFilter = null
@@ -7686,7 +7892,7 @@ app.get('/certificates', (c) => {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
-    <script src="/static/auth.js?v=whatsapp-floating-20260602"></script>
+    <script src="/static/auth.js?v=student-agent-20260714"></script>
     <script>
         let currentUser = null;
 
@@ -8302,7 +8508,7 @@ app.get('/profile', (c) => {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
-    <script src="/static/auth.js?v=whatsapp-floating-20260602"></script>
+    <script src="/static/auth.js?v=student-agent-20260714"></script>
     <script>
         const messageDiv = document.getElementById('messageDiv')
         const profileForm = document.getElementById('profileForm')
@@ -8850,7 +9056,7 @@ app.get('/certificates', (c) => {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
-    <script src="/static/auth.js?v=whatsapp-floating-20260602"></script>
+    <script src="/static/auth.js?v=student-agent-20260714"></script>
     <script>
         const loadingState = document.getElementById('loadingState')
         const emptyState = document.getElementById('emptyState')

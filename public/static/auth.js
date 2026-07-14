@@ -524,3 +524,128 @@ const authUI = {
     }
   }
 }
+
+// Student AI assistant floating widget
+const studentAgentWidget = {
+  isOpen: false,
+  history: [],
+  loading: false,
+
+  async init() {
+    if (document.getElementById('studentAgentButton')) return
+    try {
+      const response = await axios.get('/api/auth/me')
+      if (!response.data?.user) return
+    } catch (e) {
+      return
+    }
+    this.render()
+  },
+
+  render() {
+    const button = document.createElement('button')
+    button.id = 'studentAgentButton'
+    button.type = 'button'
+    button.setAttribute('aria-label', 'Assistente virtual CCT')
+    button.className = 'fixed bottom-24 right-5 z-50 flex items-center gap-2 rounded-full bg-blue-600 px-4 py-3 text-white shadow-lg transition-all hover:bg-blue-700 hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-blue-200'
+    button.innerHTML = `
+      <i class="fas fa-robot text-2xl"></i>
+      <span class="hidden sm:inline font-semibold">Assistente</span>
+    `
+    button.addEventListener('click', () => this.toggle())
+    document.body.appendChild(button)
+
+    const panel = document.createElement('div')
+    panel.id = 'studentAgentPanel'
+    panel.className = 'hidden fixed bottom-[9.5rem] right-5 z-50 w-[90vw] max-w-sm h-[28rem] max-h-[70vh] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-gray-200'
+    panel.innerHTML = `
+      <div class="bg-blue-600 text-white px-4 py-3 flex items-center justify-between flex-shrink-0">
+        <div class="flex items-center gap-2">
+          <i class="fas fa-robot"></i>
+          <span class="font-semibold">Assistente CCT</span>
+        </div>
+        <button type="button" id="studentAgentClose" class="text-white hover:text-gray-200">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div id="studentAgentMessages" class="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50 text-sm"></div>
+      <form id="studentAgentForm" class="border-t border-gray-200 p-3 flex gap-2 flex-shrink-0">
+        <input id="studentAgentInput" type="text" autocomplete="off" placeholder="Pergunte sobre suas aulas..."
+          class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex-shrink-0">
+          <i class="fas fa-paper-plane"></i>
+        </button>
+      </form>
+    `
+    document.body.appendChild(panel)
+
+    document.getElementById('studentAgentClose').addEventListener('click', () => this.toggle())
+    document.getElementById('studentAgentForm').addEventListener('submit', (e) => {
+      e.preventDefault()
+      this.send()
+    })
+
+    this.addMessage('assistant', 'Oi! 👋 Posso te ajudar a encontrar aulas e ver seu progresso nos cursos. O que você quer assistir hoje?')
+  },
+
+  toggle() {
+    this.isOpen = !this.isOpen
+    const panel = document.getElementById('studentAgentPanel')
+    panel.classList.toggle('hidden', !this.isOpen)
+    if (this.isOpen) {
+      document.getElementById('studentAgentInput').focus()
+    }
+  },
+
+  addMessage(role, content) {
+    const messagesDiv = document.getElementById('studentAgentMessages')
+    const bubble = document.createElement('div')
+    bubble.className = role === 'user'
+      ? 'ml-auto max-w-[85%] bg-blue-600 text-white px-3 py-2 rounded-2xl rounded-br-sm'
+      : 'mr-auto max-w-[85%] bg-white text-gray-800 px-3 py-2 rounded-2xl rounded-bl-sm shadow-sm border border-gray-200'
+    bubble.style.whiteSpace = 'pre-wrap'
+    bubble.textContent = content
+    messagesDiv.appendChild(bubble)
+    messagesDiv.scrollTop = messagesDiv.scrollHeight
+  },
+
+  async send() {
+    const input = document.getElementById('studentAgentInput')
+    const message = input.value.trim()
+    if (!message || this.loading) return
+
+    input.value = ''
+    this.addMessage('user', message)
+    const priorHistory = [...this.history]
+    this.history.push({ role: 'user', content: message })
+    this.loading = true
+
+    const messagesDiv = document.getElementById('studentAgentMessages')
+    const typingIndicator = document.createElement('div')
+    typingIndicator.id = 'studentAgentTyping'
+    typingIndicator.className = 'mr-auto max-w-[85%] bg-white text-gray-400 px-3 py-2 rounded-2xl rounded-bl-sm shadow-sm border border-gray-200 text-xs'
+    typingIndicator.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> digitando...'
+    messagesDiv.appendChild(typingIndicator)
+    messagesDiv.scrollTop = messagesDiv.scrollHeight
+
+    try {
+      const response = await axios.post('/api/student-agent', { message, history: priorHistory })
+      document.getElementById('studentAgentTyping')?.remove()
+      const reply = response.data.reply || 'Desculpe, não consegui responder agora.'
+      this.addMessage('assistant', reply)
+      this.history.push({ role: 'assistant', content: reply })
+    } catch (error) {
+      document.getElementById('studentAgentTyping')?.remove()
+      this.addMessage('assistant', 'Ops, tive um problema para responder. Tente novamente em instantes.')
+      console.error('Student agent error:', error)
+    } finally {
+      this.loading = false
+    }
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => studentAgentWidget.init())
+} else {
+  studentAgentWidget.init()
+}
