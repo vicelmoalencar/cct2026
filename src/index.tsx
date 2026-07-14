@@ -4341,13 +4341,15 @@ function generateCertificateHTML(data: {
         ).join('')
       : ''
 
-    const versoPage = hasVerso ? `
+    // O verso deve sempre exibir os módulos do curso quando existirem, mesmo que
+    // o admin não tenha cadastrado uma imagem de fundo para o verso.
+    const versoPage = hasModules ? `
     <div class="page verso-page">
-      <img class="bg-img" src="${data.versoImageUrl}" alt="Verso do certificado">
-      ${hasModules ? `
-      <div class="verso-overlay">
+      ${hasVerso ? `<img class="bg-img" src="${data.versoImageUrl}" alt="Verso do certificado">` : ''}
+      <div class="verso-overlay" style="${hasVerso ? '' : 'flex-direction:column; gap:10mm;'}">
+        ${hasVerso ? '' : `<div style="font-family:Georgia,serif; font-size:16pt; font-weight:bold; color:#1a1a2e; letter-spacing:3px; text-transform:uppercase;">Conteúdo Programático</div>`}
         <div class="mod-grid">${modulesBlock}</div>
-      </div>` : ''}
+      </div>
     </div>` : ''
 
     return `<!DOCTYPE html>
