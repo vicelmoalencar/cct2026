@@ -447,7 +447,15 @@ const app = {
             <p class="text-gray-600 text-xs md:text-sm mb-3 md:mb-4 line-clamp-3 leading-relaxed">
               ${course.description || 'Aprenda os conceitos essenciais e práticos desta área de conhecimento.'}
             </p>
-            
+
+            <!-- Certificate Highlight (course-level, independent of user progress) -->
+            ${course.offers_certificate ?
+              `<div class="mb-3 md:mb-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs md:text-sm font-bold text-white bg-gradient-to-r from-amber-400 to-orange-500 shadow-sm">
+                <i class="fas fa-certificate"></i>
+                <span>Emite certificado &bull; ${course.duration_hours}h</span>
+              </div>`
+            : ''}
+
             <!-- Stats -->
             <div class="flex items-center gap-3 md:gap-4 mb-3 md:mb-4 text-xs md:text-sm text-gray-500">
               <div class="flex items-center gap-1">
