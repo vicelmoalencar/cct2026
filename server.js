@@ -208,7 +208,8 @@ const server = serve({
       GROQ_API_KEY: process.env.GROQ_API_KEY || '',
       EVOLUTION_API_KEY: process.env.EVOLUTION_API_KEY || '',
       EVOLUTION_SERVER_URL: process.env.EVOLUTION_SERVER_URL || '',
-      EVOLUTION_INSTANCE_ID: process.env.EVOLUTION_INSTANCE_ID || ''
+      EVOLUTION_INSTANCE_ID: process.env.EVOLUTION_INSTANCE_ID || '',
+      EXTERNAL_API_KEY: process.env.EXTERNAL_API_KEY || ''
     }
     
     // Call the Hono app with the environment

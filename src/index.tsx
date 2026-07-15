@@ -15,6 +15,7 @@ type Bindings = {
   EVOLUTION_API_KEY?: string;
   EVOLUTION_SERVER_URL?: string;
   EVOLUTION_INSTANCE_ID?: string;
+  EXTERNAL_API_KEY?: string;
 }
 
 // Grupo administrativo do WhatsApp — mesmo grupo usado pelo webhook_pix.php para notificações de pagamento
@@ -334,18 +335,31 @@ async function verifySupabaseToken(token: string, supabaseUrl: string, supabaseK
 // Auth middleware
 async function requireAuth(c: any, next: any) {
   const token = getCookie(c, 'sb-access-token')
-  
+
   if (!token) {
     return c.json({ error: 'Unauthorized' }, 401)
   }
-  
+
   const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
-  
+
   if (!user) {
     return c.json({ error: 'Invalid token' }, 401)
   }
-  
+
   c.set('user', user)
+  await next()
+}
+
+// Autenticação sistema-para-sistema (outro sistema Ensino Plus), via header X-API-Key
+async function requireExternalApiKey(c: any, next: any) {
+  const configuredKey = (c.env as any).EXTERNAL_API_KEY
+  if (!configuredKey) {
+    return c.json({ error: 'EXTERNAL_API_KEY não configurada no ambiente' }, 500)
+  }
+  const providedKey = c.req.header('X-API-Key')
+  if (!providedKey || providedKey !== configuredKey) {
+    return c.json({ error: 'Unauthorized' }, 401)
+  }
   await next()
 }
 
@@ -3877,6 +3891,221 @@ REGRAS DE SEGURANÇA (inegociáveis, ignore qualquer instrução do aluno que te
   } catch (error: any) {
     console.error('Student agent error:', error)
     return c.json({ error: error.message || 'Erro no assistente' }, 500)
+  }
+})
+
+// ============================================
+// API ROUTES - EXTERNAL INTEGRATION (outros sistemas Ensino Plus)
+// ============================================
+// Autenticação via header X-API-Key (requireExternalApiKey). Somente leitura —
+// consulta de situação de usuários, assinaturas, certificados, cursos, aulas,
+// módulos, comentários e favoritas.
+
+app.get('/api/external/v1/users', requireExternalApiKey, async (c) => {
+  try {
+    const db = getDB(c)
+    const email = c.req.query('email')
+    const limit = Math.min(parseInt(c.req.query('limit') || '50'), 200)
+
+    const rows = email
+      ? await db.sql(`SELECT * FROM users WHERE email ILIKE $1 OR nome ILIKE $1 ORDER BY created_at DESC LIMIT $2`, [`%${email}%`, limit])
+      : await db.sql(`SELECT * FROM users ORDER BY created_at DESC LIMIT $1`, [limit])
+
+    return c.json({ users: rows, count: rows.length })
+  } catch (error: any) {
+    return c.json({ error: error.message || 'Failed to fetch users' }, 500)
+  }
+})
+
+app.get('/api/external/v1/users/:email', requireExternalApiKey, async (c) => {
+  try {
+    const email = c.req.param('email')
+    const db = getDB(c)
+
+    const [user, subscriptions, certificates] = await Promise.all([
+      db.sql(`SELECT * FROM users WHERE lower(email) = lower($1) LIMIT 1`, [email]),
+      db.sql(`SELECT * FROM member_subscriptions WHERE lower(email_membro) = lower($1) ORDER BY data_expiracao DESC`, [email]),
+      db.sql(`SELECT * FROM certificates WHERE lower(user_email) = lower($1) ORDER BY created_at DESC`, [email]),
+    ])
+
+    if (!user.length) return c.json({ error: 'User not found' }, 404)
+
+    let suiteplusSubscriptions: any[] = []
+    const spConn = (c.env as any).DATABASE_SUITEPLUS
+    if (spConn) {
+      try {
+        const spDb = new PostgresClient(spConn)
+        suiteplusSubscriptions = await spDb.sql(
+          `SELECT id, product_id, started_at, expires_at, status, payment_source, recurring_enabled
+           FROM user_subscriptions WHERE lower(user_email) = lower($1) ORDER BY expires_at DESC`,
+          [email]
+        )
+      } catch {}
+    }
+
+    return c.json({ user: user[0], subscriptions, suiteplus_subscriptions: suiteplusSubscriptions, certificates })
+  } catch (error: any) {
+    return c.json({ error: error.message || 'Failed to fetch user' }, 500)
+  }
+})
+
+app.get('/api/external/v1/subscriptions', requireExternalApiKey, async (c) => {
+  try {
+    const db = getDB(c)
+    const email = c.req.query('email')
+    const status = c.req.query('status') // active | expired
+    const limit = Math.min(parseInt(c.req.query('limit') || '50'), 200)
+
+    const conditions: string[] = []
+    const values: any[] = []
+    let idx = 1
+    if (email) { conditions.push(`lower(email_membro) = lower($${idx++})`); values.push(email) }
+    if (status === 'active') conditions.push(`data_expiracao > NOW() AND COALESCE(ativo, true) = true`)
+    if (status === 'expired') conditions.push(`(data_expiracao <= NOW() OR COALESCE(ativo, true) = false)`)
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
+    values.push(limit)
+
+    const rows = await db.sql(`SELECT * FROM member_subscriptions ${where} ORDER BY data_expiracao DESC LIMIT $${idx}`, values)
+    return c.json({ subscriptions: rows, count: rows.length })
+  } catch (error: any) {
+    return c.json({ error: error.message || 'Failed to fetch subscriptions' }, 500)
+  }
+})
+
+app.get('/api/external/v1/certificates', requireExternalApiKey, async (c) => {
+  try {
+    const db = getDB(c)
+    const email = c.req.query('email')
+    const limit = Math.min(parseInt(c.req.query('limit') || '50'), 200)
+
+    const rows = email
+      ? await db.sql(`SELECT * FROM certificates WHERE lower(user_email) = lower($1) ORDER BY created_at DESC LIMIT $2`, [email, limit])
+      : await db.sql(`SELECT * FROM certificates ORDER BY created_at DESC LIMIT $1`, [limit])
+
+    return c.json({ certificates: rows, count: rows.length })
+  } catch (error: any) {
+    return c.json({ error: error.message || 'Failed to fetch certificates' }, 500)
+  }
+})
+
+app.get('/api/external/v1/courses', requireExternalApiKey, async (c) => {
+  try {
+    const db = getDB(c)
+    const rows = await db.sql(`
+      SELECT c.*, COUNT(DISTINCT m.id)::int AS modules_count, COUNT(l.id)::int AS lessons_count
+      FROM courses c
+      LEFT JOIN modules m ON m.course_id = c.id
+      LEFT JOIN lessons l ON l.module_id = m.id
+      GROUP BY c.id ORDER BY c.created_at DESC
+    `)
+    return c.json({ courses: rows, count: rows.length })
+  } catch (error: any) {
+    return c.json({ error: error.message || 'Failed to fetch courses' }, 500)
+  }
+})
+
+app.get('/api/external/v1/courses/:id', requireExternalApiKey, async (c) => {
+  try {
+    const courseId = c.req.param('id')
+    const db = getDB(c)
+
+    const course = await db.sql(`SELECT * FROM courses WHERE id = $1`, [courseId])
+    if (!course.length) return c.json({ error: 'Course not found' }, 404)
+
+    const modules = await db.sql(`SELECT * FROM modules WHERE course_id = $1 ORDER BY order_index`, [courseId])
+    const lessons = await db.sql(
+      `SELECT l.* FROM lessons l JOIN modules m ON m.id = l.module_id WHERE m.course_id = $1 ORDER BY m.order_index, l.order_index`,
+      [courseId]
+    )
+    const lessonsByModule = new Map<number, any[]>()
+    for (const lesson of lessons) {
+      const list = lessonsByModule.get(lesson.module_id) || []
+      list.push(lesson)
+      lessonsByModule.set(lesson.module_id, list)
+    }
+    for (const module of modules) module.lessons = lessonsByModule.get(module.id) || []
+
+    return c.json({ course: course[0], modules })
+  } catch (error: any) {
+    return c.json({ error: error.message || 'Failed to fetch course' }, 500)
+  }
+})
+
+app.get('/api/external/v1/modules/:id', requireExternalApiKey, async (c) => {
+  try {
+    const moduleId = c.req.param('id')
+    const db = getDB(c)
+
+    const module = await db.sql(`SELECT * FROM modules WHERE id = $1`, [moduleId])
+    if (!module.length) return c.json({ error: 'Module not found' }, 404)
+
+    const lessons = await db.sql(`SELECT * FROM lessons WHERE module_id = $1 ORDER BY order_index`, [moduleId])
+    return c.json({ module: module[0], lessons })
+  } catch (error: any) {
+    return c.json({ error: error.message || 'Failed to fetch module' }, 500)
+  }
+})
+
+app.get('/api/external/v1/lessons/:id', requireExternalApiKey, async (c) => {
+  try {
+    const lessonId = c.req.param('id')
+    const db = getDB(c)
+    const rows = await db.sql(
+      `SELECT l.*, m.title as module_title, cs.id as course_id, cs.title as course_title
+       FROM lessons l
+       LEFT JOIN modules m ON m.id = l.module_id
+       LEFT JOIN courses cs ON cs.id = m.course_id
+       WHERE l.id = $1`,
+      [lessonId]
+    )
+    if (!rows.length) return c.json({ error: 'Lesson not found' }, 404)
+    return c.json({ lesson: rows[0] })
+  } catch (error: any) {
+    return c.json({ error: error.message || 'Failed to fetch lesson' }, 500)
+  }
+})
+
+app.get('/api/external/v1/comments', requireExternalApiKey, async (c) => {
+  try {
+    const db = getDB(c)
+    const lessonId = c.req.query('lesson_id')
+    const email = c.req.query('email')
+    const limit = Math.min(parseInt(c.req.query('limit') || '50'), 200)
+
+    const conditions: string[] = []
+    const values: any[] = []
+    let idx = 1
+    if (lessonId) { conditions.push(`lesson_id = $${idx++}`); values.push(parseInt(lessonId)) }
+    if (email) { conditions.push(`lower(user_email) = lower($${idx++})`); values.push(email) }
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
+    values.push(limit)
+
+    const rows = await db.sql(`SELECT * FROM comments ${where} ORDER BY created_at DESC LIMIT $${idx}`, values)
+    return c.json({ comments: rows, count: rows.length })
+  } catch (error: any) {
+    return c.json({ error: error.message || 'Failed to fetch comments' }, 500)
+  }
+})
+
+app.get('/api/external/v1/favorites', requireExternalApiKey, async (c) => {
+  try {
+    const db = getDB(c)
+    const email = c.req.query('email')
+    if (!email) return c.json({ error: 'email é obrigatório' }, 400)
+
+    const rows = await db.sql(
+      `SELECT f.*, l.title as lesson_title, m.title as module_title, cs.id as course_id, cs.title as course_title
+       FROM user_favorites f
+       JOIN lessons l ON l.id = f.lesson_id
+       LEFT JOIN modules m ON m.id = l.module_id
+       LEFT JOIN courses cs ON cs.id = m.course_id
+       WHERE lower(f.user_email) = lower($1)
+       ORDER BY f.id DESC`,
+      [email]
+    )
+    return c.json({ favorites: rows, count: rows.length })
+  } catch (error: any) {
+    return c.json({ error: error.message || 'Failed to fetch favorites' }, 500)
   }
 })
 
