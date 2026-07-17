@@ -5173,9 +5173,9 @@ app.get('/api/certificates/:id/html', requireAuth, async (c) => {
     }
     
     // Generate certificate HTML directly (inline template for Cloudflare Workers)
-    const startDate = cert.start_date ? new Date(cert.start_date).toLocaleDateString('pt-BR') : undefined
-    const completionDate = cert.completion_date ? new Date(cert.completion_date).toLocaleDateString('pt-BR') : undefined
-    const issueDate = cert.generated_at ? new Date(cert.generated_at).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR')
+    const startDate = cert.start_date ? new Date(cert.start_date).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : undefined
+    const completionDate = cert.completion_date ? new Date(cert.completion_date).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : undefined
+    const issueDate = cert.generated_at ? new Date(cert.generated_at).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
     const baseUrl = new URL(c.req.url).origin
     const certCode = cert.certificate_code || cert.verification_code || ''
     const verificationUrl = certCode ? `${baseUrl}/verificar/${certCode}` : ''
@@ -5340,9 +5340,9 @@ app.get('/verificar/:code', async (c) => {
       })
     } catch (_) {}
     
-    const startDate = cert.start_date ? new Date(cert.start_date).toLocaleDateString('pt-BR') : undefined
-    const completionDate = cert.completion_date ? new Date(cert.completion_date).toLocaleDateString('pt-BR') : undefined
-    const issueDate = cert.generated_at ? new Date(cert.generated_at).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR')
+    const startDate = cert.start_date ? new Date(cert.start_date).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : undefined
+    const completionDate = cert.completion_date ? new Date(cert.completion_date).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : undefined
+    const issueDate = cert.generated_at ? new Date(cert.generated_at).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
 
     // Buscar módulos do curso
     let modules: string[] = []
@@ -6612,7 +6612,7 @@ app.post('/api/certificates/generate', async (c) => {
     const completedDates = completedInCourse
       .map((p: any) => p.completed_at)
       .filter((d: any) => !!d)
-      .sort()
+      .sort((a: any, b: any) => new Date(a).getTime() - new Date(b).getTime())
     const courseStartDate = completedDates[0] || new Date().toISOString()
     const courseCompletionDate = completedDates[completedDates.length - 1] || new Date().toISOString()
 
