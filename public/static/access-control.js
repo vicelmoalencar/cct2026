@@ -43,17 +43,26 @@ const accessManager = {
       return
     }
 
-    // Check if user can access this lesson
+    // Check if user can access this lesson (using the cached status first)
     if (!this.canAccessLesson(lesson)) {
-      const isRentable = lesson.rentable && lesson.rental_credits > 0
-      if (isRentable && typeof app !== 'undefined' && app.showRentModal) {
-        console.log('🛒 Access denied - showing rent modal for lesson', lessonId)
-        app.showRentModal(lessonId, lesson.title || 'esta aula', lesson.rental_credits)
-      } else {
-        console.log('🚫 Access denied - showing upgrade modal')
-        this.showUpgradeModal()
+      // The cached access status is only fetched once per page session — if the user's
+      // subscription/renewal landed *during* the session, this stale cache would keep
+      // blocking them forever. Re-check fresh before actually denying access.
+      console.log('⏳ Cached status says no access — re-checking fresh before blocking')
+      await this.loadUserAccessStatus()
+
+      if (!this.canAccessLesson(lesson)) {
+        const isRentable = lesson.rentable && lesson.rental_credits > 0
+        if (isRentable && typeof app !== 'undefined' && app.showRentModal) {
+          console.log('🛒 Access denied - showing rent modal for lesson', lessonId)
+          app.showRentModal(lessonId, lesson.title || 'esta aula', lesson.rental_credits)
+        } else {
+          console.log('🚫 Access denied - showing upgrade modal')
+          this.showUpgradeModal()
+        }
+        return
       }
-      return
+      console.log('✅ Fresh check found access after all — proceeding')
     }
 
     console.log('✅ Access granted - loading lesson')
