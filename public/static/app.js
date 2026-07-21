@@ -2294,12 +2294,15 @@ const app = {
     const btn = document.getElementById('confirmRentBtn')
     if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Processando...' }
     try {
-      await axios.post(`/api/lessons/${lessonId}/rent`, { credits })
+      const response = await axios.post(`/api/lessons/${lessonId}/rent`, { credits })
       this.activeRentals.add(lessonId)
       this.loadUserCredits()
       const modal = document.getElementById('rentModal')
       if (modal) modal.remove()
-      this.showSuccessMessage('Aula alugada com sucesso! Você tem acesso por 30 dias.')
+      const successMsg = response.data?.alreadyHasAccess
+        ? response.data.message
+        : 'Aula alugada com sucesso! Você tem acesso por 30 dias.'
+      this.showSuccessMessage(successMsg)
       this.loadLesson(lessonId)
     } catch (error) {
       const msg = error.response?.data?.error || 'Erro ao alugar aula'

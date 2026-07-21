@@ -2213,6 +2213,37 @@ app.post('/api/lessons/:id/rent', requireAuth, async (c) => {
       return c.json({ error: 'Você já possui acesso ativo a esta aula', expires_at: existing[0].expires_at }, 400)
     }
 
+    // Nunca cobrar créditos de quem já tem acesso pleno via assinatura (local ou SuitePlus) —
+    // o aluguel é só para quem NÃO tem plano ativo.
+    const accessCheck = await db.sql(
+      `SELECT user_has_lesson_access($1::text, $2::integer) AS has_access`,
+      [userEmail, lessonId]
+    )
+    let alreadyHasAccess = !!accessCheck[0]?.has_access
+    if (!alreadyHasAccess) {
+      const suiteplusConn = (c.env as any).DATABASE_SUITEPLUS
+      const [activeSub, suiteplusExpires] = await Promise.all([
+        db.sql(
+          `SELECT id FROM member_subscriptions
+           WHERE lower(email_membro) = lower($1)
+             AND data_expiracao > NOW()
+             AND COALESCE(ativo, true) = true
+             AND COALESCE(teste_gratis, false) = false
+           LIMIT 1`,
+          [userEmail]
+        ),
+        suiteplusConn ? getSuiteplusExpiration(userEmail, suiteplusConn) : Promise.resolve(null),
+      ])
+      alreadyHasAccess = activeSub.length > 0 || (suiteplusExpires !== null && suiteplusExpires > new Date())
+    }
+    if (alreadyHasAccess) {
+      return c.json({
+        success: true,
+        alreadyHasAccess: true,
+        message: 'Você já tem acesso a esta aula pela sua assinatura ativa — não foi cobrado nenhum crédito.'
+      })
+    }
+
     // Check credit balance
     const credConnStr = c.env.DATABASE_URL_CREDITOS || c.env.DATABASE_SUITEPLUS
     console.log('Credits DB configured:', !!credConnStr, '| prefix:', credConnStr?.substring(0, 30))
@@ -7838,7 +7869,7 @@ app.get('/', (c) => {
         <script defer src="/static/auth.js?v=student-agent-20260714-2"></script>
         <script defer src="/static/admin.js?v=10"></script>
         <script defer src="/static/access-control.js?v=4"></script>
-        <script defer src="/static/app.js?v=24"></script>
+        <script defer src="/static/app.js?v=25"></script>
         <script defer src="/static/search.js?v=5"></script>
     </body>
     </html>
