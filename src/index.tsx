@@ -87,6 +87,19 @@ async function ensureCreditsSchema(credDb: PostgresClient): Promise<void> {
         )
       `)
       await credDb.sql(`CREATE INDEX IF NOT EXISTS idx_users_credits_email ON users_credits(lower(user_email))`)
+      // Tabela compartilhada com a Suite Plus (mesmo schema de credit_logs_pg) — garante
+      // que toda transação de crédito feita pelo CCT fique visível no histórico do usuário.
+      await credDb.sql(`
+        CREATE TABLE IF NOT EXISTS credit_logs_pg (
+          id SERIAL PRIMARY KEY,
+          user_email VARCHAR(255) NOT NULL,
+          action VARCHAR(100) NOT NULL,
+          credits_changed INTEGER NOT NULL,
+          credits_remaining INTEGER NOT NULL,
+          txid VARCHAR(255),
+          created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `)
     })())
   }
 
@@ -99,7 +112,7 @@ async function getUserCreditBalance(credDb: PostgresClient, email: string): Prom
   return rows.length > 0 ? parseInt(rows[0].credits_balance) : 0
 }
 
-async function deductCredits(credDb: PostgresClient, email: string, amount: number): Promise<boolean> {
+async function deductCredits(credDb: PostgresClient, email: string, amount: number, reason: string = 'uso_cct'): Promise<boolean> {
   await ensureCreditsSchema(credDb)
   const rows = await credDb.sql(
     `UPDATE users_credits
@@ -111,19 +124,35 @@ async function deductCredits(credDb: PostgresClient, email: string, amount: numb
      RETURNING credits_balance`,
     [amount, email]
   )
-  return rows.length > 0
+  if (rows.length === 0) return false
+  const txid = `cct_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+  await credDb.sql(
+    `INSERT INTO credit_logs_pg (user_email, action, credits_changed, credits_remaining, txid, created_at)
+     VALUES ($1, $2, $3, $4, $5, NOW())`,
+    [email, reason, -amount, rows[0].credits_balance, txid]
+  )
+  return true
 }
 
-async function addCredits(credDb: PostgresClient, email: string, amount: number): Promise<void> {
+async function addCredits(credDb: PostgresClient, email: string, amount: number, reason: string = 'add_cct'): Promise<number> {
   await ensureCreditsSchema(credDb)
-  await credDb.sql(
+  const rows = await credDb.sql(
     `INSERT INTO users_credits (user_email, credits_balance)
      VALUES (lower($1), $2)
      ON CONFLICT (user_email) DO UPDATE
      SET credits_balance = users_credits.credits_balance + $2,
-         updated_at = NOW()`,
+         updated_at = NOW()
+     RETURNING credits_balance`,
     [email, amount]
   )
+  const newBalance = rows[0]?.credits_balance ?? amount
+  const txid = `cct_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+  await credDb.sql(
+    `INSERT INTO credit_logs_pg (user_email, action, credits_changed, credits_remaining, txid, created_at)
+     VALUES ($1, $2, $3, $4, $5, NOW())`,
+    [email, reason, amount, newBalance, txid]
+  )
+  return newBalance
 }
 
 async function ensureLessonRentalSchema(db: PostgresClient): Promise<void> {
@@ -2254,7 +2283,7 @@ app.post('/api/lessons/:id/rent', requireAuth, async (c) => {
     }
 
     // Deduct credits with a balance guard to avoid double-spending.
-    const debited = await deductCredits(credDb, userEmail, cost)
+    const debited = await deductCredits(credDb, userEmail, cost, `aluguel_aula_cct:${lessonId}`)
     if (!debited) {
       const currentBalance = await getUserCreditBalance(credDb, userEmail)
       return c.json({ error: 'Créditos insuficientes', available: currentBalance, required: cost }, 400)
@@ -3553,16 +3582,8 @@ async function executeAgentWriteTool(tool: string, args: any, db: any, c: any): 
     }
     case 'add_credits': {
       const credDb = getCreditsDB(c)
-      await ensureCreditsSchema(credDb)
-      const rows = await credDb.sql(
-        `INSERT INTO users_credits (user_email, credits_balance, total_credits_used, updated_at)
-         VALUES (lower($1), $2, 0, NOW())
-         ON CONFLICT (user_email) DO UPDATE
-           SET credits_balance = users_credits.credits_balance + $2, updated_at = NOW()
-         RETURNING user_email, credits_balance`,
-        [args.email, args.amount]
-      )
-      return { added: args.amount, new_balance: rows[0]?.credits_balance, email: args.email }
+      const newBalance = await addCredits(credDb, args.email, args.amount, 'admin_agente_ia')
+      return { added: args.amount, new_balance: newBalance, email: args.email }
     }
     case 'bulk_extend_subscriptions': {
       const emails = (args.emails || []).map((e: string) => e.toLowerCase())
