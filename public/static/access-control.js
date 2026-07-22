@@ -207,17 +207,15 @@ const accessManager = {
 
         if (!lessonId) continue
 
-        console.log(`Lesson ${lessonId}: isPremium=${isPremium}, rentable=${isRentable}, isRented=${isRented}, accessType=${this.userAccessStatus?.accessType}`)
-
-        // If premium lesson and user doesn't have full access (skip rented lessons)
-        if (isPremium && !isRented && this.userAccessStatus?.accessType !== 'COMPLETO') {
-          console.log(`🔒 BLOCKING lesson ${lessonId}`)
-
-          // Add visual styling
+        // Premium (non-rented) lessons always get intercepted — but the actual
+        // allow/block decision is re-checked fresh at CLICK time (see below),
+        // never baked in permanently from this render-time snapshot. Baking it
+        // in here caused lessons to stay blocked forever once rendered while
+        // the access status was briefly stale, even after it corrected itself.
+        if (isPremium && !isRented) {
           if (!isRentable) item.style.opacity = '0.7'
           item.classList.add('premium-locked')
 
-          // Override click handler - IMPORTANT: Use onclick attribute AND addEventListener
           item.onclick = null // Remove inline onclick
           item.removeAttribute('onclick')
 
@@ -225,11 +223,21 @@ const accessManager = {
           const newItem = item.cloneNode(true)
           item.parentNode.replaceChild(newItem, item)
 
-          // Add new click handler — rent modal for rentable lessons, upgrade otherwise
-          newItem.addEventListener('click', (e) => {
+          newItem.addEventListener('click', async (e) => {
             e.preventDefault()
             e.stopPropagation()
-            if (isRentable && typeof app !== 'undefined' && app.showRentModal) {
+
+            let hasAccess = this.userAccessStatus?.accessType === 'COMPLETO'
+            if (!hasAccess) {
+              console.log('⏳ Cached status says no access — re-checking fresh before blocking lesson', lessonId)
+              await this.loadUserAccessStatus()
+              hasAccess = this.userAccessStatus?.accessType === 'COMPLETO'
+            }
+
+            if (hasAccess) {
+              console.log('✅ Fresh check found access — loading lesson', lessonId)
+              if (typeof app !== 'undefined') app.loadLesson(parseInt(lessonId))
+            } else if (isRentable && typeof app !== 'undefined' && app.showRentModal) {
               console.log('🛒 Showing rent modal for lesson', lessonId)
               app.showRentModal(parseInt(lessonId), lessonTitle, rentalCredits)
             } else {
