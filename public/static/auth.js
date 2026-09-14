@@ -221,7 +221,7 @@ const authUI = {
   showLoginForm() {
     const html = `
       <div class="min-h-screen bg-gray-900 flex flex-col">
-        <div class="w-full py-3 bg-white border-b border-gray-200 flex justify-center">
+        <div class="w-full py-3 bg-[#0B1735] border-b border-gray-800 flex justify-center">
           <a href="https://suiteplus.ensinoplus.com.br" title="Voltar para Suite Plus">
             <img src="/static/logo_suite.png" alt="Suite Plus" class="h-10 w-auto">
           </a>
