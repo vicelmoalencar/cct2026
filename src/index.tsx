@@ -54,6 +54,40 @@ async function sendWhatsAppGroupMessage(env: any, message: string, groupJid: str
 }
 
 const app = new Hono<{ Bindings: Bindings }>()
+
+// Redireciona visitas DIRETAS (fora de iframe) pro gateway da Suite
+// Integrada - pedido do dono do projeto, 2026-09-14: "quando a pessoa
+// entrar em novocct.ensinoplus.com.br e' bom redirecionar pro gateway ne?".
+// Mesmo padrao ja' usado pelos outros 5 sistemas da suite (Calc Machine,
+// Ponto Magico, Contracheque, FGTS Facil, Ausencias, Impugnador), so' que
+// la' a deteccao e' via header X-Embedded (que o proxy reverso do gateway
+// injeta em toda requisicao que ele repassa) - aqui nao da' pra' usar isso
+// porque o CCT e' carregado via <iframe src="https://novocct..."> DIRETO
+// (decisao anterior, 2026-09-14: evitar reescrever os ~90 caminhos
+// absolutos fixos que um proxy com prefixo exigiria), sem passar pelo
+// proxy, entao nunca chega esse header.
+// Fix: usa Sec-Fetch-Dest (Fetch Metadata Request Header, enviado
+// automaticamente pelo navegador desde 2021, sem precisar de JS/cookie) -
+// vem 'iframe' quando a pagina esta sendo carregada dentro de um <iframe>
+// (o caso do gateway) e 'document' numa navegacao de topo de verdade (URL
+// digitada, aba nova, link externo). Se o header nao vier (navegador mais
+// antigo/sem suporte), NAO redireciona - fallback seguro, nunca quebra o
+// acesso direto por excesso de zelo. Preserva a querystring (ex.: token de
+// magic link/reset de senha em /auth/callback), mesmo padrao dos outros 5.
+app.use('*', async (c, next) => {
+  const url = new URL(c.req.url)
+  const path = url.pathname
+  if (path.startsWith('/api/') || path.startsWith('/static/') || path === '/health' || path === '/favicon.svg') {
+    return next()
+  }
+  if (c.req.header('Sec-Fetch-Dest') === 'document') {
+    const search = url.search.replace(/^\?/, '')
+    const location = `https://suite.ensinoplus.com.br/?${search ? 'app=cct&' + search : 'app=cct'}`
+    return c.redirect(location, 301)
+  }
+  return next()
+})
+
 const creditsSchemaReady = new Map<string, Promise<void>>()
 const lessonRentalSchemaReady = new Map<string, Promise<void>>()
 const commentsReplySchemaReady = new Map<string, Promise<void>>()
