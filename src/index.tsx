@@ -7519,7 +7519,7 @@ app.get('/admin', (c) => {
 
   <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <script src="/static/auth.js?v=student-agent-20260714-2"></script>
+  <script src="/static/auth.js?v=login-suiteplus-20260914"></script>
   <script src="/static/admin.js?v=10"></script>
   <script>
     document.addEventListener('DOMContentLoaded', async () => {
@@ -7887,7 +7887,7 @@ app.get('/', (c) => {
 
         <script defer src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
         <script defer src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-        <script defer src="/static/auth.js?v=student-agent-20260714-2"></script>
+        <script defer src="/static/auth.js?v=login-suiteplus-20260914"></script>
         <script defer src="/static/admin.js?v=10"></script>
         <script defer src="/static/access-control.js?v=6"></script>
         <script defer src="/static/app.js?v=25"></script>
@@ -8086,7 +8086,7 @@ app.get('/favorites', (c) => {
 </div>
 
 <script defer src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
-<script defer src="/static/auth.js?v=student-agent-20260714-2"></script>
+<script defer src="/static/auth.js?v=login-suiteplus-20260914"></script>
 <script>
 let allFavorites = []
 let activeFilter = null
@@ -8273,7 +8273,7 @@ app.get('/certificates', (c) => {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
-    <script src="/static/auth.js?v=student-agent-20260714-2"></script>
+    <script src="/static/auth.js?v=login-suiteplus-20260914"></script>
     <script>
         let currentUser = null;
 
@@ -8889,7 +8889,7 @@ app.get('/profile', (c) => {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
-    <script src="/static/auth.js?v=student-agent-20260714-2"></script>
+    <script src="/static/auth.js?v=login-suiteplus-20260914"></script>
     <script>
         const messageDiv = document.getElementById('messageDiv')
         const profileForm = document.getElementById('profileForm')
@@ -9437,7 +9437,7 @@ app.get('/certificates', (c) => {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
-    <script src="/static/auth.js?v=student-agent-20260714-2"></script>
+    <script src="/static/auth.js?v=login-suiteplus-20260914"></script>
     <script>
         const loadingState = document.getElementById('loadingState')
         const emptyState = document.getElementById('emptyState')
