@@ -7654,7 +7654,7 @@ app.get('/', (c) => {
     </head>
     <body class="bg-gray-50">
         <!-- Header -->
-        <header class="bg-gradient-to-r from-blue-900 to-blue-700 text-white shadow-lg">
+        <header class="bg-[#0B1735] text-white shadow-lg rounded-tr-[10px]">
             <div class="max-w-7xl mx-auto px-4 py-4 md:py-6">
                 <div class="flex items-center justify-between flex-wrap gap-4">
                     <!-- Logo/Title -->
@@ -8035,7 +8035,7 @@ app.get('/favorites', (c) => {
 <body class="bg-gray-50">
 <div class="min-h-screen">
     <!-- Header -->
-    <header class="bg-gradient-to-r from-blue-900 to-blue-700 text-white shadow-lg">
+    <header class="bg-[#0B1735] text-white shadow-lg rounded-tr-[10px]">
         <div class="container mx-auto px-4 py-4">
             <div class="flex justify-between items-center">
                 <div class="flex items-center gap-3">
@@ -8195,7 +8195,7 @@ app.get('/certificates', (c) => {
 <body class="bg-gray-50">
     <div class="min-h-screen">
         <!-- Header -->
-        <header class="bg-gradient-to-r from-blue-900 to-blue-700 text-white shadow-lg">
+        <header class="bg-[#0B1735] text-white shadow-lg rounded-tr-[10px]">
             <div class="container mx-auto px-4 py-4">
                 <div class="flex justify-between items-center">
                     <div class="flex items-center gap-3">
@@ -8555,7 +8555,7 @@ app.get('/profile', (c) => {
 <body class="bg-gray-50">
     <div class="min-h-screen">
         <!-- Header -->
-        <header class="bg-gradient-to-r from-blue-900 to-blue-700 text-white shadow-lg">
+        <header class="bg-[#0B1735] text-white shadow-lg rounded-tr-[10px]">
             <div class="container mx-auto px-4 py-4">
                 <div class="flex justify-between items-center">
                     <div class="flex items-center gap-3">
@@ -9359,7 +9359,7 @@ app.get('/certificates', (c) => {
 <body class="bg-gray-50">
     <div class="min-h-screen">
         <!-- Header -->
-        <header class="bg-gradient-to-r from-blue-900 to-blue-700 text-white shadow-lg">
+        <header class="bg-[#0B1735] text-white shadow-lg rounded-tr-[10px]">
             <div class="container mx-auto px-4 py-4">
                 <div class="flex justify-between items-center">
                     <div class="flex items-center gap-3">
