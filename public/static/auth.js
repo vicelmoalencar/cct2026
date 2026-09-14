@@ -210,113 +210,121 @@ const authManager = {
 // Login/Register UI Manager
 const authUI = {
   // Show login form
+  // Identidade visual padronizada com o login unificado da Suite Plus
+  // (mesmo cartao escuro/bordas/paleta usado por Calc Machine, Contracheque,
+  // FGTS Facil, Ausencias e Impugnador) - pedido do dono do projeto,
+  // 2026-09-14: "seguindo a mesma identidade visual do suiteplus no login".
+  // O CCT continua com login/banco PROPRIO (nao e' SSO de verdade ainda,
+  // so' a aparencia) - por isso mantem "CCT" como identificacao (ao contrario
+  // dos outros apps, que usam "Login" generico porque compartilham a MESMA
+  // sessao entre si).
   showLoginForm() {
     const html = `
-      <div class="min-h-screen bg-gradient-to-br from-blue-900 via-blue-700 to-blue-500 flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-          <div class="bg-gradient-to-r from-blue-900 to-blue-700 p-8 text-white text-center">
-            <img src="https://page.gensparksite.com/v1/base64_upload/8f96be1bcec5a62130e0023674c921df" 
-                 alt="CCT Logo" 
-                 class="h-20 w-auto mx-auto mb-3">
-            <h1 class="text-2xl font-bold">CCT</h1>
-            <p class="text-blue-200 text-sm">Clube do Cálculo Trabalhista</p>
-          </div>
-          
-          <div class="p-8">
+      <div class="min-h-screen bg-gray-900 flex flex-col">
+        <div class="w-full py-3 bg-white border-b border-gray-200 flex justify-center">
+          <a href="https://suiteplus.ensinoplus.com.br" title="Voltar para Suite Plus">
+            <img src="/static/logo_suite.png" alt="Suite Plus" class="h-10 w-auto">
+          </a>
+        </div>
+        <div class="flex-1 flex items-center justify-center p-4">
+        <div class="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl w-full max-w-md p-8">
+          <h1 class="text-2xl font-bold text-white text-center mb-1">CCT</h1>
+          <p class="text-gray-400 text-sm text-center mb-6">Clube do Cálculo Trabalhista</p>
+
             <!-- Tabs -->
-            <div class="flex border-b border-gray-200 mb-6">
-              <button onclick="authUI.switchTab('login')" 
+            <div class="flex border-b border-gray-700 mb-6">
+              <button onclick="authUI.switchTab('login')"
                       id="loginTab"
                       class="flex-1 py-3 font-semibold text-blue-600 border-b-2 border-blue-600 transition-colors">
                 Entrar
               </button>
-              <button onclick="authUI.switchTab('register')" 
+              <button onclick="authUI.switchTab('register')"
                       id="registerTab"
                       class="flex-1 py-3 font-semibold text-gray-400 border-b-2 border-transparent hover:text-blue-600 transition-colors">
                 Registrar
               </button>
             </div>
-            
+
             <!-- Login Form -->
             <div id="loginForm">
-              <div id="loginError" class="hidden mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm"></div>
-              
+              <div id="loginError" class="hidden mb-4 p-3 bg-red-950 border border-red-800 text-red-300 rounded-lg text-sm"></div>
+
               <form onsubmit="authUI.handleLogin(event)" class="space-y-4">
                 <div>
-                  <label class="block text-sm font-semibold text-gray-700 mb-2">
+                  <label class="block text-sm font-medium text-gray-300 mb-2">
                     <i class="fas fa-envelope mr-1"></i> Email
                   </label>
-                  <input type="email" 
-                         id="loginEmail" 
+                  <input type="email"
+                         id="loginEmail"
                          required
-                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                         class="w-full px-4 py-3 bg-gray-700 border border-gray-600 text-white placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                          placeholder="seu@email.com">
                 </div>
-                
+
                 <div>
-                  <label class="block text-sm font-semibold text-gray-700 mb-2">
+                  <label class="block text-sm font-medium text-gray-300 mb-2">
                     <i class="fas fa-lock mr-1"></i> Senha
                   </label>
                   <div class="relative">
                     <input type="password"
                            id="loginPassword"
                            required
-                           class="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           class="w-full px-4 py-3 pr-12 bg-gray-700 border border-gray-600 text-white placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                            placeholder="••••••••">
                     <button type="button"
                             onclick="authUI.togglePassword('loginPassword', this)"
-                            class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors p-1">
+                            class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200 transition-colors p-1">
                       <i class="fas fa-eye"></i>
                     </button>
                   </div>
                 </div>
-                
+
                 <div class="text-right">
-                  <button type="button" 
+                  <button type="button"
                           onclick="window.location.href='https://suiteplus.ensinoplus.com.br/reset-password'"
-                          class="text-sm text-blue-600 hover:text-blue-800 font-semibold">
+                          class="text-sm text-blue-400 hover:text-blue-300 font-semibold">
                     Esqueceu sua senha?
                   </button>
                 </div>
-                
-                <button type="submit" 
+
+                <button type="submit"
                         class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2">
                   <i class="fas fa-sign-in-alt"></i>
                   Entrar
                 </button>
               </form>
             </div>
-            
+
             <!-- Register Form -->
             <div id="registerForm" class="hidden">
-              <div id="registerError" class="hidden mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm"></div>
-              <div id="registerSuccess" class="hidden mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm"></div>
-              
+              <div id="registerError" class="hidden mb-4 p-3 bg-red-950 border border-red-800 text-red-300 rounded-lg text-sm"></div>
+              <div id="registerSuccess" class="hidden mb-4 p-3 bg-green-950 border border-green-800 text-green-300 rounded-lg text-sm"></div>
+
               <form onsubmit="authUI.handleRegister(event)" class="space-y-4">
                 <div>
-                  <label class="block text-sm font-semibold text-gray-700 mb-2">
+                  <label class="block text-sm font-medium text-gray-300 mb-2">
                     <i class="fas fa-user mr-1"></i> Nome Completo
                   </label>
-                  <input type="text" 
-                         id="registerName" 
+                  <input type="text"
+                         id="registerName"
                          required
-                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                         class="w-full px-4 py-3 bg-gray-700 border border-gray-600 text-white placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                          placeholder="Seu nome">
                 </div>
-                
+
                 <div>
-                  <label class="block text-sm font-semibold text-gray-700 mb-2">
+                  <label class="block text-sm font-medium text-gray-300 mb-2">
                     <i class="fas fa-envelope mr-1"></i> Email
                   </label>
-                  <input type="email" 
-                         id="registerEmail" 
+                  <input type="email"
+                         id="registerEmail"
                          required
-                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                         class="w-full px-4 py-3 bg-gray-700 border border-gray-600 text-white placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                          placeholder="seu@email.com">
                 </div>
-                
+
                 <div>
-                  <label class="block text-sm font-semibold text-gray-700 mb-2">
+                  <label class="block text-sm font-medium text-gray-300 mb-2">
                     <i class="fas fa-lock mr-1"></i> Senha
                   </label>
                   <div class="relative">
@@ -324,28 +332,30 @@ const authUI = {
                            id="registerPassword"
                            required
                            minlength="6"
-                           class="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           class="w-full px-4 py-3 pr-12 bg-gray-700 border border-gray-600 text-white placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                            placeholder="Mínimo 6 caracteres">
                     <button type="button"
                             onclick="authUI.togglePassword('registerPassword', this)"
-                            class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors p-1">
+                            class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200 transition-colors p-1">
                       <i class="fas fa-eye"></i>
                     </button>
                   </div>
                 </div>
-                
-                <button type="submit" 
+
+                <button type="submit"
                         class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2">
                   <i class="fas fa-user-plus"></i>
                   Criar Conta
                 </button>
               </form>
             </div>
-          </div>
+
+          <div class="text-center mt-6 text-gray-500 text-xs">&copy; ${new Date().getFullYear()} Ensino Plus. Todos os direitos reservados.</div>
+        </div>
         </div>
       </div>
     `
-    
+
     document.body.innerHTML = html
   },
   
