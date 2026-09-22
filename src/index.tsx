@@ -4132,6 +4132,41 @@ app.get('/api/external/v1/modules/:id', requireExternalApiKey, async (c) => {
   }
 })
 
+// Busca aulas por titulo/resumo, opcionalmente filtrando por curso — usada pelo Hermes (via MCP
+// do gateway) pra achar o resumo de uma aula e usar como fonte de podcast no Memorize Cast. So'
+// aulas publicadas (is_published) — nunca expoe rascunho pra fora do CCT.
+app.get('/api/external/v1/lessons', requireExternalApiKey, async (c) => {
+  try {
+    const db = getDB(c)
+    const q = (c.req.query('q') || '').trim()
+    const courseId = c.req.query('course_id')
+    const courseTitle = (c.req.query('course') || '').trim()
+    const limit = Math.min(parseInt(c.req.query('limit') || '20'), 200)
+
+    const conditions: string[] = ['l.is_published = true']
+    const values: any[] = []
+    let idx = 1
+    if (q) { conditions.push(`(l.title ILIKE $${idx} OR l.description ILIKE $${idx})`); values.push(`%${q}%`); idx++ }
+    if (courseId) { conditions.push(`cs.id = $${idx}`); values.push(courseId); idx++ }
+    if (courseTitle) { conditions.push(`cs.title ILIKE $${idx}`); values.push(`%${courseTitle}%`); idx++ }
+    values.push(limit)
+
+    const rows = await db.sql(
+      `SELECT l.id, l.title, l.description, m.title as module_title, cs.id as course_id, cs.title as course_title
+       FROM lessons l
+       JOIN modules m ON m.id = l.module_id
+       JOIN courses cs ON cs.id = m.course_id
+       WHERE ${conditions.join(' AND ')}
+       ORDER BY cs.title, m.order_index, l.order_index
+       LIMIT $${idx}`,
+      values
+    )
+    return c.json({ lessons: rows, count: rows.length })
+  } catch (error: any) {
+    return c.json({ error: error.message || 'Failed to search lessons' }, 500)
+  }
+})
+
 app.get('/api/external/v1/lessons/:id', requireExternalApiKey, async (c) => {
   try {
     const lessonId = c.req.param('id')
