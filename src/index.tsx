@@ -7810,7 +7810,7 @@ app.get('/', (c) => {
                         </button>
                         
                         <!-- Admin Button -->
-                        <button onclick="window.open('/admin', '_blank')"
+                        <button onclick="window.location.href='/admin'"
                                 id="adminButton"
                                 class="hidden px-3 md:px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-xs md:text-sm font-semibold transition-colors">
                             <i class="fas fa-tools"></i>
