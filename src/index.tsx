@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie'
+import { createHmac, timingSafeEqual } from 'crypto'
 import { SupabaseClient } from './supabase-client'
 import { PostgresClient } from './postgres-client'
 import { LOGO_ENSINO_PLUS_B64 } from './logo-base64'
@@ -16,6 +17,41 @@ type Bindings = {
   EVOLUTION_SERVER_URL?: string;
   EVOLUTION_INSTANCE_ID?: string;
   EXTERNAL_API_KEY?: string;
+  // Segredo pra assinar/verificar os tokens de sessao "IMPERSONATE:" e "SSO:"
+  // (ver verifySupabaseToken) — NUNCA a SUPABASE_ANON_KEY (e' publica, qualquer
+  // um que inspecione as chamadas do proprio CCT no navegador consegue ler
+  // ela, o que tornava o token de impersonation falsificavel por qualquer
+  // pessoa que soubesse so' o email de alguem - bug real corrigido em
+  // 2026-09-29). So' o CCT conhece esse segredo.
+  IMPERSONATION_SECRET?: string;
+  // Segredo COMPARTILHADO com o gateway (Suite Integrada) pra' validar a
+  // asserçao de login unico ("ASSERT:", ver rota /auth/sso) — o gateway usa
+  // esse mesmo segredo pra assinar a asserçao de que um email esta' logado
+  // por la'. Escopo minimo de proposito: so' prova a identidade, quem MINTA
+  // a sessao de fato do CCT (token "SSO:") e' sempre o proprio CCT, so' depois
+  // de confirmar que o email existe na base dele - um vazamento desse segredo
+  // nao da' pra forjar impersonation de admin (segredo diferente).
+  GATEWAY_SSO_SECRET?: string;
+}
+
+// Assina `dados` com HMAC-SHA256 usando `segredo`, em hex. Usado pelos
+// tokens de sessao "IMPERSONATE:" e "SSO:" (ver verifySupabaseToken) — NUNCA
+// use a SUPABASE_ANON_KEY aqui, ela e' publica (ver comentario no tipo
+// Bindings acima sobre o bug corrigido em 2026-09-29).
+function assinarHmac(dados: string, segredo: string): string {
+  return createHmac('sha256', segredo).update(dados).digest('hex')
+}
+
+// Compara a assinatura recebida com a esperada em tempo constante (evita
+// timing attack) — retorna false (nunca lança) se o segredo nao estiver
+// configurado ou se os tamanhos nao baterem.
+function verificarHmac(dados: string, assinaturaRecebida: string, segredo: string): boolean {
+  if (!segredo || !assinaturaRecebida) return false
+  const esperada = assinarHmac(dados, segredo)
+  const bufEsperada = Buffer.from(esperada, 'hex')
+  const bufRecebida = Buffer.from(assinaturaRecebida, 'hex')
+  if (bufEsperada.length !== bufRecebida.length) return false
+  return timingSafeEqual(bufEsperada, bufRecebida)
 }
 
 // Grupo administrativo do WhatsApp — mesmo grupo usado pelo webhook_pix.php para notificações de pagamento
@@ -341,30 +377,31 @@ app.get('/health', (c) => {
 // SUPABASE AUTH HELPERS
 // ============================================
 
-async function verifySupabaseToken(token: string, supabaseUrl: string, supabaseKey: string) {
+async function verifySupabaseToken(token: string, supabaseUrl: string, supabaseKey: string, impersonationSecret?: string) {
   try {
-    // Check if this is an impersonation token
+    // Check if this is an impersonation token (admin "logar como usuário")
     if (token.startsWith('IMPERSONATE:')) {
       const impersonationData = JSON.parse(
         Buffer.from(token.replace('IMPERSONATE:', ''), 'base64').toString('utf-8')
       )
-      
-      // Verify signature
-      const expectedSignature = Buffer.from(`${impersonationData.email}:${supabaseKey}`).toString('base64')
-      if (impersonationData.signature !== expectedSignature) {
+
+      // Verify signature — HMAC com IMPERSONATION_SECRET (nunca a
+      // SUPABASE_ANON_KEY, que e' publica — ver comentario no tipo Bindings).
+      const dadosAssinados = `${impersonationData.email}:${impersonationData.user_id}:${impersonationData.impersonated_at}`
+      if (!verificarHmac(dadosAssinados, impersonationData.signature, impersonationSecret || '')) {
         console.error('❌ Invalid impersonation token signature')
         return null
       }
-      
+
       // Check if token is not too old (24 hours)
       const tokenAge = Date.now() - new Date(impersonationData.impersonated_at).getTime()
       if (tokenAge > 24 * 60 * 60 * 1000) {
         console.error('❌ Impersonation token expired')
         return null
       }
-      
+
       console.log(`🎭 Using impersonation token for ${impersonationData.email}`)
-      
+
       // Return user object in same format as Supabase
       return {
         email: impersonationData.email,
@@ -375,7 +412,39 @@ async function verifySupabaseToken(token: string, supabaseUrl: string, supabaseK
         impersonated: true
       }
     }
-    
+
+    // Sessão criada via login único a partir do gateway (Suite Integrada) —
+    // ver rota /auth/sso. Mesmo formato/assinatura do token IMPERSONATE
+    // acima (mesmo segredo, IMPERSONATION_SECRET), só sem a flag
+    // `impersonated` — é a sessão de verdade do próprio usuário, não um
+    // admin agindo como ele.
+    if (token.startsWith('SSO:')) {
+      const ssoData = JSON.parse(
+        Buffer.from(token.replace('SSO:', ''), 'base64').toString('utf-8')
+      )
+
+      const dadosAssinados = `${ssoData.email}:${ssoData.user_id}:${ssoData.issued_at}`
+      if (!verificarHmac(dadosAssinados, ssoData.signature, impersonationSecret || '')) {
+        console.error('❌ Invalid SSO token signature')
+        return null
+      }
+
+      const tokenAge = Date.now() - new Date(ssoData.issued_at).getTime()
+      if (tokenAge > 24 * 60 * 60 * 1000) {
+        console.error('❌ SSO token expired')
+        return null
+      }
+
+      return {
+        email: ssoData.email,
+        user_metadata: {
+          name: ssoData.nome
+        },
+        id: ssoData.user_id,
+        impersonated: false
+      }
+    }
+
     // Normal Supabase token verification
     const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
       headers: {
@@ -403,7 +472,7 @@ async function requireAuth(c: any, next: any) {
     return c.json({ error: 'Unauthorized' }, 401)
   }
 
-  const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+  const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY, c.env.IMPERSONATION_SECRET)
 
   if (!user) {
     return c.json({ error: 'Invalid token' }, 401)
@@ -603,7 +672,7 @@ app.get('/api/auth/me', async (c) => {
     // If JWT parsing fails, continue with normal verification
   }
   
-  const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+  const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY, c.env.IMPERSONATION_SECRET)
   
   return c.json({ user })
 })
@@ -617,7 +686,7 @@ app.get('/api/user/profile', async (c) => {
       return c.json({ error: 'Não autenticado' }, 401)
     }
     
-    const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY, c.env.IMPERSONATION_SECRET)
     
     if (!user) {
       return c.json({ error: 'Usuário não encontrado' }, 404)
@@ -665,7 +734,7 @@ app.put('/api/user/profile', async (c) => {
       return c.json({ error: 'Não autenticado' }, 401)
     }
     
-    const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY, c.env.IMPERSONATION_SECRET)
     
     if (!user) {
       return c.json({ error: 'Usuário não encontrado' }, 404)
@@ -808,7 +877,7 @@ app.post('/api/auth/change-password', async (c) => {
     }
     
     // First, verify current password by attempting login
-    const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY, c.env.IMPERSONATION_SECRET)
     
     if (!user || !user.email) {
       return c.json({ error: 'Usuário não encontrado' }, 401)
@@ -1345,7 +1414,7 @@ async function requireAdmin(c: any, next: any) {
     return c.json({ error: 'Unauthorized' }, 401)
   }
   
-  const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+  const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY, c.env.IMPERSONATION_SECRET)
   
   if (!user) {
     return c.json({ error: 'Invalid token' }, 401)
@@ -1373,7 +1442,7 @@ app.get('/api/admin/check', async (c) => {
     return c.json({ isAdmin: false })
   }
   
-  const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+  const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY, c.env.IMPERSONATION_SECRET)
   
   if (!user) {
     return c.json({ isAdmin: false })
@@ -1418,14 +1487,24 @@ app.post('/api/admin/impersonate', requireAdmin, async (c) => {
 
     const targetUser = users[0]
 
-    // Create impersonation token (base64 encoded JSON with special marker)
+    if (!c.env.IMPERSONATION_SECRET) {
+      console.error('❌ IMPERSONATION_SECRET não configurado — recusando iniciar impersonation')
+      return c.json({ error: 'Servidor mal configurado (IMPERSONATION_SECRET ausente)' }, 500)
+    }
+
+    // Create impersonation token (base64 encoded JSON with special marker) —
+    // assinado com HMAC (IMPERSONATION_SECRET), nunca com a SUPABASE_ANON_KEY
+    // (publica — ver comentario no tipo Bindings sobre o bug corrigido em
+    // 2026-09-29).
+    const impersonatedAt = new Date().toISOString()
+    const dadosAssinados = `${user_email}:${targetUser.id}:${impersonatedAt}`
     const impersonationData = {
       email: user_email,
       nome: targetUser.nome || 'Usuário',
       impersonated: true,
-      impersonated_at: new Date().toISOString(),
+      impersonated_at: impersonatedAt,
       user_id: targetUser.id,
-      signature: Buffer.from(`${user_email}:${c.env.SUPABASE_ANON_KEY}`).toString('base64')
+      signature: assinarHmac(dadosAssinados, c.env.IMPERSONATION_SECRET)
     }
 
     const impersonationToken = `IMPERSONATE:${Buffer.from(JSON.stringify(impersonationData)).toString('base64')}`
@@ -1479,6 +1558,99 @@ app.post('/api/admin/exit-impersonation', async (c) => {
     console.error('Exit impersonation error:', error)
     return c.json({ error: error.message || 'Failed to exit impersonation' }, 500)
   }
+})
+
+// Login único a partir do gateway (Suite Integrada, suite.ensinoplus.com.br)
+// — o CCT usa um projeto Supabase DIFERENTE dos outros 6 sistemas da Suite,
+// então o token de sessão de lá não serve de JWT aqui. O gateway manda só
+// uma ASSERÇÃO curta ("este e-mail está logado na Suite agora"), assinada
+// com GATEWAY_SSO_SECRET (conhecido pelos dois lados); o CCT confere essa
+// assinatura, confirma que o e-mail existe na SUA própria base (nunca cria
+// sessão pra e-mail desconhecido) e só então emite a própria sessão (token
+// "SSO:", assinado com IMPERSONATION_SECRET — que o gateway nunca vê).
+app.get('/auth/sso', async (c) => {
+  const assertion = c.req.query('assertion') || ''
+  const redirecionarSemLogar = () => c.redirect('/')
+
+  if (!assertion.startsWith('ASSERT:') || !c.env.GATEWAY_SSO_SECRET) {
+    return redirecionarSemLogar()
+  }
+
+  let dadosAssercao: any
+  try {
+    dadosAssercao = JSON.parse(Buffer.from(assertion.replace('ASSERT:', ''), 'base64').toString('utf-8'))
+  } catch {
+    return redirecionarSemLogar()
+  }
+
+  const { email, issued_at, signature } = dadosAssercao || {}
+  if (!email || !issued_at || !signature) {
+    return redirecionarSemLogar()
+  }
+
+  const dadosAssinados = `${email}:${issued_at}`
+  if (!verificarHmac(dadosAssinados, signature, c.env.GATEWAY_SSO_SECRET)) {
+    console.error('❌ Invalid SSO assertion signature')
+    return redirecionarSemLogar()
+  }
+
+  // Asserção de curta duração (handoff único) — não é a sessão em si, só a
+  // prova de identidade pra esse instante. 60s é de sobra pro redirect.
+  const idade = Date.now() - new Date(issued_at).getTime()
+  if (idade > 60 * 1000 || idade < -60 * 1000) {
+    console.error('❌ SSO assertion expired or issued in the future')
+    return redirecionarSemLogar()
+  }
+
+  if (!c.env.IMPERSONATION_SECRET) {
+    console.error('❌ IMPERSONATION_SECRET não configurado — recusando emitir sessão SSO')
+    return redirecionarSemLogar()
+  }
+
+  // Só emite sessão se o e-mail já existir como usuário do CCT — nunca cria
+  // uma sessão "fantasma" pra alguém que nunca teve conta aqui (mesma
+  // checagem/tabelas do impersonate acima).
+  const db = getDB(c)
+  let users = await db.sql(
+    `SELECT id, email, nome FROM users WHERE lower(email) = lower($1) LIMIT 1`,
+    [email]
+  )
+  if (!users || users.length === 0) {
+    users = await db.sql(
+      `SELECT NULL::integer AS id, email_membro AS email, NULL::text AS nome
+       FROM member_subscriptions
+       WHERE lower(email_membro) = lower($1)
+       ORDER BY data_expiracao DESC NULLS LAST
+       LIMIT 1`,
+      [email]
+    )
+  }
+  if (!users || users.length === 0) {
+    console.log(`ℹ️ SSO: e-mail ${email} não tem conta no CCT — segue pro login normal`)
+    return redirecionarSemLogar()
+  }
+
+  const targetUser = users[0]
+  const issuedAtSessao = new Date().toISOString()
+  const dadosSessaoAssinados = `${email}:${targetUser.id}:${issuedAtSessao}`
+  const ssoData = {
+    email,
+    nome: targetUser.nome || 'Usuário',
+    user_id: targetUser.id,
+    issued_at: issuedAtSessao,
+    signature: assinarHmac(dadosSessaoAssinados, c.env.IMPERSONATION_SECRET)
+  }
+  const ssoToken = `SSO:${Buffer.from(JSON.stringify(ssoData)).toString('base64')}`
+
+  setCookie(c, 'sb-access-token', ssoToken, {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'Lax',
+    maxAge: 86400
+  })
+
+  console.log(`✅ SSO: sessão emitida pra ${email} (login único via gateway)`)
+  return c.redirect('/')
 })
 
 // Create course (admin only)
@@ -5798,7 +5970,7 @@ app.get('/api/courses', async (c) => {
     let userIsAdmin = false
     
     if (token) {
-      const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+      const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY, c.env.IMPERSONATION_SECRET)
       if (user) {
         userIsAdmin = await isAdmin(user.email, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY, token)
       }
@@ -5872,7 +6044,7 @@ app.get('/api/courses/:id', async (c) => {
     const token = getCookie(c, 'sb-access-token')
     let userIsAdmin = false
     if (token) {
-      const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+      const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY, c.env.IMPERSONATION_SECRET)
       if (user) {
         userIsAdmin = await isAdmin(user.email, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY, token)
       }
@@ -6069,7 +6241,7 @@ app.get('/api/lessons/:id', async (c) => {
     let userEmail = null
     
     if (token) {
-      const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+      const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY, c.env.IMPERSONATION_SECRET)
       if (user) {
         userEmail = user.email
       }
@@ -6350,7 +6522,7 @@ app.post('/api/lessons/:id/comments', async (c) => {
       return c.json({ error: 'Unauthorized' }, 401)
     }
     
-    const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY, c.env.IMPERSONATION_SECRET)
     if (!user) {
       return c.json({ error: 'Unauthorized' }, 401)
     }
@@ -6631,7 +6803,7 @@ app.post('/api/certificates/generate', async (c) => {
       return c.json({ error: 'Não autenticado' }, 401)
     }
     
-    const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY, c.env.IMPERSONATION_SECRET)
     
     if (!user) {
       return c.json({ error: 'Usuário não encontrado' }, 401)
@@ -6801,7 +6973,7 @@ app.get('/api/certificates', async (c) => {
       return c.json({ error: 'Não autenticado' }, 401)
     }
     
-    const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY, c.env.IMPERSONATION_SECRET)
     
     if (!user) {
       return c.json({ error: 'Usuário não encontrado' }, 401)
@@ -6902,7 +7074,7 @@ app.get('/api/subscriptions/current', async (c) => {
       return c.json({ subscription: null })
     }
     
-    const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY, c.env.IMPERSONATION_SECRET)
     
     if (!user) {
       return c.json({ subscription: null })
@@ -7011,7 +7183,7 @@ app.get('/api/lessons/:id/access', async (c) => {
       })
     }
     
-    const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY)
+    const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY, c.env.IMPERSONATION_SECRET)
     
     if (!user) {
       return c.json({ hasAccess: false, reason: 'invalid_token' })

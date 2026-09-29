@@ -209,7 +209,9 @@ const server = serve({
       EVOLUTION_API_KEY: process.env.EVOLUTION_API_KEY || '',
       EVOLUTION_SERVER_URL: process.env.EVOLUTION_SERVER_URL || '',
       EVOLUTION_INSTANCE_ID: process.env.EVOLUTION_INSTANCE_ID || '',
-      EXTERNAL_API_KEY: process.env.EXTERNAL_API_KEY || ''
+      EXTERNAL_API_KEY: process.env.EXTERNAL_API_KEY || '',
+      IMPERSONATION_SECRET: process.env.IMPERSONATION_SECRET || '',
+      GATEWAY_SSO_SECRET: process.env.GATEWAY_SSO_SECRET || ''
     }
     
     // Call the Hono app with the environment
