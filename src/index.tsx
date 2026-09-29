@@ -1653,6 +1653,33 @@ app.get('/auth/sso', async (c) => {
   return c.redirect('/')
 })
 
+// Sentido inverso do /auth/sso acima: usuário logado AQUI no CCT quer
+// entrar na Suite (gateway) já autenticado — mesmo GATEWAY_SSO_SECRET, só
+// que quem assina a asserção agora é o CCT. O gateway, do lado dele, usa a
+// Admin API do Supabase (service role) pra emitir uma sessão de verdade
+// (magic link) — só funciona se o e-mail também existir como conta na
+// Suite Plus (o gateway confere isso antes de gerar a sessão, nunca cria
+// conta nova sozinho).
+app.get('/auth/gateway-entry', async (c) => {
+  const GATEWAY_URL = 'https://suite.ensinoplus.com.br'
+  const token = getCookie(c, 'sb-access-token')
+
+  if (!token || !c.env.GATEWAY_SSO_SECRET) {
+    return c.redirect(GATEWAY_URL)
+  }
+
+  const user = await verifySupabaseToken(token, c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY, c.env.IMPERSONATION_SECRET)
+  if (!user) {
+    return c.redirect(GATEWAY_URL)
+  }
+
+  const issuedAt = new Date().toISOString()
+  const signature = assinarHmac(`${user.email}:${issuedAt}`, c.env.GATEWAY_SSO_SECRET)
+  const assertion = `ASSERT:${Buffer.from(JSON.stringify({ email: user.email, issued_at: issuedAt, signature })).toString('base64')}`
+
+  return c.redirect(`${GATEWAY_URL}/auth/sso?assertion=${encodeURIComponent(assertion)}`)
+})
+
 // Create course (admin only)
 app.post('/api/admin/courses', requireAdmin, async (c) => {
   try {
