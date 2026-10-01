@@ -1374,7 +1374,7 @@ const app = {
                     <div class="flex-1 text-left">
                       <p class="text-xs text-gray-500 mb-1 flex items-center gap-2">
                         Anterior
-                        ${(!previousLesson.teste_gratis && !previousLesson.free_trial) 
+                        ${(!previousLesson.teste_gratis && !previousLesson.free_trial && accessManager?.userAccessStatus?.accessType !== 'COMPLETO') 
                           ? '<i class="fas fa-lock text-red-500 text-xs"></i>' 
                           : '<i class="fas fa-gift text-green-500 text-xs"></i>'}
                       </p>
@@ -1391,7 +1391,7 @@ const app = {
                     <div class="flex-1 text-left">
                       <p class="text-xs text-blue-100 mb-1 flex items-center gap-2">
                         Próxima
-                        ${(!nextLesson.teste_gratis && !nextLesson.free_trial) 
+                        ${(!nextLesson.teste_gratis && !nextLesson.free_trial && accessManager?.userAccessStatus?.accessType !== 'COMPLETO') 
                           ? '<i class="fas fa-lock text-white text-xs"></i>' 
                           : '<i class="fas fa-gift text-white text-xs"></i>'}
                       </p>
@@ -1629,11 +1629,12 @@ const app = {
                     const isRentableSidebar = !isFree && !isRentedSidebar && l.rentable && l.rental_credits > 0
                     const isWatched = !!lessonProgressMap[l.id]
                     const isActive = l.id === lessonId
+                    const hasFullAccessSidebar = accessManager?.userAccessStatus?.accessType === 'COMPLETO'
                     const showAsRentableSidebar = isRentableSidebar && accessManager?.userAccessStatus?.accessType !== 'COMPLETO'
                     const rowBg = isActive ? 'bg-blue-50 border-l-4 border-l-blue-600' : isWatched ? 'bg-green-50 border-l-4 border-l-green-500 hover:bg-green-100' : isRentedSidebar ? 'bg-teal-50 border-l-4 border-l-teal-500 hover:bg-teal-100' : showAsRentableSidebar ? 'bg-amber-50 border-l-4 border-l-amber-400 hover:bg-amber-100' : 'hover:bg-gray-50'
                     const circleClass = isActive ? 'bg-blue-600 text-white' : isWatched ? 'bg-green-500 text-white' : isRentedSidebar ? 'bg-teal-500 text-white' : showAsRentableSidebar ? 'bg-amber-400 text-white' : isPremium ? 'bg-orange-100 text-orange-600' : 'bg-gray-200 text-gray-600'
                     const circleContent = isWatched && !isActive ? '<i class="fas fa-check"></i>' : index + 1
-                    const rightIcon = isActive ? '<i class="fas fa-play text-blue-600"></i>' : isWatched ? '<i class="fas fa-check-circle text-green-500 text-sm"></i>' : isRentedSidebar ? '<i class="fas fa-key text-teal-500 text-sm"></i>' : showAsRentableSidebar ? '<i class="fas fa-shopping-cart text-amber-500 text-sm"></i>' : isPremium ? '<i class="fas fa-lock text-orange-500 text-sm"></i>' : ''
+                    const rightIcon = isActive ? '<i class="fas fa-play text-blue-600"></i>' : isWatched ? '<i class="fas fa-check-circle text-green-500 text-sm"></i>' : isRentedSidebar ? '<i class="fas fa-key text-teal-500 text-sm"></i>' : showAsRentableSidebar ? '<i class="fas fa-shopping-cart text-amber-500 text-sm"></i>' : (isPremium && !hasFullAccessSidebar) ? '<i class="fas fa-lock text-orange-500 text-sm"></i>' : ''
                     const isFavSidebar = !!playerFavMap[l.id]
                     return `
                     <div class="relative group">
@@ -1648,7 +1649,7 @@ const app = {
                           <p class="font-semibold text-gray-800 text-sm mb-1 line-clamp-2">
                             ${l.title}
                             ${isRentedSidebar ? '<i class="fas fa-key text-teal-500 ml-1 text-xs"></i>' : ''}
-                            ${isPremium && !isWatched && !showAsRentableSidebar && !isRentedSidebar ? '<i class="fas fa-lock text-red-500 ml-1 text-xs"></i>' : ''}
+                            ${isPremium && !hasFullAccessSidebar && !isWatched && !showAsRentableSidebar && !isRentedSidebar ? '<i class="fas fa-lock text-red-500 ml-1 text-xs"></i>' : ''}
                             ${showAsRentableSidebar && !isWatched ? '<i class="fas fa-shopping-cart text-amber-500 ml-1 text-xs"></i>' : ''}
                           </p>
                           <div class="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
