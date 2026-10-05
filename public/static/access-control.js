@@ -144,25 +144,18 @@ const accessManager = {
         </div>
       `
     } else {
-      // Red banner - No access / Expired
+      // Blue banner - plano grátis (sem acesso completo)
       bannerHTML = `
-        <div id="accessBanner" class="bg-gradient-to-r from-red-600 to-red-500 text-white py-3 px-6 shadow-md">
+        <div id="accessBanner" class="bg-gradient-to-r from-blue-700 to-blue-500 text-white py-3 px-6 shadow-md">
           <div class="max-w-7xl mx-auto flex items-center justify-between">
             <div class="flex items-center gap-3">
-              <i class="fas fa-exclamation-triangle text-2xl"></i>
-              <div>
-                <div class="font-bold text-lg">❌ Plano Expirado - Renove agora</div>
-                <div class="text-sm opacity-90">Você tem acesso apenas às 253 aulas gratuitas. Renove para acesso completo!</div>
-              </div>
+              <i class="fas fa-info-circle text-2xl"></i>
+              <div class="font-bold text-lg">Você está no plano grátis e tem 5 dias para testar</div>
             </div>
             <div class="flex items-center gap-2">
               <a href="https://pay.hotmart.com/I68113150G?off=q7xf5t1z" target="_blank"
-                 class="bg-white text-red-600 px-4 py-2 rounded-lg font-bold hover:bg-red-50 transition-colors text-sm flex items-center gap-1">
-                <i class="fas fa-credit-card"></i> Cartão
-              </a>
-              <a href="https://assinaturas.ensinoplus.com.br" target="_blank"
-                 class="bg-red-800 text-white px-4 py-2 rounded-lg font-bold hover:bg-red-900 transition-colors text-sm flex items-center gap-1 border border-white border-opacity-30">
-                <i class="fas fa-coins"></i> Créditos
+                 class="bg-white text-blue-700 px-4 py-2 rounded-lg font-bold hover:bg-blue-50 transition-colors text-sm flex items-center gap-1">
+                <i class="fas fa-credit-card"></i> ASSINAR
               </a>
             </div>
           </div>
