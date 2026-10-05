@@ -8157,7 +8157,7 @@ app.get('/', (c) => {
         <script defer src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
         <script defer src="/static/auth.js?v=login-barra-escura-20260914b"></script>
         <script defer src="/static/admin.js?v=10"></script>
-        <script defer src="/static/access-control.js?v=6"></script>
+        <script defer src="/static/access-control.js?v=7"></script>
         <script defer src="/static/app.js?v=26"></script>
         <script defer src="/static/search.js?v=5"></script>
     </body>
