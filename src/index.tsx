@@ -4257,6 +4257,52 @@ app.get('/api/external/v1/subscriptions', requireExternalApiKey, async (c) => {
   }
 })
 
+// Resumo agregado pro painel administrativo (MCP admin do gateway): totais e movimento do periodo.
+app.get('/api/external/v1/stats', requireExternalApiKey, async (c) => {
+  try {
+    const db = getDB(c)
+    const dias = Math.min(Math.max(parseInt(c.req.query('dias') || '7') || 7, 1), 90)
+    const ativa = `data_expiracao > NOW() AND COALESCE(ativo, true) = true`
+
+    const [usuarios, usuariosPorDia, assinantes, vencendo, novasAssinaturas, certificados, progresso, comentarios, conteudo] = await Promise.all([
+      db.sql(`SELECT COUNT(*)::int AS total,
+                     COUNT(*) FILTER (WHERE created_at > NOW() - make_interval(days => $1))::int AS novos_no_periodo
+                FROM users`, [dias]),
+      db.sql(`SELECT created_at::date AS dia, COUNT(*)::int AS cadastros FROM users
+               WHERE created_at > NOW() - make_interval(days => $1) GROUP BY 1 ORDER BY 1 DESC`, [dias]),
+      db.sql(`SELECT COUNT(DISTINCT lower(email_membro)) FILTER (WHERE ${ativa} AND COALESCE(teste_gratis, false) = false)::int AS pagos_ativos,
+                     COUNT(DISTINCT lower(email_membro)) FILTER (WHERE ${ativa} AND COALESCE(teste_gratis, false) = true)::int AS teste_gratis_ativos,
+                     COUNT(DISTINCT lower(email_membro))::int AS emails_com_registro
+                FROM member_subscriptions`),
+      db.sql(`SELECT COUNT(DISTINCT lower(email_membro))::int AS pagos_vencendo_7d FROM member_subscriptions
+               WHERE ${ativa} AND COALESCE(teste_gratis, false) = false AND data_expiracao < NOW() + interval '7 days'`),
+      db.sql(`SELECT COALESCE(origem, 'sem_origem') AS origem, COALESCE(teste_gratis, false) AS teste_gratis, COUNT(*)::int AS registros
+                FROM member_subscriptions WHERE created_at > NOW() - make_interval(days => $1)
+               GROUP BY 1, 2 ORDER BY 3 DESC`, [dias]),
+      db.sql(`SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE created_at > NOW() - make_interval(days => $1))::int AS no_periodo FROM certificates`, [dias]),
+      db.sql(`SELECT COUNT(*) FILTER (WHERE completed AND completed_at > NOW() - make_interval(days => $1))::int AS aulas_concluidas_no_periodo,
+                     COUNT(DISTINCT lower(user_email)) FILTER (WHERE completed AND completed_at > NOW() - make_interval(days => $1))::int AS alunos_ativos_no_periodo
+                FROM user_progress`, [dias]),
+      db.sql(`SELECT COUNT(*)::int AS no_periodo FROM comments WHERE created_at > NOW() - make_interval(days => $1)`, [dias]),
+      db.sql(`SELECT (SELECT COUNT(*) FROM courses WHERE COALESCE(is_published, true))::int AS cursos_publicados,
+                     (SELECT COUNT(*) FROM lessons)::int AS aulas`),
+    ])
+
+    return c.json({
+      dias,
+      usuarios: usuarios[0],
+      cadastros_por_dia: usuariosPorDia,
+      assinaturas: { ...assinantes[0], ...vencendo[0] },
+      novas_assinaturas_por_origem: novasAssinaturas,
+      certificados: certificados[0],
+      atividade: { ...progresso[0], comentarios_no_periodo: comentarios[0]?.no_periodo ?? 0 },
+      conteudo: conteudo[0],
+    })
+  } catch (error: any) {
+    return c.json({ error: error.message || 'Failed to fetch stats' }, 500)
+  }
+})
+
 app.get('/api/external/v1/certificates', requireExternalApiKey, async (c) => {
   try {
     const db = getDB(c)
