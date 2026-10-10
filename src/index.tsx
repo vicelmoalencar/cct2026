@@ -4207,28 +4207,35 @@ app.get('/api/external/v1/users/:email', requireExternalApiKey, async (c) => {
     const email = c.req.param('email')
     const db = getDB(c)
 
-    const [user, subscriptions, certificates] = await Promise.all([
+    // BUG REAL corrigido: antes, o 404 abaixo disparava ANTES de consultar
+    // user_subscriptions (DATABASE_SUITEPLUS) - alguem com acesso ativo
+    // concedido centralmente (sistema de Assinaturas), mas que nunca
+    // logou no CCT (sem linha propria em `users`), aparecia como "User not
+    // found", escondendo o acesso real que a pessoa tem (visto ao vivo:
+    // admin via o aluno com assinatura ativa no painel de Assinaturas, mas
+    // a consulta externa dizia "nao encontrado"). Agora busca
+    // suiteplus_subscriptions SEMPRE, e só retorna 404 se não houver rastro
+    // NENHUM da pessoa em lugar nenhum (nem users, nem member_subscriptions,
+    // nem user_subscriptions).
+    const spConn = (c.env as any).DATABASE_SUITEPLUS
+    const [user, subscriptions, certificates, suiteplusSubscriptions] = await Promise.all([
       db.sql(`SELECT * FROM users WHERE lower(email) = lower($1) LIMIT 1`, [email]),
       db.sql(`SELECT * FROM member_subscriptions WHERE lower(email_membro) = lower($1) ORDER BY data_expiracao DESC`, [email]),
       db.sql(`SELECT * FROM certificates WHERE lower(user_email) = lower($1) ORDER BY created_at DESC`, [email]),
+      spConn
+        ? new PostgresClient(spConn).sql(
+            `SELECT id, product_id, started_at, expires_at, status, payment_source, recurring_enabled
+             FROM user_subscriptions WHERE lower(user_email) = lower($1) ORDER BY expires_at DESC`,
+            [email]
+          ).catch(() => [])
+        : Promise.resolve([]),
     ])
 
-    if (!user.length) return c.json({ error: 'User not found' }, 404)
-
-    let suiteplusSubscriptions: any[] = []
-    const spConn = (c.env as any).DATABASE_SUITEPLUS
-    if (spConn) {
-      try {
-        const spDb = new PostgresClient(spConn)
-        suiteplusSubscriptions = await spDb.sql(
-          `SELECT id, product_id, started_at, expires_at, status, payment_source, recurring_enabled
-           FROM user_subscriptions WHERE lower(user_email) = lower($1) ORDER BY expires_at DESC`,
-          [email]
-        )
-      } catch {}
+    if (!user.length && !subscriptions.length && !suiteplusSubscriptions.length) {
+      return c.json({ error: 'User not found' }, 404)
     }
 
-    return c.json({ user: user[0], subscriptions, suiteplus_subscriptions: suiteplusSubscriptions, certificates })
+    return c.json({ user: user[0] || null, subscriptions, suiteplus_subscriptions: suiteplusSubscriptions, certificates })
   } catch (error: any) {
     return c.json({ error: error.message || 'Failed to fetch user' }, 500)
   }
