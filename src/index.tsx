@@ -4475,6 +4475,87 @@ app.get('/api/external/v1/favorites', requireExternalApiKey, async (c) => {
   }
 })
 
+// Concede acesso ao CCT pra um email (cria uma nova assinatura em member_subscriptions) - usado
+// pelo MCP admin do gateway (admin_cct_incluir_usuario). Exige que o email já exista em users
+// (entrou pelo SSO do SuitePlus antes) - essa rota não cadastra usuário novo, só a assinatura.
+app.post('/api/external/v1/subscriptions/grant', requireExternalApiKey, async (c) => {
+  try {
+    const body = await c.req.json().catch(() => ({}))
+    const email = (body.email || '').toString().trim().toLowerCase()
+    const dias = Math.min(Math.max(parseInt(body.dias) || 30, 1), 3650)
+    const detalhe = (body.detalhe || 'Acesso concedido via admin').toString().slice(0, 255)
+    const testeGratis = !!body.teste_gratis
+    const origem = (body.origem || 'admin_mcp').toString().slice(0, 100)
+
+    if (!email) return c.json({ error: 'email é obrigatório' }, 400)
+
+    const db = getDB(c)
+    const usuario = await db.sql(`SELECT id FROM users WHERE lower(email) = lower($1) LIMIT 1`, [email])
+    if (!usuario.length) {
+      return c.json({ error: 'Usuário não encontrado no CCT - precisa ter feito login pelo menos uma vez antes' }, 404)
+    }
+
+    const dataExpiracao = new Date(Date.now() + dias * 86400000).toISOString()
+    const inserida = await db.sql(
+      `INSERT INTO member_subscriptions (email_membro, data_expiracao, detalhe, origem, teste_gratis, ativo)
+       VALUES ($1, $2, $3, $4, $5, true) RETURNING *`,
+      [email, dataExpiracao, detalhe, origem, testeGratis]
+    )
+    await db.sql(`UPDATE users SET dt_expiracao = $1, updated_at = NOW() WHERE lower(email) = lower($2)`, [dataExpiracao, email])
+
+    return c.json({ success: true, subscription: inserida[0] })
+  } catch (error: any) {
+    return c.json({ error: error.message || 'Failed to grant subscription' }, 500)
+  }
+})
+
+// Renova a assinatura do CCT de um email, prorrogando a partir de HOJE por N dias - usado pelo
+// MCP admin do gateway (admin_cct_renovar_assinatura). Atualiza a assinatura mais recente dessa
+// pessoa se existir; se nunca teve nenhuma, cria uma (mesmo efeito de /subscriptions/grant).
+app.post('/api/external/v1/subscriptions/renew', requireExternalApiKey, async (c) => {
+  try {
+    const body = await c.req.json().catch(() => ({}))
+    const email = (body.email || '').toString().trim().toLowerCase()
+    const dias = Math.min(Math.max(parseInt(body.dias) || 30, 1), 3650)
+    const origem = (body.origem || 'admin_mcp_renovacao').toString().slice(0, 100)
+
+    if (!email) return c.json({ error: 'email é obrigatório' }, 400)
+
+    const db = getDB(c)
+    const usuario = await db.sql(`SELECT id FROM users WHERE lower(email) = lower($1) LIMIT 1`, [email])
+    if (!usuario.length) {
+      return c.json({ error: 'Usuário não encontrado no CCT - precisa ter feito login pelo menos uma vez antes' }, 404)
+    }
+
+    const dataExpiracao = new Date(Date.now() + dias * 86400000).toISOString()
+    const atual = await db.sql(
+      `SELECT id FROM member_subscriptions WHERE lower(email_membro) = lower($1) ORDER BY data_expiracao DESC LIMIT 1`,
+      [email]
+    )
+
+    let subscription: any
+    if (atual.length) {
+      const atualizada = await db.sql(
+        `UPDATE member_subscriptions SET data_expiracao = $1, ativo = true, updated_at = NOW() WHERE id = $2 RETURNING *`,
+        [dataExpiracao, atual[0].id]
+      )
+      subscription = atualizada[0]
+    } else {
+      const inserida = await db.sql(
+        `INSERT INTO member_subscriptions (email_membro, data_expiracao, detalhe, origem, teste_gratis, ativo)
+         VALUES ($1, $2, 'Renovação via admin', $3, false, true) RETURNING *`,
+        [email, dataExpiracao, origem]
+      )
+      subscription = inserida[0]
+    }
+    await db.sql(`UPDATE users SET dt_expiracao = $1, updated_at = NOW() WHERE lower(email) = lower($2)`, [dataExpiracao, email])
+
+    return c.json({ success: true, subscription })
+  } catch (error: any) {
+    return c.json({ error: error.message || 'Failed to renew subscription' }, 500)
+  }
+})
+
 // ============================================
 // API ROUTES - USERS MANAGEMENT
 // ============================================
