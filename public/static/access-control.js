@@ -206,8 +206,17 @@ const accessManager = {
         // in here caused lessons to stay blocked forever once rendered while
         // the access status was briefly stale, even after it corrected itself.
         if (isPremium && !isRented) {
-          if (!isRentable) item.style.opacity = '0.7'
-          item.classList.add('premium-locked')
+          // Visual de "bloqueada" (cursor proibido, fundo vermelho, opacidade) SO' para quem nao tem plano completo: com plano ativo a aula
+          // abre normalmente, entao o mouse nao pode mostrar o sinal de proibido (o usuario achava que nao tinha acesso). A decisao real continua
+          // sendo reconferida no clique, abaixo.
+          if (this.userAccessStatus?.accessType !== 'COMPLETO') {
+            if (!isRentable) item.style.opacity = '0.7'
+            item.classList.add('premium-locked')
+          } else {
+            item.classList.remove('premium-locked')
+            item.style.opacity = ''
+            item.style.cursor = 'pointer'
+          }
 
           item.onclick = null // Remove inline onclick
           item.removeAttribute('onclick')
@@ -229,6 +238,12 @@ const accessManager = {
 
             if (hasAccess) {
               console.log('✅ Fresh check found access — loading lesson', lessonId)
+              // Se o status so' virou COMPLETO agora (estava atrasado na renderizacao), tira o visual de bloqueio de todas as aulas.
+              document.querySelectorAll('.lesson-item.premium-locked').forEach((el) => {
+                el.classList.remove('premium-locked')
+                el.style.opacity = ''
+                el.style.cursor = 'pointer'
+              })
               if (typeof app !== 'undefined') app.loadLesson(parseInt(lessonId))
             } else if (isRentable && typeof app !== 'undefined' && app.showRentModal) {
               console.log('🛒 Showing rent modal for lesson', lessonId)
