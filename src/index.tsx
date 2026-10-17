@@ -117,7 +117,12 @@ app.use('*', async (c, next) => {
     return next()
   }
   if (c.req.header('Sec-Fetch-Dest') === 'document') {
-    const search = url.search.replace(/^\?/, '')
+    const params = new URLSearchParams(url.search)
+    // Links diretos usam o CAMINHO (/aula/555, /curso/3, /lesson/555, /course/3): sem isto o destino se perdia no gateway
+    // (so' a querystring era preservada) e a pessoa caia na tela inicial em vez da aula.
+    const dePath = path.match(/^\/(aula|lesson|curso|course)\/(\d+)\/?$/)
+    if (dePath) params.set(dePath[1] === 'aula' || dePath[1] === 'lesson' ? 'aula' : 'curso', dePath[2])
+    const search = params.toString()
     const location = `https://suite.ensinoplus.com.br/?${search ? 'app=cct&' + search : 'app=cct'}`
     return c.redirect(location, 301)
   }
@@ -1650,7 +1655,10 @@ app.get('/auth/sso', async (c) => {
   })
 
   console.log(`✅ SSO: sessão emitida pra ${email} (login único via gateway)`)
-  return c.redirect('/')
+  // O gateway repassa aula/curso quando o link direto tinha um destino; so' aceita numeros (nunca um caminho livre).
+  const aulaDestino = /^\d{1,9}$/.test(c.req.query('aula') || '') ? c.req.query('aula') : ''
+  const cursoDestino = /^\d{1,9}$/.test(c.req.query('curso') || '') ? c.req.query('curso') : ''
+  return c.redirect(aulaDestino ? `/?aula=${aulaDestino}` : cursoDestino ? `/?curso=${cursoDestino}` : '/')
 })
 
 // Sentido inverso do /auth/sso acima: usuário logado AQUI no CCT quer
