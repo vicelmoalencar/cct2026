@@ -104,6 +104,10 @@ const contentTypes = new Map([
   ['.html', 'text/html; charset=utf-8'],
   ['.csv', 'text/csv; charset=utf-8'],
   ['.svg', 'image/svg+xml; charset=utf-8'],
+  ['.png', 'image/png'],
+  ['.jpg', 'image/jpeg'],
+  ['.jpeg', 'image/jpeg'],
+  ['.webp', 'image/webp'],
 ])
 
 function getContentType(fileName) {
@@ -166,6 +170,18 @@ app.use('/static/*', async (c, next) => {
 
 // Fallback to Hono static serving for other public files.
 app.use('/static/*', serveStatic({ root: publicPath }))
+
+// Manual de instalacao do MCP do CCT (https://suite.ensinoplus.com.br/mcp-cct) no Claude: pagina estatica em
+// public/static/manual-mcp-cct.html (imagens em public/static/manual-mcp-cct/). Endereco amigavel e sem cache longo,
+// para atualizacoes do manual aparecerem na hora (o /static/* e' servido com cache de 1 ano).
+app.get('/manual-mcp', async (c) => {
+  const filePath = join(publicPath, 'static', 'manual-mcp-cct.html')
+  if (!existsSync(filePath)) return c.notFound()
+  const file = getStaticFile(filePath)
+  c.header('Cache-Control', 'no-cache')
+  c.header('Content-Type', 'text/html; charset=utf-8')
+  return c.body(file.body)
+})
 
 // Serve favicon.svg from public/
 app.get('/favicon.svg', async (c) => {

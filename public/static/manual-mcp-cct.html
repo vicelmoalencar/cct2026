@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manual: instalar o MCP do CCT no Claude</title>
+<meta name="description" content="Passo a passo com imagens para conectar o CCT (Clube do Cálculo Trabalhista) ao Claude.">
+<style>
+  :root { --ink:#0F1F1A; --paper:#F3EFE6; --signal:#E8552B; --muted:#5C6B64; --card:#ffffff; --line:#ddd6c6; --ok:#1b7a46; --aviso:#fff4e0; --avisoLinha:#e8b04a; --dica:#e6f4ea; --dicaLinha:#8cc9a0; }
+  @media (prefers-color-scheme: dark) { :root { --ink:#F3EFE6; --paper:#0F1F1A; --muted:#a9b5af; --card:#16302a; --line:#2b4a42; --aviso:#3b3118; --avisoLinha:#a37a1f; --dica:#173a27; --dicaLinha:#2f7a50; } }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 17px/1.65 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 0 20px; }
+  a { color: var(--signal); }
+  header.topo { background: var(--ink); color: #F3EFE6; padding: 38px 0 46px; }
+  header.topo img.logo { height: 44px; display: block; margin-bottom: 22px; border-radius: 8px; }
+  header.topo h1 { margin: 0 0 10px; font-size: clamp(1.9rem, 5vw, 2.8rem); line-height: 1.15; }
+  header.topo p { margin: 0; color: #c9d4ce; font-size: 1.1rem; max-width: 640px; }
+  nav.indice { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 22px 26px; margin: -28px 0 34px; box-shadow: 0 10px 30px rgba(0,0,0,.08); }
+  nav.indice h2 { margin: 0 0 10px; font-size: 1.05rem; }
+  nav.indice ol { margin: 0; padding-left: 22px; columns: 2; column-gap: 34px; }
+  nav.indice li { break-inside: avoid; margin: 3px 0; font-size: .96rem; }
+  nav.indice a { color: var(--ink); text-decoration: none; }
+  nav.indice a:hover { color: var(--signal); text-decoration: underline; }
+  h2.parte { font-size: 1.6rem; margin: 54px 0 6px; padding-top: 6px; }
+  p.parte-sub { margin: 0 0 24px; color: var(--muted); }
+  .caixa { border-radius: 14px; padding: 18px 22px; margin: 20px 0; border: 1px solid var(--line); background: var(--card); }
+  .caixa.aviso { background: var(--aviso); border-color: var(--avisoLinha); }
+  .caixa.dica { background: var(--dica); border-color: var(--dicaLinha); }
+  .caixa h3 { margin: 0 0 8px; font-size: 1.05rem; }
+  .caixa ul, .caixa ol { margin: 8px 0 0; padding-left: 22px; }
+  .endereco { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 10px 0 4px; }
+  .endereco code { flex: 1 1 280px; min-width: 0; overflow-wrap: anywhere; background: var(--paper); border: 1px dashed var(--signal); border-radius: 10px; padding: 11px 14px; font-size: 1rem; font-weight: 600; }
+  .btn { display: inline-block; text-decoration: none; font: inherit; font-weight: 700; padding: 10px 18px; border-radius: 10px; border: 2px solid var(--signal); background: var(--signal); color: #fff; cursor: pointer; font-size: .95rem; }
+  .btn:hover { filter: brightness(1.08); }
+  .btn.sec { background: transparent; color: var(--ink); border-color: var(--line); }
+  .passo { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 24px 26px 26px; margin: 22px 0; scroll-margin-top: 16px; }
+  .passo h3 { display: flex; align-items: center; gap: 14px; margin: 0 0 10px; font-size: 1.28rem; line-height: 1.3; }
+  .num { flex: none; display: inline-flex; width: 40px; height: 40px; border-radius: 50%; background: var(--signal); color: #fff; font-weight: 800; align-items: center; justify-content: center; font-size: 1.1rem; }
+  .passo p { margin: 8px 0; }
+  figure { margin: 18px 0 4px; text-align: center; }
+  figure img { max-width: 100%; height: auto; border-radius: 12px; border: 1px solid var(--line); box-shadow: 0 6px 22px rgba(0,0,0,.12); cursor: zoom-in; background: #fff; }
+  figure.estreita img { max-width: 440px; }
+  figcaption { font-size: .88rem; color: var(--muted); margin-top: 8px; }
+  kbd, .rotulo { background: var(--paper); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 6px; padding: 1px 7px; font: inherit; font-size: .92em; font-weight: 600; white-space: nowrap; }
+  table.skills { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: .96rem; }
+  table.skills th, table.skills td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  table.skills th { color: var(--muted); font-weight: 600; font-size: .85rem; text-transform: uppercase; letter-spacing: .05em; }
+  details.faq { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; margin: 10px 0; }
+  details.faq summary { cursor: pointer; font-weight: 700; }
+  details.faq p { margin: 10px 0 2px; color: var(--muted); }
+  footer { background: var(--ink); color: #b7c2bc; padding: 34px 0; margin-top: 60px; text-align: center; font-size: .92rem; }
+  footer a { color: #F3EFE6; }
+  .zoom { position: fixed; inset: 0; background: rgba(0,0,0,.85); display: none; align-items: center; justify-content: center; padding: 20px; z-index: 50; cursor: zoom-out; }
+  .zoom.aberto { display: flex; }
+  .zoom img { max-width: 100%; max-height: 100%; border-radius: 10px; background: #fff; }
+  @media (max-width: 640px) { nav.indice ol { columns: 1; } .passo { padding: 20px 18px; } .passo h3 { font-size: 1.12rem; } body { font-size: 16px; } }
+  @media print {
+    header.topo, footer { background: none !important; color: #000 !important; }
+    nav.indice { box-shadow: none; }
+    .passo, figure, .caixa, details.faq { break-inside: avoid; }
+    figure img { box-shadow: none; }
+    .btn { border: 1px solid #000; background: none !important; color: #000 !important; }
+    details.faq { display: block; }
+    details.faq[open] summary ~ * { display: block; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topo">
+  <div class="wrap">
+    <img class="logo" src="/static/logo_suite.png" alt="Suite Plus · CCT">
+    <h1>Como conectar o CCT ao Claude</h1>
+    <p>Passo a passo com imagens para a IA consultar os cursos, as aulas, as suas favoritas e os seus certificados do CCT.</p>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="indice" aria-label="Índice">
+    <h2>O que você vai fazer</h2>
+    <ol start="0">
+      <li><a href="#antes">Antes de começar</a></li>
+      <li><a href="#p1">Abrir as configurações do Claude</a></li>
+      <li><a href="#p2">Entrar em Conectores e adicionar um conector personalizado</a></li>
+      <li><a href="#p3">Informar nome e endereço</a></li>
+      <li><a href="#p4">Confirmar as opções</a></li>
+      <li><a href="#p5">Vincular a sua conta</a></li>
+      <li><a href="#p6">Autorizar a conexão</a></li>
+      <li><a href="#p7">Liberar as permissões</a></li>
+      <li><a href="#p8">Instalar a skill (opcional)</a></li>
+      <li><a href="#testar">Testar</a></li>
+      <li><a href="#problemas">Problemas comuns e atualização</a></li>
+    </ol>
+  </nav>
+
+  <section id="antes">
+    <h2 class="parte" style="margin-top:0">Antes de começar</h2>
+    <p class="parte-sub">Separe estes três itens. Leva menos de um minuto.</p>
+    <div class="caixa">
+      <ul style="margin-top:0">
+        <li><strong>Uma conta da Suite</strong> (gratuita), com o <strong>mesmo e-mail da assinatura</strong>. Não tem? <a href="https://suiteplus.ensinoplus.com.br/register" target="_blank" rel="noopener">Crie a conta aqui</a>.</li>
+        <li><strong>Plano do CCT</strong> na mesma conta. Qualquer conta conecta, mas o que a IA mostra depende do plano: com o plano completo, todas as aulas; sem ele, só as aulas do teste grátis. Para assinar: <a href="https://assinaturas.ensinoplus.com.br" target="_blank" rel="noopener">assinaturas.ensinoplus.com.br</a>.</li>
+        <li><strong>O Claude</strong> (no navegador, em claude.ai, ou o aplicativo Claude Desktop), com a opção de conectores personalizados disponível no seu plano.</li>
+      </ul>
+    </div>
+    <div class="caixa dica">
+      <h3>📋 O endereço do conector (você vai colar no passo 3)</h3>
+      <div class="endereco">
+        <code id="endereco">https://suite.ensinoplus.com.br/mcp-cct</code>
+        <button class="btn" type="button" data-copiar="endereco">Copiar</button>
+      </div>
+      <p style="margin:6px 0 0;font-size:.92rem;color:var(--muted)">Se preferir, copie-o agora e cole quando chegar no passo 3.</p>
+    </div>
+  </section>
+
+  <h2 class="parte">Parte 1 · Adicionar o conector</h2>
+  <p class="parte-sub">É o que liga o Claude aos cursos e às aulas do CCT.</p>
+
+  <section class="passo" id="p1">
+    <h3><span class="num">1</span>Abra as configurações do Claude</h3>
+    <p>Clique no seu <strong>nome ou e-mail</strong>, no canto inferior esquerdo, e escolha <span class="rotulo">Configurações</span>. Também funciona o atalho <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>,</kbd>.</p>
+    <figure class="estreita"><img src="/static/manual-mcp-cct/passo-00.jpg" alt="Menu do usuário no Claude com a opção Configurações destacada"><figcaption>Menu do usuário → Configurações</figcaption></figure>
+  </section>
+
+  <section class="passo" id="p2">
+    <h3><span class="num">2</span>Entre em Conectores e adicione um conector personalizado</h3>
+    <p>No menu à esquerda, em <strong>Personalização</strong>, clique em <span class="rotulo">Conectores</span>. Depois, no alto da tela, clique em <span class="rotulo">+ Adicionar</span> e em <span class="rotulo">Adicionar conector personalizado</span>.</p>
+    <figure><img src="/static/manual-mcp-cct/passo-01.jpg" alt="Tela de Conectores com o item Conectores e o botão Adicionar destacados, mostrando a opção Adicionar conector personalizado"><figcaption>Configurações → Conectores → Adicionar → Adicionar conector personalizado</figcaption></figure>
+  </section>
+
+  <section class="passo" id="p3">
+    <h3><span class="num">3</span>Informe o nome e o endereço</h3>
+    <p>Preencha os dois campos e clique em <span class="rotulo">Continuar</span>:</p>
+    <ul>
+      <li><strong>Nome:</strong> <code>CCT</code> (é só o nome que aparece na sua lista; pode ser outro).</li>
+      <li><strong>Endereço do servidor (URL):</strong> cole <code>https://suite.ensinoplus.com.br/mcp-cct</code></li>
+    </ul>
+    <div class="endereco"><code id="endereco2">https://suite.ensinoplus.com.br/mcp-cct</code><button class="btn" type="button" data-copiar="endereco2">Copiar endereço</button></div>
+    <figure class="estreita"><img src="/static/manual-mcp-cct/passo-02.jpg" alt="Janela Adicionar conector personalizado com o nome e o endereço preenchidos"><figcaption>Nome e endereço preenchidos</figcaption></figure>
+    <div class="caixa aviso"><strong>Atenção:</strong> copie o endereço inteiro, sem espaços no começo ou no fim. Um caractere a mais faz o Claude não encontrar o conector.</div>
+  </section>
+
+  <section class="passo" id="p4">
+    <h3><span class="num">4</span>Confirme as opções e clique em Adicionar</h3>
+    <p>O Claude mostra as opções de conexão. <strong>Não precisa mudar nada:</strong> deixe como ele sugeriu (a opção <span class="rotulo">Registrar automaticamente</span> aparece como <em>Detectado</em>) e clique em <span class="rotulo">Adicionar</span>.</p>
+    <figure class="estreita"><img src="/static/manual-mcp-cct/passo-03.jpg" alt="Opções de conexão do Claude com o botão Adicionar destacado"><figcaption>Mantenha as opções sugeridas e clique em Adicionar</figcaption></figure>
+  </section>
+
+  <section class="passo" id="p5">
+    <h3><span class="num">5</span>Vincule a sua conta</h3>
+    <p>O conector aparece na lista, ainda sem conexão. Clique em <span class="rotulo">Vincular</span>. Uma janela do navegador abre para você entrar com a conta da Suite.</p>
+    <figure><img src="/static/manual-mcp-cct/passo-04.jpg" alt="Tela do conector com a mensagem de que ainda não está conectado e o botão Vincular"><figcaption>Botão Vincular</figcaption></figure>
+    <div class="caixa dica"><strong>Dica:</strong> se a janela não abrir, libere os pop-ups do navegador para o Claude e clique em <em>Vincular</em> de novo.</div>
+  </section>
+
+  <section class="passo" id="p6">
+    <h3><span class="num">6</span>Entre na Suite e autorize</h3>
+    <p>Se a Suite pedir, <strong>entre com o e-mail e a senha da sua conta da Suite</strong> (o mesmo e-mail da assinatura). Em seguida aparece a tela <strong>Autorizar acesso ao CCT</strong>: clique em <span class="rotulo">Autorizar</span>.</p>
+    <figure class="estreita"><img src="/static/manual-mcp-cct/passo-05.jpg" alt="Tela Autorizar acesso ao CCT com o botão Autorizar"><figcaption>Tela Autorizar acesso ao CCT</figcaption></figure>
+    <p>Pronto: o Claude volta mostrando o conector como conectado. O conector do CCT <strong>só lê</strong> informações: ele não altera nada na sua conta.</p>
+  </section>
+
+  <section class="passo" id="p7">
+    <h3><span class="num">7</span>Libere as permissões das ferramentas</h3>
+    <p>Para o Claude não pedir autorização a cada ferramenta que usar, vá em <span class="rotulo">Configurações → Conectores</span> e clique no conector <strong>CCT</strong>. Em <strong>Permissões de ferramentas</strong>, clique no menu à direita do grupo (ele mostra <em>Personalizado</em>) e escolha <span class="rotulo">Sempre permitir</span>.</p>
+    <figure><img src="/static/manual-mcp-cct/passo-06.jpg" alt="Permissões de ferramentas do conector com a opção Sempre permitir destacada"><figcaption>Conectores → CCT → Permissões de ferramentas → menu do grupo → Sempre permitir</figcaption></figure>
+    <p>O CCT tem um grupo só, <strong>Ferramentas somente leitura</strong> (7 ferramentas): deixe-o em <strong>“Sempre permitir”</strong>.</p>
+    <div class="caixa aviso">Se o menu de um grupo mostrar <strong>“Personalizado”</strong>, é porque algumas ferramentas estão com permissões diferentes. Escolha “Sempre permitir” para uniformizar. Sem esse passo o Claude pede a sua autorização o tempo todo.</div>
+  </section>
+
+  <h2 class="parte">Parte 2 · Instalar a skill (opcional)</h2>
+  <p class="parte-sub">O CCT funciona sem skill. A skill <strong>Ferramentas Ensino Plus</strong> ensina o Claude a usar bem todos os conectores da Ensino Plus (CCT, Calc Machine, DataJud e outros). Se você já instalou as skills do Calc Machine Connect, ela já está lá.</p>
+
+  <section class="passo" id="p8">
+    <h3><span class="num">8</span>Baixe, compacte e envie a skill</h3>
+    <ol>
+      <li>Baixe a skill (o arquivo se chama <code>SKILL.md</code>): <a class="btn" href="https://suite.ensinoplus.com.br/claude-desktop/skill-ferramentas" download="SKILL.md">Baixar a skill Ferramentas Ensino Plus</a></li>
+      <li>Crie uma pasta, por exemplo <code>ferramentas-ensino-plus</code>, e coloque o <code>SKILL.md</code> dentro. <strong>Não renomeie o arquivo.</strong></li>
+      <li>Compacte a pasta: no Windows, botão direito → <span class="rotulo">Enviar para</span> → <span class="rotulo">Pasta compactada (zip)</span>. No Mac, botão direito → <span class="rotulo">Comprimir</span>.</li>
+      <li>No Claude, abra <span class="rotulo">Configurações → Skills</span>, clique em <span class="rotulo">+ Adicionar</span> e escolha <span class="rotulo">Fazer upload de Skill</span>.</li>
+    </ol>
+    <figure><img src="/static/manual-mcp-cct/passo-07.jpg" alt="Tela de Skills com o menu Adicionar aberto e a opção Fazer upload de Skill"><figcaption>Skills → Adicionar → Fazer upload de Skill</figcaption></figure>
+    <p>Arraste o arquivo .zip para a área pontilhada (ou clique para procurar) e clique em <span class="rotulo">Fazer upload</span>.</p>
+    <figure><img src="/static/manual-mcp-cct/passo-08.jpg" alt="Tela Fazer upload de uma Skill com a área para arrastar o arquivo"><figcaption>Arraste o .zip para a área de upload</figcaption></figure>
+    <p style="font-size:.92rem;color:var(--muted)">Se o navegador abrir o texto em vez de baixar, clique com o botão direito no botão e escolha “Salvar link como…”, salvando como <code>SKILL.md</code>.</p>
+  </section>
+
+  <h2 class="parte" id="testar">Parte 3 · Testar</h2>
+  <p class="parte-sub">Confira se está tudo funcionando.</p>
+  <section class="passo">
+    <h3><span class="num">✓</span>Abra uma conversa nova e pergunte</h3>
+    <p>Escreva, por exemplo:</p>
+    <div class="caixa" style="font-style:italic">“Qual é o meu plano no CCT? Liste os cursos e procure aulas sobre horas extras.”</div>
+    <p>O Claude deve mostrar que <strong>usou o CCT</strong> e responder com o seu plano, os cursos e as aulas encontradas, cada uma com o link para assistir no site. Se aparecer o pedido de autorização de uma ferramenta, escolha <em>Sempre permitir</em>.</p>
+    <p>Outras ideias: <em>“Quais aulas eu marquei como favoritas?”</em>, <em>“Quais certificados eu tenho?”</em>, <em>“Me explique a aula sobre reflexos em DSR e me dê o link.”</em> O vídeo toca no site do CCT: a IA traz o resumo e o link.</p>
+  </section>
+
+  <h2 class="parte" id="problemas">Problemas comuns e atualização</h2>
+  <p class="parte-sub">Se algo não sair como o esperado, comece por aqui. </p>
+
+  <details class="faq"><summary>Não encontro “Adicionar conector personalizado”</summary><p>Essa opção depende do seu plano e da versão do Claude. Atualize o aplicativo (ou use o navegador, em claude.ai) e confira se o seu plano permite conectores personalizados. Se continuar sem a opção, fale com o suporte.</p></details>
+  <details class="faq"><summary>A janela de login da Suite não abriu depois de “Vincular”</summary><p>Libere os pop-ups do navegador e clique em <em>Vincular</em> de novo. Se o login falhar, confira se o e-mail e a senha são os da <strong>Suite</strong> (não os do Claude).</p></details>
+  <details class="faq"><summary>A IA só mostra algumas aulas, ou diz que a aula não está liberada</summary><p>O CCT mostra o que o <strong>seu plano</strong> libera: sem o plano completo, só as aulas do teste grátis. Confira se você entrou com o <strong>mesmo e-mail</strong> da assinatura do CCT. Para assinar: <a href="https://assinaturas.ensinoplus.com.br" target="_blank" rel="noopener">assinaturas.ensinoplus.com.br</a>.</p></details>
+  <details class="faq"><summary>A IA não toca o vídeo da aula</summary><p>É assim mesmo: o vídeo só toca no site do CCT. A IA traz o resumo e o <strong>link da aula</strong>; clique nele para assistir.</p></details>
+  <details class="faq"><summary>O Claude avisa que “a lista de ferramentas está desatualizada”</summary><p>Quando saem ferramentas novas, é preciso <strong>reconectar</strong>: em <span class="rotulo">Configurações → Conectores</span>, clique em <span class="rotulo">Reconectar</span> ao lado do <strong>CCT</strong> (ou desconecte e vincule de novo) e abra uma conversa nova.</p></details>
+  <details class="faq"><summary>O Claude fica pedindo autorização a cada ferramenta</summary><p>Faça o passo 7: deixe o grupo de permissões do conector em “Sempre permitir”.</p></details>
+  <details class="faq"><summary>Quero usar no ChatGPT ou no Gemini</summary><p>O mesmo endereço (<code>https://suite.ensinoplus.com.br/mcp-cct</code>) funciona nos conectores do ChatGPT e do Gemini. O passo a passo de cada IA está em <a href="https://suite.ensinoplus.com.br/conectar-ia" target="_blank" rel="noopener">Conecte sua IA</a>.</p></details>
+
+  <div class="caixa" style="margin-top:28px">
+    <h3>💬 Precisa de ajuda?</h3>
+    Fale com a equipe pelo <a href="https://wa.me/5585996641461" target="_blank" rel="noopener">WhatsApp do suporte</a>.
+  </div>
+
+  <p style="font-size:.85rem;color:var(--muted);margin-top:26px">Os nomes de menus e botões do Claude podem mudar com o tempo e variar conforme o plano. Este manual foi feito com as telas de outubro de 2026.</p>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>Um produto <strong>Ensino Plus</strong>. © 2026 Ensino Plus. Todos os direitos reservados.</p>
+    <p><a href="https://novocct.ensinoplus.com.br" target="_blank" rel="noopener">CCT - Clube do Cálculo Trabalhista</a> · <a href="https://suite.ensinoplus.com.br/conectar-ia" target="_blank" rel="noopener">Conectar minha IA</a> · <a href="https://wa.me/5585996641461" target="_blank" rel="noopener">Suporte</a></p>
+  </div>
+</footer>
+
+<div class="zoom" id="zoom" role="dialog" aria-label="Imagem ampliada"><img alt=""></div>
+
+<script>
+  // copiar o endereco do conector
+  document.querySelectorAll('[data-copiar]').forEach(function (b) {
+    b.addEventListener('click', async function () {
+      var el = document.getElementById(b.dataset.copiar), original = b.textContent;
+      try { await navigator.clipboard.writeText(el.textContent.trim()); b.textContent = 'Copiado!'; }
+      catch (e) { var r = document.createRange(); r.selectNodeContents(el); var s = getSelection(); s.removeAllRanges(); s.addRange(r); b.textContent = 'Selecionado: Ctrl+C'; }
+      setTimeout(function () { b.textContent = original; }, 1800);
+    });
+  });
+  // clicar na imagem amplia; clicar de novo (ou Esc) fecha
+  var zoom = document.getElementById('zoom'), zimg = zoom.querySelector('img');
+  document.querySelectorAll('figure img').forEach(function (i) {
+    i.addEventListener('click', function () { zimg.src = i.src; zimg.alt = i.alt; zoom.classList.add('aberto'); });
+  });
+  zoom.addEventListener('click', function () { zoom.classList.remove('aberto'); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') zoom.classList.remove('aberto'); });
+</script>
+</body>
+</html>
