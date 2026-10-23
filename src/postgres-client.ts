@@ -215,7 +215,11 @@ export class PostgresClient {
   // ============================================
   // ENCERRAR pool (para shutdown)
   // ============================================
-  async end() {
+  // O pool e' COMPARTILHADO por conexao (sharedPools): encerra-lo no fim de uma requisicao derrubava as outras que estavam
+  // no meio ("Cannot use a pool after calling end on the pool", visto ao alugar aula enquanto a pagina checava as favoritas).
+  // Por isso end() so' encerra com { encerrarPoolCompartilhado: true }, para o desligamento do servidor.
+  async end(opcoes: { encerrarPoolCompartilhado?: boolean } = {}) {
+    if (!opcoes.encerrarPoolCompartilhado) return
     const pool = sharedPools.get(this.connectionString)
     if (pool) {
       await pool.end()

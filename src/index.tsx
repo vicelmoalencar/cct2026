@@ -8375,7 +8375,7 @@ app.get('/api/favorites', requireAuth, async (c) => {
     `, [user.email])
     return c.json(rows)
   } finally {
-    await db.end()
+    // nao encerrar o pool: ele e' compartilhado por todas as requisicoes (ver PostgresClient.end)
   }
 })
 
@@ -8393,7 +8393,7 @@ app.post('/api/favorites', requireAuth, async (c) => {
     )
     return c.json({ ok: true })
   } finally {
-    await db.end()
+    // nao encerrar o pool: ele e' compartilhado por todas as requisicoes (ver PostgresClient.end)
   }
 })
 
@@ -8409,7 +8409,7 @@ app.delete('/api/favorites/:lessonId', requireAuth, async (c) => {
     )
     return c.json({ ok: true })
   } finally {
-    await db.end()
+    // nao encerrar o pool: ele e' compartilhado por todas as requisicoes (ver PostgresClient.end)
   }
 })
 
@@ -8425,7 +8425,7 @@ app.get('/api/favorites/check/:lessonId', requireAuth, async (c) => {
     )
     return c.json({ favorite: rows.length > 0 })
   } finally {
-    await db.end()
+    // nao encerrar o pool: ele e' compartilhado por todas as requisicoes (ver PostgresClient.end)
   }
 })
 
